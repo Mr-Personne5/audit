@@ -1,0 +1,613 @@
+{% extends 'reconciliation/base_reconciliation.html' %}
+{% load static %}
+
+{% block title %}{{ session.nom_session }} - Rapprochement{% endblock %}
+
+{% block content %}
+<div class="reconciliation-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb text-white-50 mb-2">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'reconciliation:session_list' %}" class="text-white-50">
+                                Rapprochements
+                            </a>
+                        </li>
+                        <li class="breadcrumb-item active text-white">{{ session.nom_session }}</li>
+                    </ol>
+                </nav>
+                <h1><i class="bi bi-file-earmark-diff"></i> {{ session.nom_session }}</h1>
+                <p class="mb-0">{{ session.description|default:"Aucune description" }}</p>
+            </div>
+            <div class="col-md-4 text-end">
+                {% if can_process %}
+                    <button class="btn btn-success btn-lg me-2" id="process-session-btn"
+                            data-session-id="{{ session.pk }}">
+                        <i class="bi bi-play-circle"></i> Lancer le traitement
+                    </button>
+                {% endif %}
+                {% if session.status == 'completed' %}
+                    <div class="btn-group">
+                        <button class="btn btn-light dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="bi bi-download"></i> Exporter
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item"
+                                   href="{% url 'reconciliation:export_results' session.pk %}?format=csv">
+                                <i class="bi bi-file-earmark-text"></i> Résultats CSV
+                            </a></li>
+                            <li><a class="dropdown-item"
+                                   href="{% url 'reconciliation:export_results' session.pk %}?format=excel">
+                                <i class="bi bi-file-earmark-excel"></i> Résultats Excel
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" id="download-logs-btn"
+                                   data-session-id="{{ session.pk }}">
+                                <i class="bi bi-file-earmark-code"></i> Logs complets JSON
+                            </a></li>
+                        </ul>
+                    </div>
+                {% endif %}
+                {% if can_edit %}
+                    <a href="{% url 'reconciliation:delete_session' session.pk %}"
+                       class="btn btn-outline-light">
+                        <i class="bi bi-trash"></i>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Informations de la session -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Informations de la session</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-5">Mission:</dt>
+                                <dd class="col-sm-7">
+                                    <span class="badge bg-secondary">{{ session.mission.name }}</span>
+                                </dd>
+                                <dt class="col-sm-5">Créé par:</dt>
+                                <dd class="col-sm-7">{{ session.utilisateur.get_full_name|default:session.utilisateur.username }}</dd>
+                                <dt class="col-sm-5">Date création:</dt>
+                                <dd class="col-sm-7">{{ session.date_creation|date:"d/m/Y H:i" }}</dd>
+                                {% if session.date_traitement %}
+                                <dt class="col-sm-5">Traitement:</dt>
+                                <dd class="col-sm-7">{{ session.date_traitement|date:"d/m/Y H:i" }}</dd>
+                                {% endif %}
+                                {% if session.date_completion %}
+                                <dt class="col-sm-5">Terminé:</dt>
+                                <dd class="col-sm-7">
+                                    {{ session.date_completion|date:"d/m/Y H:i" }}
+                                    {% if session.date_traitement %}
+                                        <br><small class="text-muted">
+                                            Durée: {{ session.date_completion|timeuntil:session.date_traitement }}
+                                        </small>
+                                    {% endif %}
+                                </dd>
+                                {% endif %}
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-5">Fichier RH:</dt>
+                                <dd class="col-sm-7">
+                                    <a href="{% url 'uploads:file_detail' session.fichier_liste_personnel.pk %}"
+                                       class="text-decoration-none">
+                                        {{ session.fichier_liste_personnel.nom_fichier }}
+                                    </a>
+                                </dd>
+                                <dt class="col-sm-5">Fichier Paie:</dt>
+                                <dd class="col-sm-7">
+                                    <a href="{% url 'uploads:file_detail' session.fichier_paie.pk %}"
+                                       class="text-decoration-none">
+                                        {{ session.fichier_paie.nom_fichier }}
+                                    </a>
+                                </dd>
+                                <dt class="col-sm-5">Statut:</dt>
+                                <dd class="col-sm-7">
+                                    {% if session.status == 'completed' %}
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle"></i> Terminé
+                                        </span>
+                                    {% elif session.status == 'processing' %}
+                                        <span class="badge bg-primary">
+                                            <i class="bi bi-hourglass-split"></i> En cours
+                                        </span>
+                                    {% elif session.status == 'pending' %}
+                                        <span class="badge bg-warning">
+                                            <i class="bi bi-clock"></i> En attente
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-exclamation-triangle"></i> Erreur
+                                        </span>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <!-- Graphique circulaire du taux de rapprochement -->
+            <div class="card">
+                <div class="card-header text-center">
+                    <h6 class="mb-0">Taux de rapprochement</h6>
+                </div>
+                <div class="card-body text-center">
+                    {% if session.status == 'completed' %}
+                        <div class="position-relative d-inline-block">
+                            <svg class="progress-ring" viewBox="0 0 120 120">
+                                <circle cx="60" cy="60" r="50" fill="none" stroke="#e9ecef" stroke-width="8"/>
+                                <circle cx="60" cy="60" r="50" fill="none" stroke="#28a745" stroke-width="8"
+                                        stroke-linecap="round" stroke-dasharray="{{ session.get_taux_rapprochement|floatformat:0 }}, 100"
+                                        transform="rotate(-90 60 60)"/>
+                            </svg>
+                            <div class="position-absolute top-50 start-50 translate-middle">
+                                <h3 class="text-success mb-0">{{ session.get_taux_rapprochement }}%</h3>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-muted">
+                            <i class="bi bi-hourglass display-4"></i>
+                            <p class="mt-2">En attente de traitement</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if session.status == 'completed' %}
+        <!-- Statistiques détaillées -->
+        <div class="row mb-4">
+            <div class="col-md-2">
+                <div class="card stats-card success text-center">
+                    <div class="card-body">
+                        <h4 class="text-success">{{ stats_detail.parfaits }}</h4>
+                        <small class="text-muted">Matches parfaits</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card warning text-center">
+                    <div class="card-body">
+                        <h4 class="text-warning">{{ stats_detail.partiels }}</h4>
+                        <small class="text-muted">Matches partiels</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card danger text-center">
+                    <div class="card-body">
+                        <h4 class="text-danger">{{ stats_detail.non_payes }}</h4>
+                        <small class="text-muted">Non payés</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card info text-center">
+                    <div class="card-body">
+                        <h4 class="text-info">{{ stats_detail.non_declares }}</h4>
+                        <small class="text-muted">Non déclarés</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card warning text-center">
+                    <div class="card-body">
+                        <h4 class="text-warning">{{ stats_detail.doublons }}</h4>
+                        <small class="text-muted">Doublons</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <a href="{% url 'reconciliation:detailed_analysis' session.pk %}"
+                           class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-graph-up"></i><br>Analyse détaillée
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtres des résultats -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <form method="get" class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Type de match</label>
+                        <select name="type" class="form-select">
+                            <option value="">Tous les types</option>
+                            {% for type_code, type_label in type_choices %}
+                                <option value="{{ type_code }}"
+                                        {% if current_filter == type_code %}selected{% endif %}>
+                                    {{ type_label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-funnel"></i> Filtrer
+                        </button>
+                        <a href="{% url 'reconciliation:session_detail' session.pk %}"
+                           class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-clockwise"></i> Reset
+                        </a>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <span class="text-muted">
+                            {{ resultats_page.paginator.count }} résultat{{ resultats_page.paginator.count|pluralize }}
+                        </span>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Résultats détaillés -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Résultats du rapprochement</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if resultats_page %}
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Employé RH</th>
+                                    <th>Employé Paie</th>
+                                    <th>Critère</th>
+                                    <th>Score</th>
+                                    <th>Salaires</th>
+                                    <th>Écart</th>
+                                    <th>Commentaires</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for resultat in resultats_page %}
+                                <tr>
+                                    <td>
+                                        <span class="match-badge badge
+                                            {% if resultat.type_match == 'parfait' %}bg-success
+                                            {% elif resultat.type_match == 'partiel' %}bg-warning
+                                            {% elif resultat.type_match == 'non_paye' %}bg-danger
+                                            {% elif resultat.type_match == 'non_declare' %}bg-info
+                                            {% else %}bg-warning{% endif %}">
+                                            <i class="{{ resultat.get_status_icon }}"></i>
+                                            {{ resultat.get_type_match_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if resultat.nom_rh %}
+                                            <div class="small">
+                                                <strong>{{ resultat.nom_rh }} {{ resultat.prenom_rh }}</strong>
+                                                {% if resultat.matricule_rh %}
+                                                    <br><span class="text-muted">Mat: {{ resultat.matricule_rh }}</span>
+                                                {% endif %}
+                                                {% if resultat.poste_rh %}
+                                                    <br><span class="text-muted">{{ resultat.poste_rh }}</span>
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if resultat.nom_paie %}
+                                            <div class="small">
+                                                <strong>{{ resultat.nom_paie }} {{ resultat.prenom_paie }}</strong>
+                                                {% if resultat.matricule_paie %}
+                                                    <br><span class="text-muted">Mat: {{ resultat.matricule_paie }}</span>
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            {{ resultat.get_critere_match_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if resultat.score_confiance > 0 %}
+                                            <div class="text-center">
+                                                <div class="small">{{ resultat.score_confiance|floatformat:1 }}%</div>
+                                                <div class="progress" style="height: 4px;">
+                                                    <div class="progress-bar
+                                                        {% if resultat.score_confiance >= 95 %}bg-success
+                                                        {% elif resultat.score_confiance >= 85 %}bg-warning
+                                                        {% else %}bg-danger{% endif %}"
+                                                         style="width: {{ resultat.score_confiance }}%"></div>
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="small">
+                                        {% if resultat.salaire_prevu_rh %}
+                                            <div>RH: {{ resultat.salaire_prevu_rh|floatformat:2 }} €</div>
+                                        {% endif %}
+                                        {% if resultat.montant_total_paie %}
+                                            <div>Paie: {{ resultat.montant_total_paie|floatformat:2 }} €</div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if resultat.ecart_salaire %}
+                                            <span class="{% if resultat.ecart_salaire > 0 %}text-success{% elif resultat.ecart_salaire < 0 %}text-danger{% endif %}">
+                                                {% if resultat.ecart_salaire > 0 %}+{% endif %}{{ resultat.ecart_salaire|floatformat:2 }} €
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if resultat.commentaires %}
+                                            <small class="text-muted">{{ resultat.commentaires|truncatechars:50 }}</small>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination des résultats -->
+                    {% if resultats_page.has_other_pages %}
+                        <div class="card-footer">
+                            <nav>
+                                <ul class="pagination justify-content-center mb-0">
+                                    {% if resultats_page.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ resultats_page.previous_page_number }}{% if current_filter %}&type={{ current_filter }}{% endif %}">
+                                                Précédent
+                                            </a>
+                                        </li>
+                                    {% endif %}
+
+                                    {% for num in resultats_page.paginator.page_range %}
+                                        {% if resultats_page.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                        {% elif num > resultats_page.number|add:'-3' and num < resultats_page.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ num }}{% if current_filter %}&type={{ current_filter }}{% endif %}">{{ num }}</a>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                    {% if resultats_page.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ resultats_page.next_page_number }}{% if current_filter %}&type={{ current_filter }}{% endif %}">
+                                                Suivant
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-search display-4 text-muted"></i>
+                        <h5 class="text-muted mt-3">Aucun résultat trouvé</h5>
+                        <p class="text-muted">Modifiez vos filtres pour voir plus de résultats</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+    {% elif session.status == 'error' %}
+        <!-- Affichage des erreurs -->
+        <div class="alert alert-danger">
+            <h5><i class="bi bi-exclamation-triangle"></i> Erreur de traitement</h5>
+            <p class="mb-0">{{ session.erreurs|default:"Erreur inconnue lors du traitement" }}</p>
+            {% if session.logs_traitement %}
+                <hr>
+                <details>
+                    <summary>Voir les logs détaillés</summary>
+                    <pre class="mt-2 small">{{ session.logs_traitement|pprint }}</pre>
+                </details>
+            {% endif %}
+        </div>
+
+    {% elif session.status == 'processing' %}
+        <!-- Statut en cours -->
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Traitement en cours...</span>
+                </div>
+                <h4>Traitement en cours</h4>
+                <p class="text-muted">Le rapprochement des données est en cours...</p>
+                <button class="btn btn-outline-primary" onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise"></i> Actualiser
+                </button>
+            </div>
+        </div>
+
+    {% else %}
+        <!-- Statut en attente -->
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-play-circle display-1 text-muted"></i>
+                <h4 class="mt-3">Session prête</h4>
+                <p class="text-muted">Cliquez sur "Lancer le traitement" pour démarrer le rapprochement</p>
+                {% if can_process %}
+                    <button class="btn btn-primary btn-lg" id="process-session-btn-2"
+                            data-session-id="{{ session.pk }}">
+                        <i class="bi bi-play-circle"></i> Lancer le traitement
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal de traitement -->
+<div class="modal fade" id="processingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Traitement en cours</h5>
+            </div>
+            <div class="modal-body text-center">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Traitement...</span>
+                </div>
+                <p>Rapprochement des données en cours...</p>
+                <div class="progress mb-3">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                         role="progressbar" style="width: 100%"></div>
+                </div>
+                <small class="text-muted" id="processing-status">Initialisation...</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Boutons de traitement (il peut y en avoir plusieurs)
+    document.querySelectorAll('[id^="process-session-btn"]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const sessionId = this.dataset.sessionId;
+            processSession(sessionId);
+        });
+    });
+
+    // Téléchargement des logs
+    const downloadLogsBtn = document.getElementById('download-logs-btn');
+    if (downloadLogsBtn) {
+        downloadLogsBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const sessionId = this.dataset.sessionId;
+            downloadLogs(sessionId);
+        });
+    }
+
+    // Auto-refresh si en cours de traitement
+    {% if session.status == 'processing' %}
+        setTimeout(function() {
+            location.reload();
+        }, 10000); // Refresh toutes les 10 secondes
+    {% endif %}
+});
+
+function processSession(sessionId) {
+    const modal = new bootstrap.Modal(document.getElementById('processingModal'));
+    modal.show();
+
+    // Polling pour suivre le progrès
+    const pollInterval = setInterval(function() {
+        fetch(`/reconciliation/sessions/${sessionId}/status/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'completed') {
+                clearInterval(pollInterval);
+                modal.hide();
+                showNotification('Rapprochement terminé avec succès!', 'success');
+                location.reload();
+            } else if (data.status === 'error') {
+                clearInterval(pollInterval);
+                modal.hide();
+                showNotification('Erreur: ' + (data.errors || 'Erreur inconnue'), 'danger');
+                location.reload();
+            } else {
+                // Mettre à jour le statut
+                document.getElementById('processing-status').textContent =
+                    data.last_logs && data.last_logs.length > 0 ?
+                    data.last_logs[data.last_logs.length - 1].message :
+                    'Traitement en cours...';
+            }
+        })
+        .catch(error => {
+            console.error('Erreur polling:', error);
+        });
+    }, 2000); // Poll toutes les 2 secondes
+
+    // Lancer le traitement
+    fetch(`/reconciliation/sessions/${sessionId}/process/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            clearInterval(pollInterval);
+            modal.hide();
+            showNotification('Erreur: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        clearInterval(pollInterval);
+        modal.hide();
+        showNotification('Erreur de traitement: ' + error.message, 'danger');
+    });
+}
+
+function downloadLogs(sessionId) {
+    fetch(`/reconciliation/sessions/${sessionId}/logs/`)
+    .then(response => response.json())
+    .then(data => {
+        const blob = new Blob([JSON.stringify(data, null, 2)], {
+            type: 'application/json'
+        });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `session_${sessionId}_logs.json`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        showNotification('Logs téléchargés avec succès!', 'success');
+    })
+    .catch(error => {
+        showNotification('Erreur lors du téléchargement: ' + error.message, 'danger');
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

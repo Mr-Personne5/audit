@@ -1,0 +1,22 @@
+Django~=5.2.1
+# Installation des packages nécessaires
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+reportlab
+django-crispy-forms
+django-allauth
+xlrd
+openpyxl
+python-docx
+PyPDF2
+XlsxWriter
+crispy_bootstrap5
+Chart
+fuzzywuzzy
+python-Levenshtein
+scipy
+joblib
+WeasyPrint

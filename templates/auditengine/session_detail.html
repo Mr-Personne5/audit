@@ -1,0 +1,802 @@
+{% extends 'auditengine/base_auditengine.html' %}
+{% load static %}
+
+{% block title %}{{ session.nom_session }} - Audit IA{% endblock %}
+
+{% block content %}
+<div class="auditengine-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb text-white-50 mb-2">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'auditengine:session_list' %}" class="text-white-50">
+                                Audit IA
+                            </a>
+                        </li>
+                        <li class="breadcrumb-item active text-white">{{ session.nom_session }}</li>
+                    </ol>
+                </nav>
+                <h1><i class="bi bi-cpu"></i> {{ session.nom_session }}</h1>
+                <p class="mb-0">{{ session.description|default:"Analyse IA automatique des anomalies de paie" }}</p>
+            </div>
+            <div class="col-md-4 text-end">
+                {% if can_process %}
+                    <button class="btn btn-success btn-lg me-2" id="process-session-btn"
+                            data-session-id="{{ session.pk }}">
+                        <i class="bi bi-cpu"></i> Lancer l'IA
+                    </button>
+                {% endif %}
+                {% if session.status == 'completed' %}
+                    <div class="btn-group">
+                        <button class="btn btn-light dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="bi bi-download"></i> Exporter
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item"
+                                   href="{% url 'auditengine:export_results' session.pk %}?format=csv">
+                                <i class="bi bi-file-earmark-text"></i> Résultats CSV
+                            </a></li>
+                            <li><a class="dropdown-item"
+                                   href="{% url 'auditengine:export_results' session.pk %}?format=excel">
+                                <i class="bi bi-file-earmark-excel"></i> Résultats Excel
+                            </a></li>
+                            <li><a class="dropdown-item"
+                                   href="{% url 'auditengine:export_results' session.pk %}?format=csv&anomalies_only=true">
+                                <i class="bi bi-exclamation-triangle"></i> Anomalies seulement
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" id="download-logs-btn"
+                                   data-session-id="{{ session.pk }}">
+                                <i class="bi bi-file-earmark-code"></i> Logs IA complets
+                            </a></li>
+                        </ul>
+                    </div>
+                    <a href="{% url 'auditengine:generate_recommendations' session.pk %}"
+                       class="btn btn-warning ms-2">
+                        <i class="bi bi-lightbulb"></i> Recommandations
+                    </a>
+                {% endif %}
+                {% if can_edit %}
+                    <a href="{% url 'auditengine:delete_session' session.pk %}"
+                       class="btn btn-outline-light">
+                        <i class="bi bi-trash"></i>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Informations de la session -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Informations de l'analyse</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-5">Mission:</dt>
+                                <dd class="col-sm-7">
+                                    <span class="badge bg-secondary">{{ session.mission.name }}</span>
+                                </dd>
+                                <dt class="col-sm-5">Analysé par:</dt>
+                                <dd class="col-sm-7">{{ session.utilisateur.get_full_name|default:session.utilisateur.username }}</dd>
+                                <dt class="col-sm-5">Créé le:</dt>
+                                <dd class="col-sm-7">{{ session.date_creation|date:"d/m/Y H:i" }}</dd>
+                                {% if session.date_traitement %}
+                                <dt class="col-sm-5">Traitement:</dt>
+                                <dd class="col-sm-7">{{ session.date_traitement|date:"d/m/Y H:i" }}</dd>
+                                {% endif %}
+                                {% if session.date_completion %}
+                                <dt class="col-sm-5">Terminé:</dt>
+                                <dd class="col-sm-7">
+                                    {{ session.date_completion|date:"d/m/Y H:i" }}
+                                    {% if session.duree_traitement_secondes %}
+                                        <br><small class="text-success">
+                                            ⚡ Analysé en {{ session.duree_traitement_secondes }}s
+                                        </small>
+                                    {% endif %}
+                                </dd>
+                                {% endif %}
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-5">Fichier source:</dt>
+                                <dd class="col-sm-7">
+                                    <a href="{% url 'uploads:file_detail' session.fichier_paie.pk %}"
+                                       class="text-decoration-none">
+                                        {{ session.fichier_paie.nom_fichier }}
+                                    </a>
+                                </dd>
+                                <dt class="col-sm-5">Employés:</dt>
+                                <dd class="col-sm-7">
+                                    <strong>{{ session.nb_lignes_analysees }}</strong> analysés
+                                </dd>
+                                <dt class="col-sm-5">Modèles IA:</dt>
+                                <dd class="col-sm-7">
+                                    {% if session.modele_utilise %}
+                                        <small class="text-muted">{{ session.modele_utilise }}</small>
+                                    {% else %}
+                                        <span class="ai-badge">IF + MLP</span>
+                                    {% endif %}
+                                </dd>
+                                <dt class="col-sm-5">Statut:</dt>
+                                <dd class="col-sm-7">
+                                    {% if session.status == 'completed' %}
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle"></i> Analyse terminée
+                                        </span>
+                                    {% elif session.status == 'processing' %}
+                                        <span class="badge bg-primary status-processing">
+                                            <i class="bi bi-cpu"></i> IA en cours
+                                        </span>
+                                    {% elif session.status == 'pending' %}
+                                        <span class="badge bg-warning">
+                                            <i class="bi bi-clock"></i> En attente
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-exclamation-triangle"></i> Erreur
+                                        </span>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <!-- Graphique résumé des anomalies -->
+            <div class="card">
+                <div class="card-header text-center">
+                    <h6 class="mb-0">Résultats de l'analyse IA</h6>
+                </div>
+                <div class="card-body text-center">
+                    {% if session.status == 'completed' %}
+                        <div class="position-relative d-inline-block mb-3">
+                            <div class="display-1 text-primary">{{ session.get_taux_anomalies }}%</div>
+                            <small class="text-muted">Taux d'anomalies</small>
+                        </div>
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <div class="text-danger h4">{{ session.nb_anomalies_detectees }}</div>
+                                <small class="text-muted">Anomalies</small>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-success h4">{{ session.nb_aucune_anomalie }}</div>
+                                <small class="text-muted">Normaux</small>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-muted">
+                            <i class="bi bi-hourglass display-4"></i>
+                            <p class="mt-2">En attente d'analyse</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if session.status == 'completed' %}
+        <!-- Statistiques détaillées -->
+        <div class="row mb-4">
+            <div class="col-md-2">
+                <div class="anomalie-card card text-center critique">
+                    <div class="card-body">
+                        <i class="bi bi-person-x text-danger display-4"></i>
+                        <h4 class="text-danger">{{ stats_detail.employes_fantomes }}</h4>
+                        <small class="text-muted">Employés fantômes</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="anomalie-card card text-center eleve">
+                    <div class="card-body">
+                        <i class="bi bi-currency-euro text-warning display-4"></i>
+                        <h4 class="text-warning">{{ stats_detail.salaires_anormaux }}</h4>
+                        <small class="text-muted">Salaires anormaux</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="anomalie-card card text-center moyen">
+                    <div class="card-body">
+                        <i class="bi bi-gift text-info display-4"></i>
+                        <h4 class="text-info">{{ stats_detail.primes_anormales }}</h4>
+                        <small class="text-muted">Primes anormales</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="anomalie-card card text-center moyen">
+                    <div class="card-body">
+                        <i class="bi bi-clock text-warning display-4"></i>
+                        <h4 class="text-warning">{{ stats_detail.heures_excessives }}</h4>
+                        <small class="text-muted">Heures excessives</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="anomalie-card card text-center faible">
+                    <div class="card-body">
+                        <i class="bi bi-credit-card text-secondary display-4"></i>
+                        <h4 class="text-secondary">{{ stats_detail.rib_dupliques }}</h4>
+                        <small class="text-muted">RIB dupliqués</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="anomalie-card card text-center">
+                    <div class="card-body">
+                        <i class="bi bi-check-circle text-success display-4"></i>
+                        <h4 class="text-success">{{ stats_detail.aucune_anomalie }}</h4>
+                        <small class="text-muted">Normaux</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Répartition par niveau de risque -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-shield-exclamation"></i> Répartition par niveau de risque</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3 text-center">
+                                <div class="h2 text-danger">{{ stats_risque.critique }}</div>
+                                <span class="badge bg-danger w-100">Critique</span>
+                            </div>
+                            <div class="col-md-3 text-center">
+                                <div class="h2 text-warning">{{ stats_risque.eleve }}</div>
+                                <span class="badge bg-warning w-100">Élevé</span>
+                            </div>
+                            <div class="col-md-3 text-center">
+                                <div class="h2 text-info">{{ stats_risque.moyen }}</div>
+                                <span class="badge bg-info w-100">Moyen</span>
+                            </div>
+                            <div class="col-md-3 text-center">
+                                <div class="h2 text-success">{{ stats_risque.faible }}</div>
+                                <span class="badge bg-success w-100">Faible</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtres des résultats -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <form method="get" class="row g-3 align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label">Type d'anomalie</label>
+                        <select name="type" class="form-select">
+                            <option value="">Tous les types</option>
+                            {% for type_code, type_label in type_choices %}
+                                <option value="{{ type_code }}"
+                                        {% if current_filters.type == type_code %}selected{% endif %}>
+                                    {{ type_label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Niveau de risque</label>
+                        <select name="niveau" class="form-select">
+                            <option value="">Tous les niveaux</option>
+                            {% for niveau_code, niveau_label in niveau_choices %}
+                                <option value="{{ niveau_code }}"
+                                        {% if current_filters.niveau == niveau_code %}selected{% endif %}>
+                                    {{ niveau_label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Anomalie</label>
+                        <select name="anomalie" class="form-select">
+                            <option value="">Tous</option>
+                            <option value="oui" {% if current_filters.anomalie == 'oui' %}selected{% endif %}>
+                                Anomalies seulement
+                            </option>
+                            <option value="non" {% if current_filters.anomalie == 'non' %}selected{% endif %}>
+                                Normaux seulement
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-funnel"></i> Filtrer
+                        </button>
+                        <a href="{% url 'auditengine:session_detail' session.pk %}"
+                           class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-clockwise"></i> Reset
+                        </a>
+                    </div>
+                    <div class="col-md-3 text-end">
+                        <span class="text-muted">
+                            {{ resultats_page.paginator.count }} résultat{{ resultats_page.paginator.count|pluralize }}
+                        </span>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Résultats détaillés -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Résultats de l'analyse IA</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if resultats_page %}
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Employé</th>
+                                    <th>Détection IA</th>
+                                    <th>Classification</th>
+                                    <th>Scores IA</th>
+                                    <th>Données financières</th>
+                                    <th>Recommandation</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for resultat in resultats_page %}
+                                <tr class="{% if resultat.est_anomalie %}table-warning{% endif %}">
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div>
+                                                <strong>{{ resultat.nom }} {{ resultat.prenom }}</strong>
+                                                {% if resultat.matricule %}
+                                                    <br><small class="text-muted">Mat: {{ resultat.matricule }}</small>
+                                                {% endif %}
+                                                {% if resultat.poste %}
+                                                    <br><small class="text-muted">{{ resultat.poste }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if resultat.est_anomalie %}
+                                                <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>
+                                                <div>
+                                                    <span class="badge bg-danger">Anomalie</span>
+                                                    <br><small class="text-muted">{{ resultat.explication_if|truncatechars:40 }}</small>
+                                                </div>
+                                            {% else %}
+                                                <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                                <div>
+                                                    <span class="badge bg-success">Normal</span>
+                                                    <br><small class="text-muted">Profil normal</small>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if resultat.type_anomalie != 'aucune' %}
+                                            <span class="badge
+                                                {% if resultat.type_anomalie == 'ghost_employee' %}bg-danger
+                                                {% elif resultat.type_anomalie == 'salaire_anormal' %}bg-warning
+                                                {% elif resultat.type_anomalie == 'prime_anormale' %}bg-info
+                                                {% elif resultat.type_anomalie == 'heures_excessives' %}bg-secondary
+                                                {% elif resultat.type_anomalie == 'duplicate_rib' %}bg-dark
+                                                {% else %}bg-light text-dark{% endif %}">
+                                                <i class="{{ resultat.get_icone_anomalie }}"></i>
+                                                {{ resultat.get_type_anomalie_display }}
+                                            </span>
+                                            <br><span class="badge bg-{{ resultat.get_couleur_risque }} mt-1">
+                                                {{ resultat.get_niveau_risque_display }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if resultat.score_anomalie_if %}
+                                            <div class="mb-2">
+                                                <small class="text-muted">IF:</small>
+                                                <div class="score-bar">
+                                                    <div class="score-fill score-if"
+                                                         style="width: {{ resultat.score_anomalie_if|floatformat:0 }}%"></div>
+                                                </div>
+                                                <small>{{ resultat.score_anomalie_if|floatformat:3 }}</small>
+                                            </div>
+                                        {% endif %}
+                                        {% if resultat.score_classification_mlp %}
+                                            <div>
+                                                <small class="text-muted">MLP:</small>
+                                                <div class="score-bar">
+                                                    <div class="score-fill score-mlp"
+                                                         style="width: {{ resultat.score_classification_mlp|floatformat:0 }}%"></div>
+                                                </div>
+                                                <small>{{ resultat.score_classification_mlp|floatformat:3 }}</small>
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="small">
+                                        {% if resultat.salaire_brut %}
+                                            <div><strong>Brut:</strong> {{ resultat.salaire_brut|floatformat:0 }} €</div>
+                                        {% endif %}
+                                        {% if resultat.montant_total %}
+                                            <div><strong>Total:</strong> {{ resultat.montant_total|floatformat:0 }} €</div>
+                                        {% endif %}
+                                        {% if resultat.heures_travaillees %}
+                                            <div><strong>Heures:</strong> {{ resultat.heures_travaillees }}h</div>
+                                        {% endif %}
+                                        {% if resultat.montant_primes %}
+                                            <div><strong>Primes:</strong> {{ resultat.montant_primes|floatformat:0 }} €</div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if resultat.recommandation_auto %}
+                                            <small class="text-muted">{{ resultat.recommandation_auto|truncatechars:60 }}</small>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'auditengine:anomalie_detail' resultat.pk %}"
+                                               class="btn btn-outline-primary" title="Voir détails">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            {% if resultat.est_anomalie %}
+                                                <a href="{% url 'auditengine:corriger_anomalie' resultat.pk %}"
+                                                   class="btn btn-outline-warning" title="Corriger">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
+                                            {% endif %}
+                                            {% if resultat.valide_par_humain %}
+                                                <span class="btn btn-outline-success" title="Validé">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination des résultats -->
+                    {% if resultats_page.has_other_pages %}
+                        <div class="card-footer">
+                            <nav>
+                                <ul class="pagination justify-content-center mb-0">
+                                    {% if resultats_page.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ resultats_page.previous_page_number }}{% if current_filters.type %}&type={{ current_filters.type }}{% endif %}{% if current_filters.niveau %}&niveau={{ current_filters.niveau }}{% endif %}{% if current_filters.anomalie %}&anomalie={{ current_filters.anomalie }}{% endif %}">
+                                                Précédent
+                                            </a>
+                                        </li>
+                                    {% endif %}
+
+                                    {% for num in resultats_page.paginator.page_range %}
+                                        {% if resultats_page.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                        {% elif num > resultats_page.number|add:'-3' and num < resultats_page.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ num }}{% if current_filters.type %}&type={{ current_filters.type }}{% endif %}{% if current_filters.niveau %}&niveau={{ current_filters.niveau }}{% endif %}{% if current_filters.anomalie %}&anomalie={{ current_filters.anomalie }}{% endif %}">{{ num }}</a>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                    {% if resultats_page.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ resultats_page.next_page_number }}{% if current_filters.type %}&type={{ current_filters.type }}{% endif %}{% if current_filters.niveau %}&niveau={{ current_filters.niveau }}{% endif %}{% if current_filters.anomalie %}&anomalie={{ current_filters.anomalie }}{% endif %}">
+                                                Suivant
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-search display-4 text-muted"></i>
+                        <h5 class="text-muted mt-3">Aucun résultat trouvé</h5>
+                        <p class="text-muted">Modifiez vos filtres pour voir plus de résultats</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+    {% elif session.status == 'error' %}
+        <!-- Affichage des erreurs -->
+        <div class="alert alert-danger">
+            <h5><i class="bi bi-exclamation-triangle"></i> Erreur d'analyse IA</h5>
+            <p class="mb-0">{{ session.erreurs|default:"Erreur inconnue lors du traitement par l'IA" }}</p>
+            {% if session.logs_traitement %}
+                <hr>
+                <details>
+                    <summary>Voir les logs IA détaillés</summary>
+                    <pre class="mt-2 small">{{ session.logs_traitement|pprint }}</pre>
+                </details>
+            {% endif %}
+        </div>
+
+    {% elif session.status == 'processing' %}
+        <!-- Statut en cours -->
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <div class="spinner-border text-primary mb-3 status-processing"
+                     role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Analyse IA en cours...</span>
+                </div>
+                <h4><i class="bi bi-cpu"></i> Intelligence Artificielle en action</h4>
+                <p class="text-muted">L'IA analyse vos données pour détecter les anomalies...</p>
+
+                <div class="row justify-content-center mt-4">
+                    <div class="col-md-8">
+                        <div class="progress mb-3" style="height: 8px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                 role="progressbar" style="width: 100%"></div>
+                        </div>
+                        <small class="text-muted" id="live-status">Analyse en cours...</small>
+                    </div>
+                </div>
+
+                <button class="btn btn-outline-primary mt-3" onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise"></i> Actualiser
+                </button>
+            </div>
+        </div>
+
+    {% else %}
+        <!-- Statut en attente -->
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-cpu display-1 text-muted"></i>
+                <h4 class="mt-3">Session prête pour l'analyse IA</h4>
+                <p class="text-muted">Cliquez sur "Lancer l'IA" pour démarrer la détection automatique d'anomalies</p>
+                {% if can_process %}
+                    <button class="btn btn-primary btn-lg" id="process-session-btn-2"
+                            data-session-id="{{ session.pk }}">
+                        <i class="bi bi-cpu"></i> Lancer l'Intelligence Artificielle
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal de traitement IA -->
+<div class="modal fade" id="processingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-cpu status-processing me-2"></i>
+                    Intelligence Artificielle en cours
+                </h5>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-4">
+                    <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Analyse en cours...</span>
+                    </div>
+                    <h6>Analyse des données en cours...</h6>
+                    <p class="text-muted">L'IA examine chaque employé pour détecter les anomalies</p>
+                </div>
+
+                <div class="progress mb-3" style="height: 6px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                         role="progressbar" style="width: 100%"></div>
+                </div>
+
+                <div class="row text-center">
+                    <div class="col-4">
+                        <small class="text-muted">Isolation Forest</small>
+                        <div class="fw-bold text-primary">Détection</div>
+                    </div>
+                    <div class="col-4">
+                        <small class="text-muted">MLP Classifier</small>
+                        <div class="fw-bold text-success">Classification</div>
+                    </div>
+                    <div class="col-4">
+                        <small class="text-muted">Recommandations</small>
+                        <div class="fw-bold text-info">Génération</div>
+                    </div>
+                </div>
+
+                <small class="text-muted d-block mt-3" id="processing-status">Initialisation des modèles IA...</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Boutons de traitement (il peut y en avoir plusieurs)
+    document.querySelectorAll('[id^="process-session-btn"]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const sessionId = this.dataset.sessionId;
+            processSession(sessionId);
+        });
+    });
+
+    // Téléchargement des logs
+    const downloadLogsBtn = document.getElementById('download-logs-btn');
+    if (downloadLogsBtn) {
+        downloadLogsBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const sessionId = this.dataset.sessionId;
+            downloadLogs(sessionId);
+        });
+    }
+
+    // Auto-refresh si en cours de traitement
+    {% if session.status == 'processing' %}
+        const pollInterval = setInterval(function() {
+            fetch(`/auditengine/sessions/{{ session.pk }}/status/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'completed' || data.status === 'error') {
+                    clearInterval(pollInterval);
+                    location.reload();
+                } else if (data.last_logs && data.last_logs.length > 0) {
+                    const statusEl = document.getElementById('live-status');
+                    if (statusEl) {
+                        statusEl.textContent = data.last_logs[data.last_logs.length - 1].message;
+                    }
+                }
+            })
+            .catch(error => console.error('Erreur polling:', error));
+        }, 5000); // Poll toutes les 5 secondes
+    {% endif %}
+
+    // Animation des cartes d'anomalies
+    const anomalieCards = document.querySelectorAll('.anomalie-card');
+    anomalieCards.forEach((card, index) => {
+        setTimeout(() => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'all 0.5s ease';
+
+            setTimeout(() => {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 100);
+        }, index * 100);
+    });
+});
+
+function processSession(sessionId) {
+    const modal = new bootstrap.Modal(document.getElementById('processingModal'));
+    modal.show();
+
+    const statusMessages = [
+        'Chargement des données...',
+        'Initialisation Isolation Forest...',
+        'Détection des anomalies...',
+        'Classification MLP en cours...',
+        'Génération des recommandations...',
+        'Finalisation de l\'analyse...'
+    ];
+
+    let messageIndex = 0;
+    const statusEl = document.getElementById('processing-status');
+
+    // Simuler le progrès avec messages
+    const progressInterval = setInterval(() => {
+        if (messageIndex < statusMessages.length) {
+            statusEl.textContent = statusMessages[messageIndex];
+            messageIndex++;
+        }
+    }, 3000);
+
+    // Polling pour suivre le progrès réel
+    const pollInterval = setInterval(function() {
+        fetch(`/auditengine/sessions/${sessionId}/status/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'completed') {
+                clearInterval(pollInterval);
+                clearInterval(progressInterval);
+                modal.hide();
+                showNotification(
+                    `🎉 Analyse IA terminée ! ${data.progress.nb_anomalies_detectees} anomalies détectées en ${data.progress.duree_traitement}s`,
+                    'success'
+                );
+                setTimeout(() => location.reload(), 1500);
+            } else if (data.status === 'error') {
+                clearInterval(pollInterval);
+                clearInterval(progressInterval);
+                modal.hide();
+                showNotification('❌ Erreur IA: ' + (data.errors || 'Erreur inconnue'), 'danger');
+                setTimeout(() => location.reload(), 2000);
+            } else if (data.last_logs && data.last_logs.length > 0) {
+                statusEl.textContent = data.last_logs[data.last_logs.length - 1].message;
+            }
+        })
+        .catch(error => {
+            console.error('Erreur polling:', error);
+        });
+    }, 3000);
+
+    // Lancer le traitement
+    fetch(`/auditengine/sessions/${sessionId}/process/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            clearInterval(pollInterval);
+            clearInterval(progressInterval);
+            modal.hide();
+            showNotification('❌ Erreur: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        clearInterval(pollInterval);
+        clearInterval(progressInterval);
+        modal.hide();
+        showNotification('❌ Erreur de traitement: ' + error.message, 'danger');
+    });
+}
+
+function downloadLogs(sessionId) {
+    fetch(`/auditengine/sessions/${sessionId}/logs/`)
+    .then(response => response.json())
+    .then(data => {
+        const blob = new Blob([JSON.stringify(data, null, 2)], {
+            type: 'application/json'
+        });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `audit_ia_session_${sessionId}_logs.json`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        showNotification('📄 Logs IA téléchargés avec succès!', 'success');
+    })
+    .catch(error => {
+        showNotification('❌ Erreur lors du téléchargement: ' + error.message, 'danger');
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

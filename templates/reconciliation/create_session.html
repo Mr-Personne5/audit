@@ -1,0 +1,330 @@
+{% extends 'reconciliation/base_reconciliation.html' %}
+{% load static %}
+
+{% block title %}Nouvelle session - Rapprochement{% endblock %}
+
+{% block content %}
+<div class="reconciliation-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb text-white-50 mb-2">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'reconciliation:session_list' %}" class="text-white-50">
+                                Rapprochements
+                            </a>
+                        </li>
+                        <li class="breadcrumb-item active text-white">Nouvelle session</li>
+                    </ol>
+                </nav>
+                <h1><i class="bi bi-plus-circle"></i> Créer une session de rapprochement</h1>
+                <p class="mb-0">Configurez une nouvelle session pour rapprocher vos données RH et Paie</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-gear"></i> Configuration de la session</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="session-form">
+                        {% csrf_token %}
+
+                        <!-- Informations générales -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-muted border-bottom pb-2">
+                                    <i class="bi bi-info-circle"></i> Informations générales
+                                </h6>
+                            </div>
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    {{ form.nom_session.label_tag }}
+                                    {{ form.nom_session }}
+                                    {% if form.nom_session.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.nom_session.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        Nom distinctif pour identifier cette session de rapprochement
+                                    </div>
+                                </div>
+                            </div>
+                                                        <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.mission.label_tag }}
+                                    {{ form.mission }}
+                                    {% if form.mission.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.mission.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    {{ form.description.label_tag }}
+                                    {{ form.description }}
+                                    {% if form.description.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.description.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sélection des fichiers -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-muted border-bottom pb-2">
+                                    <i class="bi bi-files"></i> Fichiers à rapprocher
+                                </h6>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.fichier_liste_personnel.label_tag }}
+                                    {{ form.fichier_liste_personnel }}
+                                    {% if form.fichier_liste_personnel.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.fichier_liste_personnel.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        <i class="bi bi-info-circle"></i>
+                                        Fichier contenant la liste des employés qui doivent être payés
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.fichier_paie.label_tag }}
+                                    {{ form.fichier_paie }}
+                                    {% if form.fichier_paie.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.fichier_paie.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        <i class="bi bi-info-circle"></i>
+                                        Fichier contenant les employés effectivement payés
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Aperçu des règles de rapprochement -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-muted border-bottom pb-2">
+                                    <i class="bi bi-gear"></i> Règles de rapprochement
+                                </h6>
+                                <div class="alert alert-info">
+                                    <h6><i class="bi bi-info-circle"></i> Logique de rapprochement automatique</h6>
+                                    <ul class="mb-0">
+                                        <li><strong>Priorité 1:</strong> Rapprochement par matricule (99% de confiance)</li>
+                                        <li><strong>Priorité 2:</strong> Rapprochement par nom + prénom (seuil 85%)</li>
+                                        <li><strong>Détection automatique:</strong> Employés non payés, non déclarés et doublons</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between">
+                                    <a href="{% url 'reconciliation:session_list' %}" class="btn btn-outline-secondary">
+                                        <i class="bi bi-arrow-left"></i> Retour
+                                    </a>
+                                    <div>
+                                        <button type="button" class="btn btn-outline-primary me-2" id="preview-btn">
+                                            <i class="bi bi-eye"></i> Aperçu
+                                        </button>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-check-circle"></i> Créer la session
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'aperçu -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Aperçu des fichiers sélectionnés</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="preview-content">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Chargement...</span>
+                        </div>
+                        <p class="mt-2">Chargement de l'aperçu...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const previewBtn = document.getElementById('preview-btn');
+    const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
+
+    previewBtn.addEventListener('click', function() {
+        const fichierRH = document.getElementById('id_fichier_liste_personnel').value;
+        const fichierPaie = document.getElementById('id_fichier_paie').value;
+
+        if (!fichierRH || !fichierPaie) {
+            showNotification('Veuillez sélectionner les deux fichiers avant l\'aperçu', 'warning');
+            return;
+        }
+
+        previewModal.show();
+        loadPreview(fichierRH, fichierPaie);
+    });
+
+    // Validation en temps réel
+    const form = document.getElementById('session-form');
+    form.addEventListener('submit', function(e) {
+        const nomSession = document.getElementById('id_nom_session').value.trim();
+        const fichierRH = document.getElementById('id_fichier_liste_personnel').value;
+        const fichierPaie = document.getElementById('id_fichier_paie').value;
+
+        if (!nomSession) {
+            e.preventDefault();
+            showNotification('Le nom de la session est obligatoire', 'danger');
+            document.getElementById('id_nom_session').focus();
+            return;
+        }
+
+        if (!fichierRH || !fichierPaie) {
+            e.preventDefault();
+            showNotification('Veuillez sélectionner les deux fichiers', 'danger');
+            return;
+        }
+
+        if (fichierRH === fichierPaie) {
+            e.preventDefault();
+            showNotification('Vous devez sélectionner deux fichiers différents', 'danger');
+            return;
+        }
+    });
+});
+
+function loadPreview(fichierRHId, fichierPaieId) {
+    const previewContent = document.getElementById('preview-content');
+
+    Promise.all([
+        fetch(`/uploads/files/${fichierRHId}/preview_data/?nb_lignes=5`),
+        fetch(`/uploads/files/${fichierPaieId}/preview_data/?nb_lignes=5`)
+    ])
+    .then(responses => Promise.all(responses.map(r => r.json())))
+    .then(data => {
+        const [dataRH, dataPaie] = data;
+
+        previewContent.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="text-primary"><i class="bi bi-people"></i> Fichier RH (${dataRH.nb_total_lignes} lignes)</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    ${dataRH.colonnes.map(col => `<th class="small">${col}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${dataRH.donnees.slice(0, 3).map(row =>
+                                    `<tr>${dataRH.colonnes.map(col => `<td class="small">${row[col] || '-'}</td>`).join('')}</tr>`
+                                ).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <small class="text-muted">Aperçu des 3 premières lignes</small>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="text-success"><i class="bi bi-cash-stack"></i> Fichier Paie (${dataPaie.nb_total_lignes} lignes)</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    ${dataPaie.colonnes.map(col => `<th class="small">${col}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${dataPaie.donnees.slice(0, 3).map(row =>
+                                    `<tr>${dataPaie.colonnes.map(col => `<td class="small">${row[col] || '-'}</td>`).join('')}</tr>`
+                                ).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <small class="text-muted">Aperçu des 3 premières lignes</small>
+                </div>
+            </div>
+            <hr>
+            <div class="alert alert-success">
+                <h6><i class="bi bi-check-circle"></i> Vérifications automatiques</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="mb-0">
+                            <li class="${dataRH.colonnes.includes('matricule') || dataRH.colonnes.includes('Matricule') ? 'text-success' : 'text-warning'}">
+                                ${dataRH.colonnes.includes('matricule') || dataRH.colonnes.includes('Matricule') ? '✓' : '⚠'}
+                                Colonne matricule RH
+                            </li>
+                            <li class="${dataRH.colonnes.includes('nom') || dataRH.colonnes.includes('Nom') ? 'text-success' : 'text-warning'}">
+                                ${dataRH.colonnes.includes('nom') || dataRH.colonnes.includes('Nom') ? '✓' : '⚠'}
+                                Colonne nom RH
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul class="mb-0">
+                            <li class="${dataPaie.colonnes.includes('matricule') || dataPaie.colonnes.includes('Matricule') ? 'text-success' : 'text-warning'}">
+                                ${dataPaie.colonnes.includes('matricule') || dataPaie.colonnes.includes('Matricule') ? '✓' : '⚠'}
+                                Colonne matricule Paie
+                            </li>
+                            <li class="${dataPaie.colonnes.includes('montant_total') || dataPaie.colonnes.includes('Montant_total') ? 'text-success' : 'text-warning'}">
+                                ${dataPaie.colonnes.includes('montant_total') || dataPaie.colonnes.includes('Montant_total') ? '✓' : '⚠'}
+                                Colonne montant Paie
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        `;
+    })
+    .catch(error => {
+        previewContent.innerHTML = `
+            <div class="alert alert-danger">
+                <h6><i class="bi bi-exclamation-triangle"></i> Erreur de chargement</h6>
+                <p class="mb-0">Impossible de charger l'aperçu des fichiers: ${error.message}</p>
+            </div>
+        `;
+    });
+}
+</script>
+{% endblock %}

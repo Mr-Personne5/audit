@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Supprimer le fichier{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <!-- Header -->
+            <div class="d-flex align-items-center mb-4">
+                <a href="{% url 'uploads:file_detail' fichier.pk %}" class="btn btn-outline-secondary me-3">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <div>
+                    <h1 class="h3 mb-0 text-danger">
+                        <i class="bi bi-trash me-2"></i>
+                        Supprimer le fichier
+                    </h1>
+                    <p class="text-muted mt-1">Cette action est irréversible</p>
+                </div>
+            </div>
+
+            <!-- Avertissement -->
+            <div class="alert alert-danger d-flex align-items-center mb-4">
+                <i class="bi bi-exclamation-triangle-fill fs-3 me-3"></i>
+                <div>
+                    <h5 class="alert-heading mb-1">Attention !</h5>
+                    <p class="mb-0">
+                        Vous êtes sur le point de supprimer définitivement ce fichier.
+                        Cette action ne peut pas être annulée.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Informations du fichier -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-earmark-text me-2"></i>
+                        Fichier à supprimer
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-file-earmark-x fs-1 text-danger me-3"></i>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">{{ fichier.nom_fichier }}</h6>
+                            <div class="text-muted small">{{ fichier.nom_original }}</div>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-secondary">{{ fichier.get_type_fichier_display }}</span>
+                            <div class="text-muted small mt-1">{{ fichier.get_file_size_mb }} MB</div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="text-muted small">Uploadé le</div>
+                            <div class="fw-medium">{{ fichier.date_import|date:"d/m/Y" }}</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-muted small">Statut</div>
+                            <div class="fw-medium">{{ fichier.get_status_display }}</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-muted small">Mission</div>
+                            <div class="fw-medium">{{ fichier.mission.name }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conséquences -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Conséquences de la suppression
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="bi bi-x-circle text-danger me-2"></i>
+                            Le fichier sera définitivement supprimé du serveur
+                        </li>
+                        {% if fichier.preview %}
+                        <li class="mb-2">
+                            <i class="bi bi-x-circle text-danger me-2"></i>
+                            Les données de prévisualisation seront perdues
+                        </li>
+                        {% endif %}
+                        {% if fichier.mappings.exists %}
+                        <li class="mb-2">
+                            <i class="bi bi-x-circle text-danger me-2"></i>
+                            Les mappings de colonnes seront supprimés
+                        </li>
+                        {% endif %}
+                        <li class="mb-2">
+                            <i class="bi bi-x-circle text-danger me-2"></i>
+                            L'historique des actions sur ce fichier sera perdu
+                        </li>
+                        <li class="mb-0">
+                            <i class="bi bi-info-circle text-info me-2"></i>
+                            Les logs d'audit seront conservés pour traçabilité
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Confirmation -->
+            <div class="card">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="confirmDelete" required>
+                                <label class="form-check-label fw-medium" for="confirmDelete">
+                                    Je comprends que cette action est irréversible et je souhaite supprimer ce fichier
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'uploads:file_detail' fichier.pk %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle me-2"></i>Annuler
+                            </a>
+
+                            <button type="submit" class="btn btn-danger" id="deleteBtn" disabled>
+                                <i class="bi bi-trash me-2"></i>Supprimer définitivement
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Alternative -->
+            <div class="card mt-4 border-info">
+                <div class="card-header bg-info bg-opacity-10">
+                    <h6 class="mb-0 text-info">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        Alternative suggérée
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">Au lieu de supprimer, vous pourriez :</p>
+                    <ul class="list-unstyled">
+                        <li class="mb-1">
+                            <i class="bi bi-arrow-clockwise text-primary me-2"></i>
+                            Retraiter le fichier s'il y a des erreurs
+                        </li>
+                        <li class="mb-1">
+                            <i class="bi bi-pencil text-warning me-2"></i>
+                            Corriger le mapping des colonnes
+                        </li>
+                        <li class="mb-0">
+                            <i class="bi bi-cloud-upload text-success me-2"></i>
+                            Uploader une nouvelle version
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmCheckbox = document.getElementById('confirmDelete');
+    const deleteBtn = document.getElementById('deleteBtn');
+
+    confirmCheckbox.addEventListener('change', function() {
+        deleteBtn.disabled = !this.checked;
+
+        if (this.checked) {
+            deleteBtn.classList.remove('btn-danger');
+            deleteBtn.classList.add('btn-outline-danger');
+        } else {
+            deleteBtn.classList.remove('btn-outline-danger');
+            deleteBtn.classList.add('btn-danger');
+        }
+    });
+
+    // Double confirmation avant suppression
+    deleteBtn.addEventListener('click', function(e) {
+        if (!confirm('Êtes-vous absolument certain de vouloir supprimer ce fichier ?')) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock %}

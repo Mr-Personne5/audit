@@ -1,0 +1,163 @@
+<!-- recommendations/templates/recommendations/recommandation_assign.html -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assigner Recommandation - AuditIA</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+</head>
+<body class="bg-light">
+    <div class="container mt-4">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'recommendations:dashboard' %}">Recommandations</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'recommendations:detail' recommandation.pk %}">{{ recommandation.code_recommandation }}</a></li>
+                <li class="breadcrumb-item active">Assigner</li>
+            </ol>
+        </nav>
+
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h4 class="mb-0">
+                            <i class="bi bi-person-plus me-2"></i>
+                            Assigner la Recommandation
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <form method="post">
+                            {% csrf_token %}
+
+                            <div class="mb-4">
+                                <label for="{{ form.assigne_a.id_for_label }}" class="form-label">
+                                    <strong>Assigner à</strong> <span class="text-danger">*</span>
+                                </label>
+                                {{ form.assigne_a }}
+                                {% if form.assigne_a.errors %}
+                                    <div class="text-danger small">{{ form.assigne_a.errors }}</div>
+                                {% endif %}
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Sélectionnez l'utilisateur qui sera responsable de cette recommandation.
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="{{ form.commentaire.id_for_label }}" class="form-label">
+                                    <strong>Commentaire d'assignation</strong>
+                                </label>
+                                {{ form.commentaire }}
+                                {% if form.commentaire.errors %}
+                                    <div class="text-danger small">{{ form.commentaire.errors }}</div>
+                                {% endif %}
+                                <div class="form-text">
+                                    <i class="bi bi-chat-left-text me-1"></i>
+                                    Ajoutez des instructions ou des commentaires pour la personne assignée (optionnel).
+                                </div>
+                            </div>
+
+                            <!-- Messages d'erreur globaux -->
+                            {% if form.non_field_errors %}
+                                <div class="alert alert-danger">
+                                    {{ form.non_field_errors }}
+                                </div>
+                            {% endif %}
+
+                            <div class="d-flex justify-content-between mt-4">
+                                <a href="{% url 'recommendations:detail' recommandation.pk %}" class="btn btn-secondary">
+                                    <i class="bi bi-arrow-left me-1"></i> Annuler
+                                </a>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-person-check me-1"></i> Assigner
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <!-- Détails de la recommandation -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="bi bi-info-circle me-1"></i> Détails de la Recommandation
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <h6>{{ recommandation.code_recommandation }}</h6>
+                        <p class="text-muted mb-3">{{ recommandation.titre }}</p>
+
+                        <div class="mb-2">
+                            <strong>Type:</strong> {{ recommandation.get_type_recommandation_display }}
+                        </div>
+
+                        <div class="mb-2">
+                            <strong>Priorité:</strong>
+                            <span class="badge bg-{{ recommandation.get_priorite_color }}">
+                                {{ recommandation.get_priorite_display }}
+                            </span>
+                        </div>
+
+                        <div class="mb-2">
+                            <strong>Statut actuel:</strong>
+                            <span class="badge bg-{{ recommandation.get_statut_color }}">
+                                {{ recommandation.get_statut_display }}
+                            </span>
+                        </div>
+
+                        {% if recommandation.date_echeance %}
+                        <div class="mb-2">
+                            <strong>Échéance:</strong> {{ recommandation.date_echeance|date:"d/m/Y" }}
+                        </div>
+                        {% endif %}
+
+                        {% if recommandation.assigne_a %}
+                        <div class="mb-2">
+                            <strong>Actuellement assigné à:</strong>
+                            <span class="text-info">{{ recommandation.assigne_a.get_full_name }}</span>
+                        </div>
+                        {% endif %}
+
+                        <div class="mb-2">
+                            <strong>Créé par:</strong>
+                            {% if recommandation.cree_par %}
+                                {{ recommandation.cree_par.get_full_name }}
+                            {% else %}
+                                Système
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-2">
+                            <strong>Date de création:</strong> {{ recommandation.date_creation|date:"d/m/Y H:i" }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Impact de l'assignation -->
+                <div class="card mt-3">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0">
+                            <i class="bi bi-lightbulb me-1"></i> Impact de l'Assignation
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <ul class="mb-0 small">
+                            <li>La personne assignée recevra une notification</li>
+                            <li>Le statut passera automatiquement à "Assignée"</li>
+                            <li>L'assigné pourra modifier le statut et l'avancement</li>
+                            <li>Un historique de l'assignation sera conservé</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

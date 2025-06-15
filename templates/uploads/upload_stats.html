@@ -1,0 +1,394 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Statistiques des fichiers{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .stat-card {
+        border-left: 4px solid;
+        transition: all 0.3s ease;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .stat-primary { border-left-color: #0d6efd; }
+    .stat-success { border-left-color: #198754; }
+    .stat-warning { border-left-color: #ffc107; }
+    .stat-danger { border-left-color: #dc3545; }
+    .stat-info { border-left-color: #0dcaf0; }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin: 20px 0;
+    }
+
+    .progress-stacked {
+        height: 20px;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .recent-files {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-graph-up me-2"></i>
+                Statistiques des fichiers
+            </h1>
+            <p class="text-muted mt-1">Vue d'ensemble des uploads et traitements</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" onclick="exportStats()">
+                <i class="bi bi-download me-2"></i>Exporter
+            </button>
+            <a href="{% url 'uploads:upload_list' %}" class="btn btn-primary">
+                <i class="bi bi-list-ul me-2"></i>Voir les fichiers
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistiques générales -->
+    <div class="row mb-4">
+        <div class="col-md-2-4">
+            <div class="card stat-card stat-primary">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="text-primary mb-1">{{ stats.total_fichiers }}</h3>
+                            <p class="text-muted mb-0 small">Total fichiers</p>
+                        </div>
+                        <i class="bi bi-files fs-1 text-primary opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2-4">
+            <div class="card stat-card stat-success">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="text-success mb-1">{{ stats.fichiers_par_status.Approuvé|default:0 }}</h3>
+                            <p class="text-muted mb-0 small">Approuvés</p>
+                        </div>
+                        <i class="bi bi-check-circle fs-1 text-success opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2-4">
+            <div class="card stat-card stat-info">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="text-info mb-1">{{ stats.fichiers_par_status.Traité|default:0 }}</h3>
+                            <p class="text-muted mb-0 small">Traités</p>
+                        </div>
+                        <i class="bi bi-gear fs-1 text-info opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2-4">
+            <div class="card stat-card stat-warning">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="text-warning mb-1">{{ stats.fichiers_par_status.En_attente|default:0 }}</h3>
+                            <p class="text-muted mb-0 small">En attente</p>
+                        </div>
+                        <i class="bi bi-clock fs-1 text-warning opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2-4">
+            <div class="card stat-card stat-danger">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="text-danger mb-1">{{ stats.fichiers_par_status.Erreur|default:0 }}</h3>
+                            <p class="text-muted mb-0 small">Erreurs</p>
+                        </div>
+                        <i class="bi bi-exclamation-triangle fs-1 text-danger opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Répartition par type -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-pie-chart me-2"></i>
+                        Répartition par type de fichier
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="typeChart"></canvas>
+                    </div>
+                    <div class="mt-3">
+                        {% for type_name, count in stats.fichiers_par_type.items %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary rounded-circle me-2" style="width: 12px; height: 12px;"></div>
+                                <span>{{ type_name }}</span>
+                            </div>
+                            <span class="badge bg-light text-dark">{{ count }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Répartition par statut -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-bar-chart me-2"></i>
+                        Répartition par statut
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                    <div class="mt-3">
+                        <!-- Barre de progression empilée -->
+                        <div class="progress progress-stacked">
+                            {% for status_name, count in stats.fichiers_par_status.items %}
+                            {% if count > 0 %}
+                            <div class="progress-bar bg-{% if status_name == 'Approuvé' %}success{% elif status_name == 'Traité' %}info{% elif status_name == 'En_attente' %}warning{% else %}danger{% endif %}"
+                                 style="width: {{ count|floatformat:0 }}%"
+                                 title="{{ status_name }}: {{ count }}">
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                        <div class="row text-center mt-2">
+                            {% for status_name, count in stats.fichiers_par_status.items %}
+                            <div class="col">
+                                <small class="text-muted">{{ status_name }}: {{ count }}</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Top missions -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-briefcase me-2"></i>
+                        Top missions par nombre de fichiers
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if stats.fichiers_par_mission %}
+                    <div class="list-group list-group-flush">
+                        {% for mission_name, count in stats.fichiers_par_mission.items %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary rounded-circle me-3 d-flex align-items-center justify-content-center text-white" style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                    {{ forloop.counter }}
+                                </div>
+                                <div>
+                                    <div class="fw-medium">{{ mission_name }}</div>
+                                    <small class="text-muted">Mission active</small>
+                                </div>
+                            </div>
+                            <span class="badge bg-primary rounded-pill">{{ count }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-inbox display-4"></i>
+                        <p class="mt-2">Aucune donnée disponible</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Fichiers récents -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        Fichiers récents
+                    </h5>
+                    <a href="{% url 'uploads:upload_list' %}" class="btn btn-sm btn-outline-primary">
+                        Voir tous
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="recent-files">
+                        {% for fichier in stats.uploads_recents %}
+                        {% include 'uploads/components/file_card.html' with fichier=fichier compact=True %}
+                        {% empty %}
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-inbox display-4"></i>
+                            <p class="mt-2">Aucun fichier récent</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tendances -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-graph-up-arrow me-2"></i>
+                        Tendance des uploads (7 derniers jours)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 200px;">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Graphique en camembert pour les types
+    const typeCtx = document.getElementById('typeChart').getContext('2d');
+    new Chart(typeCtx, {
+        type: 'doughnut',
+        data: {
+            labels: [{% for type_name in stats.fichiers_par_type.keys %}'{{ type_name }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+                data: [{% for count in stats.fichiers_par_type.values %}{{ count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                backgroundColor: [
+                    '#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1', '#fd7e14'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    // Graphique en barres pour les statuts
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    new Chart(statusCtx, {
+        type: 'bar',
+        data: {
+            labels: [{% for status_name in stats.fichiers_par_status.keys %}'{{ status_name }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+                data: [{% for count in stats.fichiers_par_status.values %}{{ count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                backgroundColor: ['#198754', '#0dcaf0', '#ffc107', '#dc3545']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+
+    // Graphique de tendance (exemple avec données simulées)
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+            datasets: [{
+                label: 'Uploads',
+                data: [12, 19, 3, 5, 2, 3, 7],
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+});
+
+function exportStats() {
+    // Fonction pour exporter les statistiques
+    alert('Fonctionnalité d\'export à implémenter');
+}
+</script>
+
+<style>
+.col-md-2-4 {
+    flex: 0 0 auto;
+    width: 20%;
+}
+@media (max-width: 768px) {
+    .col-md-2-4 {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+}
+</style>
+{% endblock %}

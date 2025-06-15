@@ -1,0 +1,618 @@
+<!-- Modal de mapping des colonnes -->
+<div class="modal fade" id="mappingModal" tabindex="-1" aria-labelledby="mappingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="mappingModalLabel">
+                    <i class="bi bi-arrow-left-right me-2"></i>
+                    Mapping des colonnes
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Instructions -->
+                <div class="alert alert-info d-flex align-items-center">
+                    <i class="bi bi-info-circle-fill me-3 fs-4"></i>
+                    <div>
+                        <h6 class="alert-heading mb-1">Instructions</h6>
+                        <p class="mb-0">
+                            Associez chaque colonne attendue par le système à une colonne de votre fichier.
+                            Les colonnes obligatoires doivent être mappées pour continuer.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Loading state -->
+                <div id="mappingLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Chargement...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Chargement des colonnes...</p>
+                </div>
+
+                <!-- Contenu du mapping -->
+                <div id="mappingContent" style="display: none;">
+                    <!-- Résumé -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card border-info">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-list-ul text-info fs-2"></i>
+                                    <h6 class="mt-2 mb-1">Colonnes détectées</h6>
+                                    <span class="badge bg-info" id="detectedCount">0</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-check-circle text-success fs-2"></i>
+                                    <h6 class="mt-2 mb-1">Mappings réalisés</h6>
+                                    <span class="badge bg-success" id="mappedCount">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Interface de mapping -->
+                    <div class="row">
+                        <!-- Colonnes attendues -->
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3">
+                                <i class="bi bi-bullseye me-2"></i>
+                                Colonnes attendues
+                            </h6>
+                            <div id="expectedColumnsList">
+                                <!-- Généré dynamiquement -->
+                            </div>
+                        </div>
+
+                        <!-- Colonnes du fichier -->
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3">
+                                <i class="bi bi-file-earmark-text me-2"></i>
+                                Colonnes de votre fichier
+                            </h6>
+                            <div id="fileColumnsList">
+                                <!-- Généré dynamiquement -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mapping automatique -->
+                    <div class="mt-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">Mapping automatique suggéré</h6>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="applyAutoMapping()">
+                                <i class="bi bi-magic me-1"></i>Appliquer
+                            </button>
+                        </div>
+                        <div class="mt-2" id="autoMappingSuggestions">
+                            <!-- Généré dynamiquement -->
+                        </div>
+                    </div>
+
+                    <!-- Tableau de mapping -->
+                    <div class="mt-4">
+                        <h6 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-table me-2"></i>
+                            Configuration du mapping
+                        </h6>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="mappingTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="40%">Colonne attendue</th>
+                                        <th width="10%" class="text-center">
+                                            <i class="bi bi-arrow-right"></i>
+                                        </th>
+                                        <th width="40%">Colonne du fichier</th>
+                                        <th width="10%" class="text-center">Statut</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mappingTableBody">
+                                    <!-- Généré dynamiquement -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Validation -->
+                    <div class="mt-4">
+                        <div class="alert alert-warning" id="validationWarning" style="display: none;">
+                            <h6><i class="bi bi-exclamation-triangle me-2"></i>Attention</h6>
+                            <ul id="validationMessages" class="mb-0"></ul>
+                        </div>
+
+                        <div class="alert alert-success" id="validationSuccess" style="display: none;">
+                            <i class="bi bi-check-circle me-2"></i>
+                            Tous les mappings obligatoires sont configurés !
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>Annuler
+                </button>
+
+                <button type="button" class="btn btn-outline-primary" onclick="resetMappings()">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Réinitialiser
+                </button>
+
+                <button type="button" class="btn btn-success" id="saveMappingBtn" onclick="saveMappings()" disabled>
+                    <i class="bi bi-check-circle me-2"></i>
+                    <span>Sauvegarder</span>
+                    <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.mapping-column-item {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+}
+
+.mapping-column-item:hover {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.mapping-column-item.selected {
+    background-color: #e7f1ff;
+    border-color: #0d6efd;
+}
+
+.mapping-column-item.mapped {
+    background-color: #d4edda;
+    border-color: #198754;
+}
+
+.mapping-column-item.unavailable {
+    background-color: #f8d7da;
+    border-color: #dc3545;
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.drag-over {
+    background-color: #fff3cd !important;
+    border-color: #ffc107 !important;
+}
+
+.mapping-arrow {
+    font-size: 1.2rem;
+    color: #6c757d;
+}
+
+.mapping-status-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.status-success { background-color: #198754; color: white; }
+.status-warning { background-color: #ffc107; color: #212529; }
+.status-danger { background-color: #dc3545; color: white; }
+</style>
+
+<script>
+let currentFileColumns = [];
+let currentExpectedColumns = [];
+let currentMappings = {};
+let requiredColumns = [];
+
+function loadMappingData(fileId) {
+    document.getElementById('mappingLoading').style.display = 'block';
+    document.getElementById('mappingContent').style.display = 'none';
+
+    fetch(`/uploads/mapping/${fileId}/`)
+        .then(response => response.json())
+        .then(data => {
+            currentFileColumns = data.colonnes_fichier || [];
+            currentExpectedColumns = data.colonnes_obligatoires || [];
+            currentMappings = data.mappings || {};
+            requiredColumns = data.colonnes_obligatoires || [];
+
+            renderMappingInterface();
+
+            document.getElementById('mappingLoading').style.display = 'none';
+            document.getElementById('mappingContent').style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur lors du chargement des données de mapping');
+        });
+}
+
+function renderMappingInterface() {
+    // Mettre à jour les compteurs
+    document.getElementById('detectedCount').textContent = currentFileColumns.length;
+    updateMappedCount();
+
+    // Générer la liste des colonnes attendues
+    renderExpectedColumns();
+
+    // Générer la liste des colonnes du fichier
+    renderFileColumns();
+
+    // Générer le tableau de mapping
+    renderMappingTable();
+
+    // Générer les suggestions automatiques
+    renderAutoMappingSuggestions();
+
+    // Valider le mapping
+    validateMapping();
+}
+
+function renderExpectedColumns() {
+    const container = document.getElementById('expectedColumnsList');
+    container.innerHTML = '';
+
+    currentExpectedColumns.forEach(column => {
+        const isMapped = currentMappings[column];
+        const isRequired = requiredColumns.includes(column);
+
+        const item = document.createElement('div');
+        item.className = `mapping-column-item p-3 mb-2 rounded ${isMapped ? 'mapped' : ''}`;
+        item.innerHTML = `
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="fw-medium">${column}</div>
+                    <small class="text-muted">
+                        ${isRequired ? '<i class="bi bi-exclamation-circle text-danger me-1"></i>Obligatoire' : 'Optionnel'}
+                    </small>
+                </div>
+                <div class="mapping-status-icon ${isMapped ? 'status-success' : (isRequired ? 'status-warning' : 'status-danger')}">
+                    <i class="bi bi-${isMapped ? 'check' : (isRequired ? 'exclamation' : 'x')}"></i>
+                </div>
+            </div>
+            ${isMapped ? `<div class="mt-2"><small class="text-success">→ ${currentMappings[column]}</small></div>` : ''}
+        `;
+
+        container.appendChild(item);
+    });
+}
+
+function renderFileColumns() {
+    const container = document.getElementById('fileColumnsList');
+    container.innerHTML = '';
+
+    currentFileColumns.forEach(column => {
+        const isUsed = Object.values(currentMappings).includes(column);
+
+        const item = document.createElement('div');
+        item.className = `mapping-column-item p-3 mb-2 rounded ${isUsed ? 'unavailable' : ''}`;
+        item.draggable = !isUsed;
+        item.innerHTML = `
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="fw-medium">${column}</div>
+                    <small class="text-muted">
+                        ${isUsed ? 'Déjà utilisé' : 'Disponible'}
+                    </small>
+                </div>
+                <div class="mapping-status-icon ${isUsed ? 'status-danger' : 'status-success'}">
+                    <i class="bi bi-${isUsed ? 'x' : 'check'}"></i>
+                </div>
+            </div>
+        `;
+
+        // Événements de drag & drop
+        if (!isUsed) {
+            item.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', column);
+            });
+        }
+
+        container.appendChild(item);
+    });
+}
+
+function renderMappingTable() {
+    const tbody = document.getElementById('mappingTableBody');
+    tbody.innerHTML = '';
+
+    currentExpectedColumns.forEach(expectedColumn => {
+        const mappedColumn = currentMappings[expectedColumn] || '';
+        const isRequired = requiredColumns.includes(expectedColumn);
+        const isMapped = !!mappedColumn;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <div class="d-flex align-items-center">
+                    <strong>${expectedColumn}</strong>
+                    ${isRequired ? '<span class="badge bg-danger ms-2">Obligatoire</span>' : '<span class="badge bg-secondary ms-2">Optionnel</span>'}
+                </div>
+            </td>
+            <td class="text-center">
+                <i class="bi bi-arrow-right mapping-arrow"></i>
+            </td>
+            <td>
+                <select class="form-select mapping-select" data-expected="${expectedColumn}" ${isMapped ? '' : 'required'}>
+                    <option value="">Sélectionner...</option>
+                    ${currentFileColumns.map(col => {
+                        const isUsedElsewhere = Object.entries(currentMappings).some(([key, value]) =>
+                            value === col && key !== expectedColumn
+                        );
+                        return `<option value="${col}" ${col === mappedColumn ? 'selected' : ''} ${isUsedElsewhere ? 'disabled' : ''}>${col}${isUsedElsewhere ? ' (utilisé)' : ''}</option>`;
+                    }).join('')}
+                </select>
+            </td>
+            <td class="text-center">
+                <div class="mapping-status-icon ${isMapped ? 'status-success' : (isRequired ? 'status-warning' : 'status-danger')}">
+                    <i class="bi bi-${isMapped ? 'check' : (isRequired ? 'exclamation' : 'x')}"></i>
+                </div>
+            </td>
+        `;
+
+        tbody.appendChild(row);
+    });
+
+    // Ajouter les événements aux selects
+    document.querySelectorAll('.mapping-select').forEach(select => {
+        select.addEventListener('change', handleMappingChange);
+    });
+}
+
+function renderAutoMappingSuggestions() {
+    const container = document.getElementById('autoMappingSuggestions');
+    const suggestions = generateAutoMappingSuggestions();
+
+    if (suggestions.length === 0) {
+        container.innerHTML = '<small class="text-muted">Aucune suggestion automatique disponible</small>';
+        return;
+    }
+
+    container.innerHTML = suggestions.map(suggestion => `
+        <div class="d-flex align-items-center justify-content-between p-2 border rounded mb-1">
+            <div>
+                <strong>${suggestion.expected}</strong> → <em>${suggestion.suggested}</em>
+                <small class="text-muted ms-2">(${suggestion.confidence}% de correspondance)</small>
+            </div>
+            <button class="btn btn-sm btn-outline-primary" onclick="applySingleMapping('${suggestion.expected}', '${suggestion.suggested}')">
+                Appliquer
+            </button>
+        </div>
+    `).join('');
+}
+
+function generateAutoMappingSuggestions() {
+    const suggestions = [];
+
+    // Dictionnaire de correspondances communes
+    const commonMappings = {
+        'matricule': ['matricule', 'id', 'employee_id', 'emp_id', 'numero'],
+        'nom': ['nom', 'name', 'lastname', 'family_name'],
+        'prenom': ['prenom', 'firstname', 'first_name', 'given_name'],
+        'salaire_brut': ['salaire_brut', 'gross_salary', 'salaire', 'salary'],
+        'montant_total': ['montant_total', 'total', 'net_pay', 'montant'],
+        'poste': ['poste', 'position', 'job_title', 'fonction']
+    };
+
+    currentExpectedColumns.forEach(expectedColumn => {
+        if (currentMappings[expectedColumn]) return; // Déjà mappé
+
+        const variations = commonMappings[expectedColumn] || [];
+
+        currentFileColumns.forEach(fileColumn => {
+            if (Object.values(currentMappings).includes(fileColumn)) return; // Déjà utilisé
+
+            const confidence = calculateSimilarity(expectedColumn, fileColumn, variations);
+
+            if (confidence > 60) {
+                suggestions.push({
+                    expected: expectedColumn,
+                    suggested: fileColumn,
+                    confidence: confidence
+                });
+            }
+        });
+    });
+
+    return suggestions.sort((a, b) => b.confidence - a.confidence);
+}
+
+function calculateSimilarity(expected, actual, variations) {
+    const expectedLower = expected.toLowerCase();
+    const actualLower = actual.toLowerCase();
+
+    // Correspondance exacte
+    if (expectedLower === actualLower) return 100;
+
+    // Correspondance dans les variations
+    if (variations.includes(actualLower)) return 95;
+
+    // Correspondance partielle
+    if (actualLower.includes(expectedLower) || expectedLower.includes(actualLower)) return 80;
+
+    // Similarité par distance de Levenshtein simplifiée
+    const maxLength = Math.max(expectedLower.length, actualLower.length);
+    const similarity = 1 - (levenshteinDistance(expectedLower, actualLower) / maxLength);
+
+    return Math.round(similarity * 100);
+}
+
+function levenshteinDistance(str1, str2) {
+    const matrix = [];
+
+    for (let i = 0; i <= str2.length; i++) {
+        matrix[i] = [i];
+    }
+
+    for (let j = 0; j <= str1.length; j++) {
+        matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= str2.length; i++) {
+        for (let j = 1; j <= str1.length; j++) {
+            if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1,
+                    matrix[i][j - 1] + 1,
+                    matrix[i - 1][j] + 1
+                );
+            }
+        }
+    }
+
+    return matrix[str2.length][str1.length];
+}
+
+function handleMappingChange(event) {
+    const expectedColumn = event.target.dataset.expected;
+    const selectedColumn = event.target.value;
+
+    // Supprimer l'ancien mapping s'il existe
+    if (currentMappings[expectedColumn]) {
+        delete currentMappings[expectedColumn];
+    }
+
+    // Ajouter le nouveau mapping
+    if (selectedColumn) {
+        currentMappings[expectedColumn] = selectedColumn;
+    }
+
+    // Réactualiser l'interface
+    renderMappingInterface();
+}
+
+function applySingleMapping(expectedColumn, suggestedColumn) {
+    currentMappings[expectedColumn] = suggestedColumn;
+    renderMappingInterface();
+}
+
+function applyAutoMapping() {
+    const suggestions = generateAutoMappingSuggestions();
+
+    suggestions.forEach(suggestion => {
+        if (suggestion.confidence > 80) {
+            currentMappings[suggestion.expected] = suggestion.suggested;
+        }
+    });
+
+    renderMappingInterface();
+}
+
+function resetMappings() {
+    if (confirm('Êtes-vous sûr de vouloir réinitialiser tous les mappings ?')) {
+        currentMappings = {};
+        renderMappingInterface();
+    }
+}
+
+function validateMapping() {
+    const validationWarning = document.getElementById('validationWarning');
+    const validationSuccess = document.getElementById('validationSuccess');
+    const validationMessages = document.getElementById('validationMessages');
+    const saveBtn = document.getElementById('saveMappingBtn');
+
+    const messages = [];
+    let isValid = true;
+
+    // Vérifier les colonnes obligatoires
+    requiredColumns.forEach(column => {
+        if (!currentMappings[column]) {
+            messages.push(`La colonne "${column}" est obligatoire et doit être mappée`);
+            isValid = false;
+        }
+    });
+
+    // Vérifier les doublons
+    const usedColumns = Object.values(currentMappings);
+    const duplicates = usedColumns.filter((col, index) => usedColumns.indexOf(col) !== index);
+
+    if (duplicates.length > 0) {
+        messages.push(`Colonnes utilisées plusieurs fois: ${duplicates.join(', ')}`);
+        isValid = false;
+    }
+
+    if (isValid) {
+        validationWarning.style.display = 'none';
+        validationSuccess.style.display = 'block';
+        saveBtn.disabled = false;
+    } else {
+        validationMessages.innerHTML = messages.map(msg => `<li>${msg}</li>`).join('');
+        validationWarning.style.display = 'block';
+        validationSuccess.style.display = 'none';
+        saveBtn.disabled = true;
+    }
+}
+
+function updateMappedCount() {
+    const mappedCount = Object.keys(currentMappings).length;
+    document.getElementById('mappedCount').textContent = mappedCount;
+}
+
+function saveMappings() {
+    const saveBtn = document.getElementById('saveMappingBtn');
+    const spinner = saveBtn.querySelector('.spinner-border');
+    const text = saveBtn.querySelector('span');
+
+    // Afficher le loading
+    spinner.classList.remove('d-none');
+    text.textContent = 'Sauvegarde...';
+    saveBtn.disabled = true;
+
+    // Récupérer l'ID du fichier depuis l'URL ou une variable globale
+    const fileId = window.currentFileId; // À définir lors de l'ouverture du modal
+
+    fetch(`/uploads/mapping/${fileId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            mappings: currentMappings
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Fermer le modal
+            bootstrap.Modal.getInstance(document.getElementById('mappingModal')).hide();
+
+            // Afficher un message de succès
+            if (typeof showNotification === 'function') {
+                showNotification('Mappings sauvegardés avec succès', 'success');
+            }
+
+            // Recharger la page ou mettre à jour l'interface
+            location.reload();
+        } else {
+            alert('Erreur: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la sauvegarde: ' + error);
+    })
+    .finally(() => {
+        // Masquer le loading
+        spinner.classList.add('d-none');
+        text.textContent = 'Sauvegarder';
+        saveBtn.disabled = false;
+    });
+}
+
+// Fonction pour ouvrir le modal avec un fichier spécifique
+function openMappingModal(fileId) {
+    window.currentFileId = fileId;
+    loadMappingData(fileId);
+    new bootstrap.Modal(document.getElementById('mappingModal')).show();
+}
+</script>

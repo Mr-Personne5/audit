@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    .reconciliation-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem 0;
+        margin-bottom: 2rem;
+    }
+
+    .stats-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .stats-card.success { border-left-color: #28a745; }
+    .stats-card.warning { border-left-color: #ffc107; }
+    .stats-card.danger { border-left-color: #dc3545; }
+    .stats-card.info { border-left-color: #17a2b8; }
+
+    .progress-ring {
+        width: 60px;
+        height: 60px;
+    }
+
+    .match-badge {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .duration-badge {
+        background: #e9ecef;
+        color: #495057;
+        font-size: 0.75rem;
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.25rem;
+    }
+</style>
+{% endblock %}

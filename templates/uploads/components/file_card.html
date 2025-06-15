@@ -1,0 +1,158 @@
+{% load static %}
+
+<div class="list-group-item list-group-item-action {% if compact %}py-2{% else %}py-3{% endif %}">
+    <div class="d-flex align-items-center">
+        <!-- Icône du fichier -->
+        <div class="me-3">
+            <i class="bi bi-file-earmark-{% if fichier.get_file_extension == '.csv' %}text{% elif fichier.get_file_extension in '.xlsx,.xls' %}excel{% else %}binary{% endif %} fs-3 text-{% if fichier.status == 'approved' %}success{% elif fichier.status == 'error' %}danger{% elif fichier.status == 'processed' %}info{% else %}secondary{% endif %}"></i>
+        </div>
+
+        <!-- Informations du fichier -->
+        <div class="flex-grow-1 {% if compact %}me-2{% else %}me-3{% endif %}">
+            <div class="d-flex align-items-start justify-content-between">
+                <div class="flex-grow-1">
+                    <h6 class="mb-1 {% if compact %}small{% endif %}">
+                        <a href="{% url 'uploads:file_detail' fichier.pk %}" class="text-decoration-none">
+                            {{ fichier.nom_fichier }}
+                        </a>
+                    </h6>
+
+                    {% if not compact %}
+                    <p class="text-muted small mb-1">{{ fichier.nom_original }}</p>
+                    {% endif %}
+
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <!-- Type de fichier -->
+                        <span class="badge bg-secondary {% if compact %}badge-sm{% endif %}">
+                            {{ fichier.get_type_fichier_display }}
+                        </span>
+
+                        <!-- Statut -->
+                        <span class="badge {% if compact %}badge-sm{% endif %}
+                                   {% if fichier.status == 'approved' %}bg-success
+                                   {% elif fichier.status == 'processed' %}bg-info
+                                   {% elif fichier.status == 'pending' %}bg-warning
+                                   {% elif fichier.status == 'processing' %}bg-primary
+                                   {% else %}bg-danger{% endif %}">
+                            {{ fichier.get_status_display }}
+                        </span>
+
+                        {% if not compact %}
+                        <!-- Taille -->
+                        <small class="text-muted">
+                            <i class="bi bi-hdd me-1"></i>{{ fichier.get_file_size_mb }} MB
+                        </small>
+
+                        <!-- Nombre de lignes -->
+                        {% if fichier.nb_lignes %}
+                        <small class="text-muted">
+                            <i class="bi bi-list-ol me-1"></i>{{ fichier.nb_lignes }} lignes
+                        </small>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="d-flex align-items-center gap-1">
+                    {% if not compact %}
+                    <!-- Actions complètes -->
+                    <div class="btn-group btn-group-sm">
+                        <a href="{% url 'uploads:file_detail' fichier.pk %}"
+                           class="btn btn-outline-primary"
+                           title="Voir détails">
+                            <i class="bi bi-eye"></i>
+                        </a>
+
+                        {% if fichier.peut_etre_modifie_par:user %}
+                        <button class="btn btn-outline-warning"
+                                onclick="reprocessFile({{ fichier.pk }})"
+                                title="Retraiter">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+
+                        <a href="{% url 'uploads:delete_file' fichier.pk %}"
+                           class="btn btn-outline-danger"
+                           title="Supprimer">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <!-- Actions compactes -->
+                    <a href="{% url 'uploads:file_detail' fichier.pk %}"
+                       class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if not compact %}
+            <!-- Métadonnées supplémentaires -->
+            <div class="d-flex align-items-center justify-content-between mt-2">
+                <div class="d-flex align-items-center gap-3">
+                    <!-- Utilisateur -->
+                    <small class="text-muted">
+                        <i class="bi bi-person me-1"></i>
+                        {{ fichier.utilisateur.get_full_name|default:fichier.utilisateur.username }}
+                    </small>
+
+                    <!-- Mission -->
+                    <small class="text-muted">
+                        <i class="bi bi-briefcase me-1"></i>
+                        {{ fichier.mission.name }}
+                    </small>
+                </div>
+
+                <!-- Date -->
+                <small class="text-muted">
+                    <i class="bi bi-calendar me-1"></i>
+                    {{ fichier.date_import|date:"d/m/Y H:i" }}
+                </small>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if compact %}
+    <!-- Info compacte en bas -->
+    <div class="d-flex justify-content-between align-items-center mt-1">
+        <small class="text-muted">
+            {{ fichier.utilisateur.username }} • {{ fichier.date_import|date:"d/m H:i" }}
+        </small>
+        <small class="text-muted">{{ fichier.get_file_size_mb }} MB</small>
+    </div>
+    {% endif %}
+
+    <!-- Barre de progression pour les fichiers en cours de traitement -->
+    {% if fichier.status == 'processing' %}
+    <div class="mt-2">
+        <div class="progress" style="height: 4px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated"
+                 style="width: 100%"></div>
+        </div>
+        <small class="text-muted">Traitement en cours...</small>
+    </div>
+    {% endif %}
+
+    <!-- Indicateurs d'erreur -->
+    {% if fichier.erreurs_processing %}
+    <div class="mt-2">
+        <small class="text-danger">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            {{ fichier.erreurs_processing|truncatechars:50 }}
+        </small>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.badge-sm {
+    font-size: 0.65em;
+    padding: 0.2em 0.4em;
+}
+.list-group-item-action:hover {
+    background-color: #f8f9fa;
+}
+</style>

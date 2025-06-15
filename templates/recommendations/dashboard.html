@@ -1,0 +1,296 @@
+<!-- recommendations/templates/recommendations/dashboard.html -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Recommandations - AuditIA</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-light">
+    <div class="container-fluid mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="h3">
+                    <i class="bi bi-kanban me-2"></i>
+                    Dashboard Recommandations
+                </h1>
+                <p class="text-muted">Vue d'ensemble de vos recommandations d'audit</p>
+            </div>
+            <div class="col-auto">
+                {% if can_create %}
+                <a href="{% url 'recommendations:create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-lg me-1"></i> Nouvelle Recommandation
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Statistiques principales -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="mb-0">{{ stats_globales.total }}</h4>
+                                <p class="mb-0">Total</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-list-check fs-2"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="mb-0">{{ stats_globales.en_cours }}</h4>
+                                <p class="mb-0">En cours</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-clock fs-2"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="mb-0">{{ stats_globales.terminees }}</h4>
+                                <p class="mb-0">Terminées</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-check-circle fs-2"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-danger text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="mb-0">{{ stats_globales.en_retard }}</h4>
+                                <p class="mb-0">En retard</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-exclamation-triangle fs-2"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Graphiques -->
+            <div class="col-md-8">
+                <div class="row">
+                    <!-- Répartition par statut -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-pie-chart me-1"></i> Répartition par Statut
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="statusChart" height="200"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Répartition par type -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-bar-chart me-1"></i> Répartition par Type
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="typeChart" height="200"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions rapides -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="bi bi-lightning me-1"></i> Actions Rapides
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <a href="{% url 'recommendations:list' %}?statut=assigned" class="btn btn-outline-primary w-100 mb-2">
+                                    <i class="bi bi-person-check me-1"></i> Mes Assignations
+                                </a>
+                            </div>
+                            <div class="col-md-4">
+                                <a href="{% url 'recommendations:list' %}?priorite=critique" class="btn btn-outline-danger w-100 mb-2">
+                                    <i class="bi bi-exclamation-triangle me-1"></i> Critiques
+                                </a>
+                            </div>
+                            <div class="col-md-4">
+                                <a href="{% url 'recommendations:export' %}" class="btn btn-outline-success w-100 mb-2">
+                                    <i class="bi bi-download me-1"></i> Exporter
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-md-4">
+                <!-- Recommandations urgentes -->
+                <div class="card mb-4">
+                    <div class="card-header bg-warning text-white">
+                        <h6 class="mb-0">
+                            <i class="bi bi-alarm me-1"></i> Échéances Proches
+                        </h6>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if recommandations_urgentes %}
+                            {% for reco in recommandations_urgentes %}
+                            <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">
+                                        <a href="{% url 'recommendations:detail' reco.pk %}" class="text-decoration-none">
+                                            {{ reco.code_recommandation }}
+                                        </a>
+                                    </h6>
+                                    <p class="mb-1 small text-muted">{{ reco.titre|truncatechars:50 }}</p>
+                                    <small class="text-muted">
+                                        <i class="bi bi-calendar me-1"></i>
+                                        {{ reco.date_echeance|date:"d/m/Y" }}
+                                    </small>
+                                </div>
+                                <span class="badge bg-{{ reco.get_priorite_color }}">
+                                    {{ reco.get_priorite_display }}
+                                </span>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="p-3 text-center text-muted">
+                                <i class="bi bi-check-circle fs-4"></i>
+                                <p class="mb-0">Aucune échéance proche</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Recommandations récentes -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="bi bi-clock-history me-1"></i> Récentes
+                        </h6>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if recommandations_recentes %}
+                            {% for reco in recommandations_recentes %}
+                            <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">
+                                        <a href="{% url 'recommendations:detail' reco.pk %}" class="text-decoration-none">
+                                            {{ reco.code_recommandation }}
+                                        </a>
+                                    </h6>
+                                    <p class="mb-1 small text-muted">{{ reco.titre|truncatechars:40 }}</p>
+                                    <small class="text-muted">
+                                        {{ reco.date_creation|timesince }} ago
+                                    </small>
+                                </div>
+                                <span class="badge bg-{{ reco.get_statut_color }}">
+                                    {{ reco.get_statut_display }}
+                                </span>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="p-3 text-center text-muted">
+                                <i class="bi bi-inbox fs-4"></i>
+                                <p class="mb-0">Aucune recommandation récente</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Graphique par statut
+        const statusData = {{ repartition_statut|safe }};
+        const statusCtx = document.getElementById('statusChart').getContext('2d');
+        new Chart(statusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: statusData.map(item => item.statut),
+                datasets: [{
+                    data: statusData.map(item => item.count),
+                    backgroundColor: [
+                        '#6c757d', '#ffc107', '#17a2b8', '#007bff',
+                        '#ffc107', '#28a745', '#dc3545', '#dc3545', '#343a40'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Graphique par type
+        const typeData = {{ repartition_type|safe }};
+        const typeCtx = document.getElementById('typeChart').getContext('2d');
+        new Chart(typeCtx, {
+            type: 'bar',
+            data: {
+                labels: typeData.map(item => item.type_recommandation),
+                datasets: [{
+                    label: 'Nombre',
+                    data: typeData.map(item => item.count),
+                    backgroundColor: '#007bff',
+                    borderColor: '#0056b3',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+<!-- templates/uploads/storage_report.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Rapport de stockage{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-0">
+        <i class="bi bi-pie-chart me-2"></i>
+        Rapport de stockage
+      </h1>
+      <p class="text-muted mt-1">Utilisation de l'espace disque</p>
+    </div>
+  </div>
+
+  <!-- Statistiques générales -->
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <div class="card text-center">
+        <div class="card-body">
+          <h3 class="text-primary">{{ total_size_mb }} MB</h3>
+          <p class="card-text">Espace total utilisé</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center">
+        <div class="card-body">
+          <h3 class="text-info">{{ file_count }}</h3>
+          <p class="card-text">Nombre de fichiers</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center">
+        <div class="card-body">
+          <h3 class="text-success">{{ avg_size_mb }} MB</h3>
+          <p class="card-text">Taille moyenne</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Répartitions -->
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Répartition par type</h5>
+        </div>
+        <div class="card-body">
+          {% for type, size in size_by_type.items %}
+          <div class="d-flex justify-content-between mb-2">
+            <span>{{ type }}</span>
+            <span class="fw-bold">{{ size }} MB</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Répartition par utilisateur</h5>
+        </div>
+        <div class="card-body">
+          {% for user, size in size_by_user.items %}
+          <div class="d-flex justify-content-between mb-2">
+            <span>{{ user }}</span>
+            <span class="fw-bold">{{ size }} MB</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

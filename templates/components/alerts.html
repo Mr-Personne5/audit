@@ -1,0 +1,26 @@
+<!-- templates/components/alerts.html -->
+<div id="alert-container" class="container-fluid px-4 pt-3">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show animate-fade-in modern-card"
+                 role="alert" style="border: none; border-left: 4px solid
+                 {% if message.tags == 'error' %}var(--danger-color){% elif message.tags == 'success' %}var(--success-color){% elif message.tags == 'warning' %}var(--warning-color){% else %}var(--info-color){% endif %};">
+                <div class="d-flex align-items-center">
+                    {% if message.tags == 'error' %}
+                        <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+                    {% elif message.tags == 'success' %}
+                        <i class="bi bi-check-circle-fill me-2 fs-5"></i>
+                    {% elif message.tags == 'warning' %}
+                        <i class="bi bi-exclamation-circle-fill me-2 fs-5"></i>
+                    {% else %}
+                        <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+                    {% endif %}
+                    <div class="flex-grow-1">
+                        {{ message }}
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+</div>

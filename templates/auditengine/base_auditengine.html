@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    .auditengine-header {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        color: white;
+        padding: 1.5rem 0;
+        margin-bottom: 2rem;
+    }
+
+    .ai-badge {
+        background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 1rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .anomalie-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+
+    .anomalie-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .anomalie-card.critique { border-left-color: #dc2626; }
+    .anomalie-card.eleve { border-left-color: #ea580c; }
+    .anomalie-card.moyen { border-left-color: #d97706; }
+    .anomalie-card.faible { border-left-color: #65a30d; }
+
+    .score-bar {
+        height: 8px;
+        border-radius: 4px;
+        background: #e5e7eb;
+        overflow: hidden;
+    }
+
+    .score-fill {
+        height: 100%;
+        transition: width 0.3s ease;
+    }
+
+    .score-if { background: linear-gradient(45deg, #3b82f6, #1d4ed8); }
+    .score-mlp { background: linear-gradient(45deg, #10b981, #047857); }
+
+    .type-badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 0.75rem;
+        font-weight: 500;
+    }
+
+    .status-processing {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: .5; }
+    }
+
+    .ia-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .ia-stat-card {
+        background: white;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        text-align: center;
+        transition: transform 0.2s;
+    }
+
+    .ia-stat-card:hover {
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}

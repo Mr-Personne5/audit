@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block title %}Connexion - AuditIA{% endblock %}
+
+{% block login_content %}
+<div class="login-container">
+    <div class="login-card animate-fade-in">
+        <div class="login-header">
+            <div class="login-logo">
+                <i class="bi bi-shield-check text-white fs-1"></i>
+            </div>
+            <h2 class="fw-bold text-dark">AuditIA</h2>
+            <p class="text-muted mb-4">Système d'audit de paie assisté par IA</p>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show animate-fade-in" role="alert">
+                    {% if message.tags == 'error' %}
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    {% elif message.tags == 'success' %}
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                    {% else %}
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                    {% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="post" class="needs-validation" novalidate>
+            {% csrf_token %}
+
+            <div class="mb-4">
+                <label for="username" class="form-label fw-semibold text-dark">Nom d'utilisateur</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0" style="border-radius: 12px 0 0 12px;">
+                        <i class="bi bi-person text-muted"></i>
+                    </span>
+                    <input type="text" class="form-control-modern border-start-0" id="username" name="username" required
+                           placeholder="Entrez votre nom d'utilisateur" style="border-radius: 0 12px 12px 0;">
+                    <div class="invalid-feedback">
+                        Veuillez saisir votre nom d'utilisateur.
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label for="password" class="form-label fw-semibold text-dark">Mot de passe</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0" style="border-radius: 12px 0 0 12px;">
+                        <i class="bi bi-lock text-muted"></i>
+                    </span>
+                    <input type="password" class="form-control-modern border-start-0" id="password" name="password" required
+                           placeholder="Entrez votre mot de passe" style="border-radius: 0 12px 12px 0;">
+                    <div class="invalid-feedback">
+                        Veuillez saisir votre mot de passe.
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="remember" style="border-radius: 6px;">
+                    <label class="form-check-label text-muted" for="remember">
+                        Se souvenir de moi
+                    </label>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary-modern w-100 mb-4" style="height: 50px;">
+                <i class="bi bi-box-arrow-in-right me-2"></i>
+                Se connecter
+            </button>
+
+            <div class="text-center">
+                <a href="#" class="text-decoration-none" style="color: var(--primary-color);"
+                   onclick="showNotification('Fonctionnalité en développement', 'info'); return false;">
+                    Mot de passe oublié ?
+                </a>
+            </div>
+        </form>
+
+        <div class="text-center mt-4 pt-4 border-top">
+            <small class="text-muted">
+                <i class="bi bi-shield-check me-1"></i>
+                Authentification sécurisée
+            </small>
+            <div class="mt-2">
+                <span class="badge" style="background: var(--secondary-color); margin-right: 0.5rem;">
+                    <i class="bi bi-person me-1"></i>Auditeur
+                </span>
+                <span class="badge" style="background: var(--primary-color);">
+                    <i class="bi bi-person-gear me-1"></i>Administrateur
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        'use strict';
+
+        const forms = document.getElementsByClassName('needs-validation');
+        Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    });
+</script>
+{% endblock %}

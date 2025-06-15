@@ -1,0 +1,341 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - AuditIA{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Header avec breadcrumbs -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb breadcrumb-modern">
+                    <li class="breadcrumb-item"><a href="{% url 'accounts:dashboard' %}" class="text-decoration-none">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'accounts:user_list' %}" class="text-decoration-none">Utilisateurs</a></li>
+                    <li class="breadcrumb-item active">{{ title }}</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 fw-bold text-dark mb-1">{{ title }}</h1>
+                    <p class="text-muted mb-0">
+                        {% if user_obj %}
+                            Modification des informations de {{ user_obj.get_full_name }}
+                        {% else %}
+                            Création d'un nouvel utilisateur dans le système
+                        {% endif %}
+                    </p>
+                </div>
+                <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-secondary btn-modern">
+                    <i class="bi bi-arrow-left me-2"></i>Retour à la liste
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-xl-8">
+            <!-- Formulaire principal -->
+            <div class="modern-card animate-fade-in">
+                <div class="card-header bg-white border-0 p-4">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3" style="width: 50px; height: 50px; background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); border-radius: 15px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-person-gear text-white fs-4"></i>
+                        </div>
+                        <div>
+                            <h5 class="fw-bold mb-1">{{ title }}</h5>
+                            <p class="text-muted small mb-0">Remplissez tous les champs obligatoires</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+
+                        <!-- Informations personnelles -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="fw-bold text-dark mb-3">
+                                    <i class="bi bi-person-circle me-2"></i>Informations Personnelles
+                                </h6>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.username.id_for_label }}" class="form-label fw-semibold">
+                                    {{ form.username.label }} <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0" style="border-radius: 12px 0 0 12px;">
+                                        <i class="bi bi-at text-muted"></i>
+                                    </span>
+                                    {{ form.username }}
+                                </div>
+                                {% if form.username.errors %}
+                                    <div class="text-danger small mt-1">{{ form.username.errors.0 }}</div>
+                                {% endif %}
+                                <div class="form-text small">Nom d'utilisateur unique pour la connexion</div>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.email.id_for_label }}" class="form-label fw-semibold">
+                                    {{ form.email.label }} <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0" style="border-radius: 12px 0 0 12px;">
+                                        <i class="bi bi-envelope text-muted"></i>
+                                    </span>
+                                    {{ form.email }}
+                                </div>
+                                {% if form.email.errors %}
+                                    <div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.first_name.id_for_label }}" class="form-label fw-semibold">
+                                    {{ form.first_name.label }} <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0" style="border-radius: 12px 0 0 12px;">
+                                        <i class="bi bi-person text-muted"></i>
+                                    </span>
+                                    {{ form.first_name }}
+                                </div>
+                                {% if form.first_name.errors %}
+                                    <div class="text-danger small mt-1">{{ form.first_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.last_name.id_for_label }}" class="form-label fw-semibold">
+                                    {{ form.last_name.label }} <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0" style="border-radius: 12px 0 0 12px;">
+                                        <i class="bi bi-person text-muted"></i>
+                                    </span>
+                                    {{ form.last_name }}
+                                </div>
+                                {% if form.last_name.errors %}
+                                    <div class="text-danger small mt-1">{{ form.last_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.phone.id_for_label }}" class="form-label fw-semibold">
+                                    {{ form.phone.label }}
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0" style="border-radius: 12px 0 0 12px;">
+                                        <i class="bi bi-telephone text-muted"></i>
+                                    </span>
+                                    {{ form.phone }}
+                                </div>
+                                {% if form.phone.errors %}
+                                    <div class="text-danger small mt-1">{{ form.phone.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Rôle et mission -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="fw-bold text-dark mb-3">
+                                    <i class="bi bi-gear me-2"></i>Rôle et Permissions
+                                </h6>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.role.id_for_label }}" class="form-label fw-semibold">
+                                    {{ form.role.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.role }}
+                                {% if form.role.errors %}
+                                    <div class="text-danger small mt-1">{{ form.role.errors.0 }}</div>
+                                {% endif %}
+                                <div class="form-text small">
+                                    <div class="mt-2">
+                                        <span class="badge me-2" style="background: var(--danger-color);">
+                                            <i class="bi bi-person-gear me-1"></i>Administrateur
+                                        </span>
+                                        <small>Accès complet au système</small>
+                                    </div>
+                                    <div class="mt-1">
+                                        <span class="badge me-2" style="background: var(--primary-color);">
+                                            <i class="bi bi-person me-1"></i>Auditeur
+                                        </span>
+                                        <small>Accès limité à sa mission d'audit</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.mission.id_for_label }}" class="form-label fw-semibold">
+                                    {{ form.mission.label }}
+                                </label>
+                                {{ form.mission }}
+                                {% if form.mission.errors %}
+                                    <div class="text-danger small mt-1">{{ form.mission.errors.0 }}</div>
+                                {% endif %}
+                                <div class="form-text small">Mission à laquelle l'utilisateur sera assigné</div>
+                            </div>
+                        </div>
+
+                        {% if 'is_active' in form.fields %}
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <div class="form-check form-switch">
+                                        {{ form.is_active }}
+                                        <label class="form-check-label fw-semibold" for="{{ form.is_active.id_for_label }}">
+                                            {{ form.is_active.label }}
+                                        </label>
+                                        <div class="form-text small">Les utilisateurs inactifs ne peuvent pas se connecter</div>
+                                    </div>
+                                    {% if form.is_active.errors %}
+                                        <div class="text-danger small mt-1">{{ form.is_active.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        <!-- Mot de passe (création seulement) -->
+                        {% if not user_obj %}
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h6 class="fw-bold text-dark mb-3">
+                                        <i class="bi bi-shield-lock me-2"></i>Sécurité
+                                    </h6>
+                                </div>
+                            </div>
+
+                            <div class="row mb-4">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.password1.id_for_label }}" class="form-label fw-semibold">
+                                        {{ form.password1.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-end-0" style="border-radius: 12px 0 0 12px;">
+                                            <i class="bi bi-lock text-muted"></i>
+                                        </span>
+                                        {{ form.password1 }}
+                                    </div>
+                                    {% if form.password1.errors %}
+                                        <div class="text-danger small mt-1">{{ form.password1.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.password2.id_for_label }}" class="form-label fw-semibold">
+                                        {{ form.password2.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-end-0" style="border-radius: 12px 0 0 12px;">
+                                            <i class="bi bi-lock-fill text-muted"></i>
+                                        </span>
+                                        {{ form.password2 }}
+                                    </div>
+                                    {% if form.password2.errors %}
+                                        <div class="text-danger small mt-1">{{ form.password2.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        <!-- Boutons d'action -->
+                        <div class="d-flex justify-content-between pt-4 border-top">
+                            <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-secondary btn-modern">
+                                <i class="bi bi-arrow-left me-2"></i>Annuler
+                            </a>
+                            <button type="submit" class="btn btn-primary-modern">
+                                <i class="bi bi-check-lg me-2"></i>{{ button_text }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Informations supplémentaires (modification seulement) -->
+            {% if user_obj %}
+                <div class="modern-card animate-fade-in mt-4">
+                    <div class="card-header bg-white border-0 p-4">
+                        <h6 class="fw-bold mb-0">
+                            <i class="bi bi-info-circle me-2"></i>Informations Complémentaires
+                        </h6>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <strong>Créé le :</strong>
+                                    <div class="text-muted">{{ user_obj.date_joined|date:"d/m/Y à H:i" }}</div>
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Dernière modification :</strong>
+                                    <div class="text-muted">{{ user_obj.updated_at|date:"d/m/Y à H:i" }}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <strong>Dernière connexion :</strong>
+                                    <div class="text-muted">
+                                        {% if user_obj.last_login %}
+                                            {{ user_obj.last_login|date:"d/m/Y à H:i" }}
+                                        {% else %}
+                                            Jamais connecté
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Dernière activité :</strong>
+                                    <div class="text-muted">
+                                        {% if user_obj.last_activity %}
+                                            {{ user_obj.last_activity|date:"d/m/Y à H:i" }}
+                                        {% else %}
+                                            Aucune activité
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-top">
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-warning btn-sm btn-modern" onclick="showNotification('Fonctionnalité en développement', 'info')">
+                                    <i class="bi bi-key me-1"></i>Réinitialiser mot de passe
+                                </button>
+                                <button class="btn btn-outline-info btn-sm btn-modern" onclick="showNotification('Fonctionnalité en développement', 'info')">
+                                    <i class="bi bi-clock-history me-1"></i>Voir l'historique
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        'use strict';
+
+        const forms = document.getElementsByClassName('needs-validation');
+        Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    });
+</script>
+{% endblock %}

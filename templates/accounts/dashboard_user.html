@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard Auditeur - AuditIA{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Header avec breadcrumbs -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb breadcrumb-modern">
+                    <li class="breadcrumb-item"><i class="bi bi-house-door me-1"></i>Accueil</li>
+                    <li class="breadcrumb-item active">Dashboard Auditeur</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 fw-bold text-dark mb-1">Bonjour {{ user.get_full_name|default:user.username }} 👋</h1>
+                    {% if user.mission %}
+                        <p class="text-muted mb-0">Mission : <span class="fw-semibold text-primary">{{ user.mission.name }}</span> - {{ user.mission.client }}</p>
+                    {% else %}
+                        <p class="text-warning mb-0"><i class="bi bi-exclamation-triangle me-1"></i>Aucune mission assignée</p>
+                    {% endif %}
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary btn-modern" onclick="location.reload()">
+                        <i class="bi bi-arrow-clockwise me-2"></i>Actualiser
+                    </button>
+                    <button class="btn btn-primary-modern" onclick="showNotification('Démarrage d\'une nouvelle analyse...', 'info')">
+                        <i class="bi bi-play-circle me-2"></i>Nouvelle analyse
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informations mission -->
+    {% if user.mission %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="modern-card animate-fade-in" style="background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); color: white;">
+                    <div class="card-body p-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="me-3" style="width: 50px; height: 50px; background: rgba(255,255,255,0.2); border-radius: 15px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="bi bi-briefcase fs-3"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="fw-bold mb-1">{{ user.mission.name }}</h4>
+                                        <p class="mb-0 opacity-75">{{ user.mission.description|default:"Mission d'audit de paie" }}</p>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <small class="opacity-75">Client</small>
+                                        <div class="fw-semibold">{{ user.mission.client }}</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="opacity-75">Période</small>
+                                        <div class="fw-semibold">
+                                            {{ user.mission.start_date|date:"d/m/Y" }}
+                                            {% if user.mission.end_date %} - {{ user.mission.end_date|date:"d/m/Y" }}{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-md-end">
+                                <div class="badge bg-white text-primary px-3 py-2 rounded-pill">
+                                    <i class="bi bi-check-circle me-1"></i>Mission Active
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Statistiques personnelles -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="modern-card stat-card animate-fade-in">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-semibold mb-1">FICHIERS TRAITÉS</div>
+                        <div class="h2 fw-bold text-dark mb-0">12</div>
+                        <div class="small text-success mt-1">
+                            <i class="bi bi-arrow-up me-1"></i>+3 cette semaine
+                        </div>
+                    </div>
+                    <div class="p-3 rounded-3" style="background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); opacity: 0.1;">
+                        <i class="bi bi-file-earmark-text fs-2" style="color: var(--primary-color);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="modern-card stat-card stat-card-warning animate-fade-in">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-semibold mb-1">ANOMALIES TROUVÉES</div>
+                        <div class="h2 fw-bold text-dark mb-0">45</div>
+                        <div class="small text-danger mt-1">
+                            <i class="bi bi-exclamation-triangle me-1"></i>+8 aujourd'hui
+                        </div>
+                    </div>
+                    <div class="p-3 rounded-3" style="background: linear-gradient(135deg, var(--warning-color), #d97706); opacity: 0.1;">
+                        <i class="bi bi-bug fs-2" style="color: var(--warning-color);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="modern-card stat-card stat-card-success animate-fade-in">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-semibold mb-1">TAUX DE PRÉCISION</div>
+                        <div class="h2 fw-bold text-dark mb-0">91.8%</div>
+                        <div class="small text-success mt-1">
+                            <i class="bi bi-graph-up me-1"></i>Très bon
+                        </div>
+                    </div>
+                    <div class="p-3 rounded-3" style="background: linear-gradient(135deg, var(--success-color), #059669); opacity: 0.1;">
+                        <i class="bi bi-graph-up fs-2" style="color: var(--success-color);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="modern-card stat-card stat-card-info animate-fade-in">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-semibold mb-1">RAPPORTS GÉNÉRÉS</div>
+                        <div class="h2 fw-bold text-dark mb-0">8</div>
+                        <div class="small text-success mt-1">
+                            <i class="bi bi-file-earmark-pdf me-1"></i>+2 cette semaine
+                        </div>
+                    </div>
+                    <div class="p-3 rounded-3" style="background: linear-gradient(135deg, var(--info-color), #2563eb); opacity: 0.1;">
+                        <i class="bi bi-file-earmark-pdf fs-2" style="color: var(--info-color);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenu principal -->
+    <div class="row">
+        <!-- Outils d'audit -->
+        <div class="col-xl-8 mb-4">
+            <div class="modern-card animate-fade-in">
+                <div class="card-header bg-white border-0 p-4">
+                    <h5 class="fw-bold mb-1">Outils d'Audit</h5>
+                    <p class="text-muted small mb-0">Fonctionnalités d'analyse de paie assistée par IA</p>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="d-flex p-4 rounded-3 border border-2 border-primary border-opacity-25 h-100" style="background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); background-opacity: 0.05;">
+                                <div class="me-3">
+                                    <div class="p-3 rounded-3" style="background: var(--primary-color);">
+                                        <i class="bi bi-upload fs-3 text-white"></i>
+                                    </div>
+                                </div>
+                                < ! Mettre les liens de redirection apres developement des modules --->
+                                <div class="flex-grow-1">
+                                    <h6 class="fw-bold mb-2">Chargement de Fichiers</h6>
+                                    <p class="text-muted small mb-3">Importez vos fichiers de paie, grilles salariales et conventions collectives</p>
+                                    <button class="btn btn-primary btn-modern btn-sm" onclick="showNotification('Module en développement', 'info')">
+                                        <i class="bi bi-plus-circle me-1"></i>Importer
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="d-flex p-4 rounded-3 border border-2 border-success border-opacity-25 h-100" style="background: linear-gradient(135deg, var(--success-color), #059669); background-opacity: 0.05;">
+                                <div class="me-3">
+                                    <div class="p-3 rounded-3" style="background: var(--success-color);">
+                                        <i class="bi bi-arrow-left-right fs-3 text-white"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="fw-bold mb-2">Rapprochement</h6>
+                                    <p class="text-muted small mb-3">Comparez les employés payés vs à payer et validez les règles</p>
+                                    <button class="btn btn-success btn-modern btn-sm" onclick="showNotification('Module en développement', 'info')">
+                                        <i class="bi bi-play-circle me-1"></i>Lancer
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="d-flex p-4 rounded-3 border border-2 border-warning border-opacity-25 h-100" style="background: linear-gradient(135deg, var(--warning-color), #d97706); background-opacity: 0.05;">
+                                <div class="me-3">
+                                    <div class="p-3 rounded-3" style="background: var(--warning-color);">
+                                        <i class="bi bi-search fs-3 text-white"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="fw-bold mb-2">Détection IA</h6>
+                                    <p class="text-muted small mb-3">Isolation Forest pour identifier automatiquement les anomalies</p>
+                                    <button class="btn btn-warning btn-modern btn-sm" onclick="showNotification('Analyse IA en cours...', 'warning')">
+                                        <i class="bi bi-cpu me-1"></i>Analyser
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="d-flex p-4 rounded-3 border border-2 border-info border-opacity-25 h-100" style="background: linear-gradient(135deg, var(--info-color), #2563eb); background-opacity: 0.05;">
+                                <div class="me-3">
+                                    <div class="p-3 rounded-3" style="background: var(--info-color);">
+                                        <i class="bi bi-tags fs-3 text-white"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="fw-bold mb-2">Classification MLP</h6>
+                                    <p class="text-muted small mb-3">Classification intelligente des anomalies détectées</p>
+                                    <button class="btn btn-info btn-modern btn-sm" onclick="showNotification('Classification en cours...', 'info')">
+                                        <i class="bi bi-diagram-3 me-1"></i>Classifier
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mon activité récente (auditeur uniquement) -->
+            <div class="modern-card animate-fade-in mt-4">
+                <div class="card-header bg-white border-0 p-4">
+                    <h5 class="fw-bold mb-1">Mon Activité Récente</h5>
+                    <p class="text-muted small mb-0">Vos dernières actions dans la mission</p>
+                </div>
+                <div class="card-body p-4">
+                    {% if my_recent_logs %}
+                        <div class="timeline">
+                            {% for log in my_recent_logs %}
+                            <div class="d-flex mb-4">
+                                <div class="me-3">
+                                    <div class="p-2 rounded-circle" style="background:
+                                    {% if log.action == 'creation' %}var(--success-color)
+                                    {% elif log.action == 'modification' %}var(--warning-color)
+                                    {% elif log.action == 'consultation' %}var(--info-color)
+                                    {% else %}var(--primary-color){% endif %};">
+                                        <i class="bi bi-{% if log.action == 'creation' %}plus-circle{% elif log.action == 'modification' %}pencil-square{% elif log.action == 'consultation' %}eye{% else %}activity{% endif %} text-white"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold mb-1">{{ log.action|capfirst }} - {{ log.feature }}</div>
+                                    {% if log.target %}<div class="text-muted small">{{ log.target }}</div>{% endif %}
+                                    <div class="text-muted small">{{ log.timestamp|date:"d/m/Y H:i" }}</div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-clock-history fs-1 text-muted"></i>
+                            <h6 class="text-muted mt-3">Aucune activité récente</h6>
+                            <p class="text-muted small">Commencez par importer un fichier de paie</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar droite -->
+        <div class="col-xl-4 mb-4">
+            <!-- Actions rapides auditeur -->
+            <div class="modern-card animate-fade-in mb-4">
+                <div class="card-header bg-white border-0 p-4">
+                    <h5 class="fw-bold mb-1">Actions Rapides</h5>
+                    <p class="text-muted small mb-0">Raccourcis d'audit</p>
+                </div>
+                <div class="card-body p-4">
+                    <div class="d-grid gap-3">
+                        <button class="btn btn-primary-modern" onclick="showNotification('Module en développement', 'info')">
+                            <i class="bi bi-upload me-2"></i>Nouveau fichier de paie
+                        </button>
+                        <button class="btn btn-outline-success btn-modern" onclick="showNotification('Analyse complète démarrée', 'success')">
+                            <i class="bi bi-play-circle me-2"></i>Analyse complète
+                        </button>
+                        <button class="btn btn-outline-warning btn-modern" onclick="showNotification('Module en développement', 'info')">
+                            <i class="bi bi-eye me-2"></i>Voir les anomalies
+                        </button>
+                        <button class="btn btn-outline-info btn-modern" onclick="showNotification('Génération du rapport...', 'info')">
+                            <i class="bi bi-file-earmark-pdf me-2"></i>Générer rapport
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progression de la mission -->
+            <div class="modern-card animate-fade-in mb-4">
+                <div class="card-header bg-white border-0 p-4">
+                    <h5 class="fw-bold mb-1">Progression</h5>
+                    <p class="text-muted small mb-0">Avancement de votre audit</p>
+                </div>
+                <div class="card-body p-4">
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="small fw-semibold">Fichiers traités</span>
+                            <span class="small text-muted">12/20</span>
+                        </div>
+                        <div class="progress" style="height: 8px; border-radius: 4px;">
+                            <div class="progress-bar" style="width: 60%; background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); border-radius: 4px;"></div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="small fw-semibold">Anomalies résolues</span>
+                            <span class="small text-muted">35/45</span>
+                        </div>
+                        <div class="progress" style="height: 8px; border-radius: 4px;">
+                            <div class="progress-bar bg-success" style="width: 78%; border-radius: 4px;"></div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="small fw-semibold">Rapport finalisé</span>
+                            <span class="small text-muted">75%</span>
+                        </div>
+                        <div class="progress" style="height: 8px; border-radius: 4px;">
+                            <div class="progress-bar bg-info" style="width: 75%; border-radius: 4px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Équipe de mission (si applicable) -->
+            {% if mission_users %}
+            <div class="modern-card animate-fade-in">
+                <div class="card-header bg-white border-0 p-4">
+                    <h5 class="fw-bold mb-1">Équipe de Mission</h5>
+                    <p class="text-muted small mb-0">Autres auditeurs sur cette mission</p>
+                </div>
+                <div class="card-body p-4">
+                    {% for colleague in mission_users %}
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="me-3" style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--success-color), #059669); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                            <span class="text-white fw-bold small">{{ colleague.first_name|first }}{{ colleague.last_name|first }}</span>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">{{ colleague.get_full_name }}</div>
+                            <small class="text-muted">{{ colleague.get_role_display }}</small>
+                            {% if colleague.last_activity %}
+                                <div><small class="text-success">Actif {{ colleague.last_activity|timesince }}</small></div>
+                            {% endif %}
+                        </div>
+                        <div>
+                            {% if colleague.is_active %}
+                                <span class="badge bg-success">En ligne</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Hors ligne</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

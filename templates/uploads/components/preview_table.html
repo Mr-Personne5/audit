@@ -1,0 +1,714 @@
+{% load static %}
+
+<div class="preview-table-container">
+    <!-- Header du tableau -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="mb-0">
+            <i class="bi bi-table me-2"></i>
+            Prévisualisation des données
+            {% if preview.nb_total_lignes %}
+            <span class="badge bg-info ms-2">{{ preview.nb_total_lignes }} lignes au total</span>
+            {% endif %}
+        </h6>
+
+        <div class="d-flex gap-2">
+            <!-- Contrôles d'affichage -->
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-secondary" onclick="changePreviewSize(5)" title="5 lignes">5</button>
+                <button class="btn btn-outline-secondary active" onclick="changePreviewSize(10)" title="10 lignes">10</button>
+                <button class="btn btn-outline-secondary" onclick="changePreviewSize(20)" title="20 lignes">20</button>
+                <button class="btn btn-outline-secondary" onclick="changePreviewSize(50)" title="50 lignes">50</button>
+            </div>
+
+            <!-- Actions -->
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-primary" onclick="refreshPreview()" title="Actualiser">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+                <button class="btn btn-outline-success" onclick="exportPreview()" title="Exporter">
+                    <i class="bi bi-download"></i>
+                </button>
+                <button class="btn btn-outline-info" onclick="toggleTableOptions()" title="Options">
+                    <i class="bi bi-gear"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Options du tableau (masquées par défaut) -->
+    <div class="card mb-3" id="tableOptions" style="display: none;">
+        <div class="card-body py-2">
+            <div class="row align-items-center">
+                <div class="col-md-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="showRowNumbers" checked>
+                        <label class="form-check-label" for="showRowNumbers">Numéros de ligne</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="highlightEmpty" checked>
+                        <label class="form-check-label" for="highlightEmpty">Surligner vides</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="wrapText">
+                        <label class="form-check-label" for="wrapText">Retour à la ligne</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" id="tableSize">
+                        <option value="sm">Compact</option>
+                        <option value="" selected>Normal</option>
+                        <option value="lg">Large</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading state -->
+    <div id="previewLoading" class="text-center py-4" style="display: none;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Chargement...</span>
+        </div>
+        <p class="mt-2 text-muted">Chargement des données...</p>
+    </div>
+
+    <!-- Tableau principal -->
+    <div class="table-responsive" id="previewTableContainer">
+        <table class="table table-bordered table-hover" id="previewTable">
+            <thead class="table-light sticky-top">
+                <tr>
+                    <th class="row-number-header" style="width: 60px;">#</th>
+                    {% for colonne in preview.colonnes %}
+                    <th class="column-header" data-column="{{ colonne }}">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <span class="column-name">{{ colonne }}</span>
+                            <div class="column-actions">
+                                <button class="btn btn-xs btn-outline-secondary" onclick="sortColumn('{{ colonne }}')" title="Trier">
+                                    <i class="bi bi-sort-alpha-down"></i>
+                                </button>
+                                <button class="btn btn-xs btn-outline-info" onclick="analyzeColumn('{{ colonne }}')" title="Analyser">
+                                    <i class="bi bi-graph-up"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="column-info">
+                            <small class="text-muted column-type" id="type-{{ colonne }}">...</small>
+                        </div>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody id="previewTableBody">
+                {% for ligne in preview.donnees_echantillon %}
+                <tr class="data-row" data-row="{{ forloop.counter0 }}">
+                    <td class="row-number text-muted">{{ forloop.counter }}</td>
+                    {% for colonne in preview.colonnes %}
+                    <td class="data-cell {% if not ligne|dict_get:colonne %}empty-cell{% endif %}"
+                        data-column="{{ colonne }}"
+                        data-value="{{ ligne|dict_get:colonne|default:'' }}">
+                        <div class="cell-content">
+                            {{ ligne|dict_get:colonne|default:"-"|truncatechars:50 }}
+                        </div>
+                        {% if ligne|dict_get:colonne|length > 50 %}
+                        <button class="btn btn-xs btn-outline-secondary show-full-content"
+                                onclick="showFullContent(this)"
+                                title="Voir le contenu complet">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{{ preview.colonnes|length|add:1 }}" class="text-center text-muted py-4">
+                        <i class="bi bi-inbox display-4"></i>
+                        <p class="mt-2">Aucune donnée à afficher</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination pour la prévisualisation -->
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <div class="text-muted small">
+            Affichage de <span id="currentRange">1-{{ preview.donnees_echantillon|length }}</span>
+            sur <span id="totalRows">{{ preview.nb_total_lignes }}</span> lignes
+        </div>
+
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary" onclick="loadPreviousPage()" id="prevBtn" disabled>
+                <i class="bi bi-chevron-left"></i> Précédent
+            </button>
+            <button class="btn btn-outline-secondary" onclick="loadNextPage()" id="nextBtn">
+                Suivant <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistiques rapides -->
+    <div class="row mt-3" id="quickStats">
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body text-center py-2">
+                    <small class="text-muted">Colonnes</small>
+                    <div class="fw-bold">{{ preview.colonnes|length }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body text-center py-2">
+                    <small class="text-muted">Lignes</small>
+                    <div class="fw-bold">{{ preview.nb_total_lignes }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body text-center py-2">
+                    <small class="text-muted">Cellules vides</small>
+                    <div class="fw-bold" id="emptyCellsCount">-</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body text-center py-2">
+                    <small class="text-muted">Complétion</small>
+                    <div class="fw-bold" id="completionRate">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour afficher le contenu complet -->
+<div class="modal fade" id="fullContentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Contenu de la cellule</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <strong>Colonne :</strong> <span id="cellColumn"></span><br>
+                    <strong>Ligne :</strong> <span id="cellRow"></span>
+                </div>
+                <hr>
+                <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                    <pre id="cellContent" class="mb-0"></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                <button type="button" class="btn btn-primary" onclick="copyCellContent()">
+                    <i class="bi bi-clipboard me-1"></i>Copier
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.preview-table-container {
+    max-height: 600px;
+}
+
+.table-responsive {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: white;
+}
+
+.btn-xs {
+    padding: 0.125rem 0.25rem;
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+.column-actions {
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.column-header:hover .column-actions {
+    opacity: 1;
+}
+
+.empty-cell {
+    background-color: #fff3cd !important;
+    position: relative;
+}
+
+.empty-cell::after {
+    content: "vide";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.7rem;
+    color: #856404;
+    font-style: italic;
+}
+
+.data-cell {
+    position: relative;
+    max-width: 200px;
+}
+
+.cell-content {
+    word-wrap: break-word;
+}
+
+.show-full-content {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.data-cell:hover .show-full-content {
+    opacity: 1;
+}
+
+.row-number {
+    background-color: #f8f9fa;
+    font-weight: 500;
+}
+
+.column-info {
+    font-size: 0.7rem;
+    margin-top: 2px;
+}
+
+#quickStats .card {
+    transition: transform 0.2s;
+}
+
+#quickStats .card:hover {
+    transform: translateY(-2px);
+}
+</style>
+
+<script>
+let currentPreviewData = null;
+let currentPage = 0;
+let pageSize = 10;
+let currentFileId = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialiser les événements
+    initializePreviewTable();
+    calculateStats();
+    detectColumnTypes();
+});
+
+function initializePreviewTable() {
+    // Événements pour les options
+    document.getElementById('showRowNumbers').addEventListener('change', toggleRowNumbers);
+    document.getElementById('highlightEmpty').addEventListener('change', toggleEmptyHighlight);
+    document.getElementById('wrapText').addEventListener('change', toggleTextWrap);
+    document.getElementById('tableSize').addEventListener('change', changeTableSize);
+}
+
+function toggleTableOptions() {
+    const options = document.getElementById('tableOptions');
+    options.style.display = options.style.display === 'none' ? 'block' : 'none';
+}
+
+function changePreviewSize(size) {
+    pageSize = size;
+
+    // Mettre à jour les boutons actifs
+    document.querySelectorAll('.btn-group button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+
+    // Recharger les données
+    loadPreviewData(currentFileId, 0, size);
+}
+
+function refreshPreview() {
+    if (currentFileId) {
+        loadPreviewData(currentFileId, currentPage, pageSize);
+    }
+}
+
+function loadPreviewData(fileId, page = 0, size = 10) {
+    currentFileId = fileId;
+    currentPage = page;
+
+    document.getElementById('previewLoading').style.display = 'block';
+    document.getElementById('previewTableContainer').style.opacity = '0.5';
+
+    const offset = page * size;
+    fetch(`/uploads/preview/${fileId}/?nb_lignes=${size}&offset=${offset}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.donnees) {
+                updatePreviewTable(data);
+                updatePagination(data);
+                calculateStats();
+                detectColumnTypes();
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            showError('Erreur lors du chargement des données');
+        })
+        .finally(() => {
+            document.getElementById('previewLoading').style.display = 'none';
+            document.getElementById('previewTableContainer').style.opacity = '1';
+        });
+}
+
+function updatePreviewTable(data) {
+    const tbody = document.getElementById('previewTableBody');
+    tbody.innerHTML = '';
+
+    if (!data.donnees || data.donnees.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="${(data.colonnes?.length || 0) + 1}" class="text-center text-muted py-4">
+                    <i class="bi bi-inbox display-4"></i>
+                    <p class="mt-2">Aucune donnée à afficher</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    data.donnees.forEach((ligne, index) => {
+        const row = document.createElement('tr');
+        row.className = 'data-row';
+        row.setAttribute('data-row', currentPage * pageSize + index);
+
+        // Numéro de ligne
+        const rowNumberCell = document.createElement('td');
+        rowNumberCell.className = 'row-number text-muted';
+        rowNumberCell.textContent = currentPage * pageSize + index + 1;
+        row.appendChild(rowNumberCell);
+
+        // Cellules de données
+        data.colonnes.forEach(colonne => {
+            const cell = document.createElement('td');
+            const value = ligne[colonne] || '';
+            const isEmpty = !value || value.toString().trim() === '';
+
+            cell.className = `data-cell ${isEmpty ? 'empty-cell' : ''}`;
+            cell.setAttribute('data-column', colonne);
+            cell.setAttribute('data-value', value);
+
+            const cellContent = document.createElement('div');
+            cellContent.className = 'cell-content';
+            cellContent.textContent = isEmpty ? '-' : (value.toString().length > 50 ?
+                value.toString().substring(0, 50) + '...' : value.toString());
+
+            cell.appendChild(cellContent);
+
+            // Bouton pour voir le contenu complet si nécessaire
+            if (value && value.toString().length > 50) {
+                const showFullBtn = document.createElement('button');
+                showFullBtn.className = 'btn btn-xs btn-outline-secondary show-full-content';
+                showFullBtn.innerHTML = '<i class="bi bi-eye"></i>';
+                showFullBtn.title = 'Voir le contenu complet';
+                showFullBtn.onclick = () => showFullContent(showFullBtn, value, colonne, currentPage * pageSize + index + 1);
+                cell.appendChild(showFullBtn);
+            }
+
+            row.appendChild(cell);
+        });
+
+        tbody.appendChild(row);
+    });
+
+    // Mettre à jour les en-têtes
+    updateTableHeaders(data.colonnes);
+}
+
+function updateTableHeaders(colonnes) {
+    const thead = document.querySelector('#previewTable thead tr');
+
+    // Supprimer les anciens headers (sauf le premier qui est pour les numéros de ligne)
+    const existingHeaders = thead.querySelectorAll('.column-header');
+    existingHeaders.forEach(header => header.remove());
+
+    // Ajouter les nouveaux headers
+    colonnes.forEach(colonne => {
+        const th = document.createElement('th');
+        th.className = 'column-header';
+        th.setAttribute('data-column', colonne);
+
+        th.innerHTML = `
+            <div class="d-flex align-items-center justify-content-between">
+                <span class="column-name">${colonne}</span>
+                <div class="column-actions">
+                    <button class="btn btn-xs btn-outline-secondary" onclick="sortColumn('${colonne}')" title="Trier">
+                        <i class="bi bi-sort-alpha-down"></i>
+                    </button>
+                    <button class="btn btn-xs btn-outline-info" onclick="analyzeColumn('${colonne}')" title="Analyser">
+                        <i class="bi bi-graph-up"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="column-info">
+                <small class="text-muted column-type" id="type-${colonne}">...</small>
+            </div>
+        `;
+
+        thead.appendChild(th);
+    });
+}
+
+function updatePagination(data) {
+    const currentStart = currentPage * pageSize + 1;
+    const currentEnd = Math.min((currentPage + 1) * pageSize, data.nb_total_lignes);
+
+    document.getElementById('currentRange').textContent = `${currentStart}-${currentEnd}`;
+    document.getElementById('totalRows').textContent = data.nb_total_lignes;
+
+    // Boutons de pagination
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+
+    prevBtn.disabled = currentPage === 0;
+    nextBtn.disabled = currentEnd >= data.nb_total_lignes;
+}
+
+function loadPreviousPage() {
+    if (currentPage > 0) {
+        loadPreviewData(currentFileId, currentPage - 1, pageSize);
+    }
+}
+
+function loadNextPage() {
+    loadPreviewData(currentFileId, currentPage + 1, pageSize);
+}
+
+function calculateStats() {
+    const cells = document.querySelectorAll('.data-cell');
+    const emptyCells = document.querySelectorAll('.empty-cell');
+
+    const totalCells = cells.length;
+    const emptyCount = emptyCells.length;
+    const completionRate = totalCells > 0 ? Math.round(((totalCells - emptyCount) / totalCells) * 100) : 0;
+
+    document.getElementById('emptyCellsCount').textContent = emptyCount;
+    document.getElementById('completionRate').textContent = completionRate + '%';
+}
+
+function detectColumnTypes() {
+    const columnHeaders = document.querySelectorAll('.column-header');
+
+    columnHeaders.forEach(header => {
+        const columnName = header.getAttribute('data-column');
+        const cells = document.querySelectorAll(`[data-column="${columnName}"]`);
+
+        let numericCount = 0;
+        let dateCount = 0;
+        let textCount = 0;
+        let totalNonEmpty = 0;
+
+        cells.forEach(cell => {
+            const value = cell.getAttribute('data-value');
+            if (value && value.trim() !== '') {
+                totalNonEmpty++;
+
+                // Test numérique
+                if (!isNaN(value) && !isNaN(parseFloat(value))) {
+                    numericCount++;
+                }
+                // Test date
+                else if (isValidDate(value)) {
+                    dateCount++;
+                }
+                // Texte
+                else {
+                    textCount++;
+                }
+            }
+        });
+
+        let type = 'Texte';
+        if (totalNonEmpty > 0) {
+            const numericPercent = (numericCount / totalNonEmpty) * 100;
+            const datePercent = (dateCount / totalNonEmpty) * 100;
+
+            if (numericPercent > 80) {
+                type = 'Numérique';
+            } else if (datePercent > 80) {
+                type = 'Date';
+            } else if (numericPercent > 50) {
+                type = 'Mixte (Num.)';
+            }
+        }
+
+        const typeElement = document.getElementById(`type-${columnName}`);
+        if (typeElement) {
+            typeElement.textContent = type;
+            typeElement.className = `text-muted column-type ${getTypeClass(type)}`;
+        }
+    });
+}
+
+function isValidDate(dateString) {
+    // Tests simples pour différents formats de date
+    const datePatterns = [
+        /^\d{4}-\d{2}-\d{2}$/,  // YYYY-MM-DD
+        /^\d{2}\/\d{2}\/\d{4}$/, // DD/MM/YYYY
+        /^\d{2}-\d{2}-\d{4}$/,   // DD-MM-YYYY
+    ];
+
+    return datePatterns.some(pattern => pattern.test(dateString)) && !isNaN(Date.parse(dateString));
+}
+
+function getTypeClass(type) {
+    switch (type) {
+        case 'Numérique': return 'text-success';
+        case 'Date': return 'text-info';
+        case 'Mixte (Num.)': return 'text-warning';
+        default: return 'text-muted';
+    }
+}
+
+function showFullContent(button, value, column, row) {
+    document.getElementById('cellColumn').textContent = column;
+    document.getElementById('cellRow').textContent = row;
+    document.getElementById('cellContent').textContent = value;
+
+    new bootstrap.Modal(document.getElementById('fullContentModal')).show();
+}
+
+function copyCellContent() {
+    const content = document.getElementById('cellContent').textContent;
+    navigator.clipboard.writeText(content).then(() => {
+        showNotification('Contenu copié dans le presse-papiers', 'success');
+    }).catch(err => {
+        console.error('Erreur lors de la copie:', err);
+    });
+}
+
+function sortColumn(columnName) {
+    // Implémentation du tri (simulation)
+    showNotification(`Tri de la colonne "${columnName}" (à implémenter)`, 'info');
+}
+
+function analyzeColumn(columnName) {
+    // Analyse détaillée de la colonne
+    const cells = document.querySelectorAll(`[data-column="${columnName}"]`);
+    const values = Array.from(cells).map(cell => cell.getAttribute('data-value')).filter(v => v);
+
+    const stats = {
+        total: values.length,
+        unique: new Set(values).size,
+        empty: cells.length - values.length,
+        min: Math.min(...values.filter(v => !isNaN(v))),
+        max: Math.max(...values.filter(v => !isNaN(v))),
+        avg: values.filter(v => !isNaN(v)).reduce((a, b) => a + parseFloat(b), 0) / values.filter(v => !isNaN(v)).length
+    };
+
+    alert(`Analyse de "${columnName}":\n` +
+          `- Valeurs totales: ${stats.total}\n` +
+          `- Valeurs uniques: ${stats.unique}\n` +
+          `- Cellules vides: ${stats.empty}\n` +
+          `- Min: ${isNaN(stats.min) ? 'N/A' : stats.min}\n` +
+          `- Max: ${isNaN(stats.max) ? 'N/A' : stats.max}\n` +
+          `- Moyenne: ${isNaN(stats.avg) ? 'N/A' : stats.avg.toFixed(2)}`);
+}
+
+function exportPreview() {
+    if (currentFileId) {
+        // Redirection vers l'export ou ouverture d'un modal d'options d'export
+        const format = prompt('Format d\'export (csv/excel):', 'csv');
+        if (format) {
+            window.location.href = `/uploads/export/${currentFileId}/?format=${format}&page=${currentPage}&size=${pageSize}`;
+        }
+    }
+}
+
+function toggleRowNumbers() {
+    const rowNumbers = document.querySelectorAll('.row-number, .row-number-header');
+    const isChecked = document.getElementById('showRowNumbers').checked;
+
+    rowNumbers.forEach(element => {
+        element.style.display = isChecked ? '' : 'none';
+    });
+}
+
+function toggleEmptyHighlight() {
+    const isChecked = document.getElementById('highlightEmpty').checked;
+    const style = document.createElement('style');
+
+    if (isChecked) {
+        style.textContent = '.empty-cell { background-color: #fff3cd !important; }';
+    } else {
+        style.textContent = '.empty-cell { background-color: inherit !important; }';
+    }
+
+    document.head.appendChild(style);
+}
+
+function toggleTextWrap() {
+    const isChecked = document.getElementById('wrapText').checked;
+    const cells = document.querySelectorAll('.cell-content');
+
+    cells.forEach(cell => {
+        if (isChecked) {
+            cell.style.whiteSpace = 'normal';
+            cell.style.wordWrap = 'break-word';
+        } else {
+            cell.style.whiteSpace = 'nowrap';
+            cell.style.wordWrap = 'normal';
+        }
+    });
+}
+
+function changeTableSize() {
+    const size = document.getElementById('tableSize').value;
+    const table = document.getElementById('previewTable');
+
+    // Supprimer les anciennes classes de taille
+    table.classList.remove('table-sm', 'table-lg');
+
+    // Ajouter la nouvelle classe
+    if (size) {
+        table.classList.add(`table-${size}`);
+    }
+}
+
+function showError(message) {
+    // Afficher une erreur (à adapter selon votre système de notifications)
+    alert(message);
+}
+
+function showNotification(message, type = 'info') {
+    // Afficher une notification (à adapter selon votre système de notifications)
+    console.log(`${type}: ${message}`);
+}
+
+// Fonction d'initialisation pour charger les données initiales
+function initializePreviewTable(fileId, initialData) {
+    currentFileId = fileId;
+    if (initialData) {
+        updatePreviewTable(initialData);
+        calculateStats();
+        detectColumnTypes();
+    }
+}
+</script>

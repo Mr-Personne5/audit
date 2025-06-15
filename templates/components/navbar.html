@@ -1,0 +1,214 @@
+<!-- templates/components/navbar.html -->
+<nav class="navbar navbar-expand-lg modern-navbar">
+    <div class="container-fluid px-4">
+        <!-- Logo et nom -->
+        <a class="navbar-brand-modern d-flex align-items-center" href="{% url 'accounts:dashboard' %}">
+            <div class="login-logo me-3" style="width: 45px; height: 45px;">
+                <i class="bi bi-shield-check text-white fs-4"></i>
+            </div>
+            <div>
+                <div class="fw-bold">AuditIA</div>
+                <small style="font-size: 0.8rem; opacity: 0.9;">Audit de paie IA</small>
+            </div>
+        </a>
+
+        <!-- Toggle mobile -->
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <i class="bi bi-list text-white fs-3"></i>
+        </button>
+
+        <!-- Navigation principale -->
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto navbar-nav-modern">
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+                       href="{% url 'accounts:dashboard' %}">
+                        <i class="bi bi-house-door me-2"></i>Dashboard
+                    </a>
+                </li>
+
+                {% if user.is_authenticated and user.is_admin %}
+                <div class="d-flex gap-2">
+                    <div class="dropdown">
+                        <button class="btn btn-primary-modern dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="bi bi-plus-circle me-2"></i>Créer
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'accounts:user_create' %}">
+                                <i class="bi bi-person-plus me-2"></i>Nouvel utilisateur
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'accounts:mission_create' %}">
+                                <i class="bi bi-briefcase me-2"></i>Nouvelle mission
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-gear me-2"></i>Administration
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                        <li><a class="dropdown-item" href="{% url 'accounts:user_list' %}">
+                            <i class="bi bi-people me-2"></i>Utilisateurs
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'accounts:mission_list' %}">
+                            <i class="bi bi-briefcase me-2"></i>Missions
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'accounts:logs' %}">
+                            <i class="bi bi-clock-history me-2"></i>Logs d'activité
+                        </a></li>
+                    </ul>
+                </li>
+                {% endif %}
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="auditDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-search me-2"></i>Audit
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                        <li><a class="dropdown-item" href="#" onclick="showNotification('Module en développement', 'info')">
+                            <i class="bi bi-upload me-2"></i>Chargement fichiers
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" onclick="showNotification('Module en développement', 'info')">
+                            <i class="bi bi-arrow-left-right me-2"></i>Rapprochement
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" onclick="showNotification('Module en développement', 'info')">
+                            <i class="bi bi-bug me-2"></i>Détection anomalies
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" onclick="showNotification('Module en développement', 'info')">
+                            <i class="bi bi-tags me-2"></i>Classification
+                        </a></li>
+                    </ul>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showNotification('Module en développement', 'info')">
+                        <i class="bi bi-file-earmark-text me-2"></i>Rapports
+                    </a>
+                </li>
+            </ul>
+
+            {% if user.is_superuser or user.role == 'ADMIN' and request.resolver_match.url_name == 'dashboard_admin' %}
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="crudDropdown" role="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-lightning-charge me-2"></i>Actions Rapides
+                </a>
+                <ul class="dropdown-menu dropdown-menu-dark">
+                    <!-- Gestion des Utilisateurs -->
+                    <li><div class="dropdown-header">Gestion Utilisateurs</div></li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'accounts:user_create' %}">
+                            <i class="bi bi-person-plus me-2"></i>Nouvel Utilisateur
+                        </a>
+                    </li>
+
+                    <li>
+                        <a class="dropdown-item" href="{% url 'accounts:user_list' %}">
+                            <i class="bi bi-list-ul me-2"></i>Liste Utilisateurs
+                        </a>
+                    </li>
+
+                    <li><hr class="dropdown-divider"></li>
+
+                    <!-- Gestion des Missions -->
+                    <li><div class="dropdown-header">Gestion Missions</div></li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'accounts:mission_create' %}">
+                            <i class="bi bi-plus-circle me-2"></i>Nouvelle Mission
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'accounts:mission_list' %}">
+                            <i class="bi bi-list-ul me-2"></i>Liste Missions
+                        </a>
+                    </li>
+
+                    <li><hr class="dropdown-divider"></li>
+
+                    <!-- Gestion des Logs -->
+                    <li><div class="dropdown-header">Gestion Logs</div></li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'accounts:logs' %}">
+                            <i class="bi bi-clock-history me-2"></i>Voir les Logs
+                        </a>
+                    </li>
+
+
+                </ul>
+            </li>
+            {% endif %}
+
+            <!-- Actions utilisateur -->
+            <ul class="navbar-nav">
+                <li class="nav-item dropdown">
+                    <a class="nav-link position-relative" href="#" id="notificationsDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-bell fs-5"></i>
+                        <span class="notification-badge">3</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark" style="width: 300px;">
+                        <li class="dropdown-header">Notifications récentes</li>
+                        <li><a class="dropdown-item" href="#">
+                            <div class="d-flex">
+                                <i class="bi bi-info-circle text-info me-2 mt-1"></i>
+                                <div>
+                                    <div class="fw-bold">Nouvelle anomalie détectée</div>
+                                    <small class="text-muted">Il y a 5 minutes</small>
+                                </div>
+                            </div>
+                        </a></li>
+                        <li><a class="dropdown-item" href="#">
+                            <div class="d-flex">
+                                <i class="bi bi-check-circle text-success me-2 mt-1"></i>
+                                <div>
+                                    <div class="fw-bold">Analyse terminée</div>
+                                    <small class="text-muted">Il y a 1 heure</small>
+                                </div>
+                            </div>
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-center" href="#">Voir toutes les notifications</a></li>
+                    </ul>
+                </li>
+
+
+                  <!-- Profil utilisateur -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                        <div class="me-2" style="width: 35px; height: 35px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-person text-white"></i>
+                        </div>
+                        <div class="text-start d-none d-md-block">
+                            <div class="fw-bold" style="font-size: 0.9rem;">{{ user.get_full_name|default:user.username }}</div>
+                            <small style="font-size: 0.75rem; opacity: 0.8;">{{ user.get_role_display }}</small>
+                        </div>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark">
+                        <li class="dropdown-header">
+                            {{ user.get_full_name|default:user.username }}
+                            <br><small class="text-muted">{{ user.email }}</small>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" onclick="showNotification('Fonctionnalité en développement', 'info')">
+                            <i class="bi bi-person-circle me-2"></i>Mon profil
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" onclick="showNotification('Fonctionnalité en développement', 'info')">
+                            <i class="bi bi-gear me-2"></i>Paramètres
+                        </a></li>
+                        {% if user.mission %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li class="dropdown-header">
+                                <i class="bi bi-briefcase me-1"></i>Mission: {{ user.mission.name }}
+                            </li>
+                        {% endif %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="{% url 'accounts:logout' %}">
+                            <i class="bi bi-box-arrow-right me-2"></i>Déconnexion
+                        </a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>

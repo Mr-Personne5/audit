@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuditIA - Détail Anomalie</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        .anomalie-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+
+        .score-card {
+            background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+            border-left: 4px solid #007bff;
+            transition: transform 0.2s;
+        }
+
+        .score-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .anomalie-badge {
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+        }
+
+        .risk-high {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .risk-medium {
+            background-color: #ffc107;
+            color: #212529;
+        }
+
+        .risk-low {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .explanation-card {
+            background: #f8f9fa;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .timeline {
+            position: relative;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 20px;
+            height: 100%;
+            width: 2px;
+            background: #dee2e6;
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-left: 50px;
+            margin-bottom: 1.5rem;
+        }
+
+        .timeline-icon {
+            position: absolute;
+            left: 12px;
+            top: 5px;
+            width: 16px;
+            height: 16px;
+            background: #007bff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.7rem;
+        }
+
+        .data-table {
+            background: white;
+            border-radius: 8px;
+        }
+
+        .chart-container {
+            height: 300px;
+            position: relative;
+        }
+
+        .action-buttons .btn {
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .info-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Header -->
+    <div class="anomalie-header">
+        <div class="container">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-3">
+                    <li class="breadcrumb-item"><a href="#" class="text-white-50"><i class="fas fa-home"></i> Accueil</a></li>
+                    <li class="breadcrumb-item"><a href="#" class="text-white-50">Audit Engine</a></li>
+                    <li class="breadcrumb-item"><a href="#" class="text-white-50">Session #12345</a></li>
+                    <li class="breadcrumb-item active text-white" aria-current="page">Anomalie #A78901</li>
+                </ol>
+            </nav>
+
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="h2 mb-2">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Anomalie #A78901
+                    </h1>
+                    <p class="mb-0 opacity-75">
+                        <i class="fas fa-user me-2"></i>Martin Dubois (Matricule: EMP001234)
+                        <span class="ms-3"><i class="fas fa-calendar me-2"></i>Détectée le 15/12/2024 à 14:32</span>
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <span class="badge anomalie-badge risk-high">
+                        <i class="fas fa-fire me-1"></i>RISQUE ÉLEVÉ
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Résumé de l'anomalie -->
+        <div class="info-section p-4 mb-4">
+            <div class="row">
+                <div class="col-md-8">
+                    <h3 class="h4 mb-3">
+                        <i class="fas fa-info-circle text-primary me-2"></i>
+                        Résumé de l'anomalie
+                    </h3>
+                    <div class="row">
+                        <div class="col-sm-6 mb-3">
+                            <strong>Type d'anomalie:</strong><br>
+                            <span class="badge bg-warning text-dark">Écart salarial suspect</span>
+                        </div>
+                        <div class="col-sm-6 mb-3">
+                            <strong>Statut:</strong><br>
+                            <span class="badge bg-danger">Non traitée</span>
+                        </div>
+                        <div class="col-sm-6 mb-3">
+                            <strong>Salaire attendu:</strong><br>
+                            <span class="fw-bold">3,500.00 €</span>
+                        </div>
+                        <div class="col-sm-6 mb-3">
+                            <strong>Salaire payé:</strong><br>
+                            <span class="fw-bold text-danger">4,850.00 €</span>
+                        </div>
+                        <div class="col-12">
+                            <strong>Écart détecté:</strong><br>
+                            <span class="text-danger fw-bold">+1,350.00 € (+38.6%)</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <h5>Données employé</h5>
+                    <table class="table table-sm">
+                        <tr><td><strong>Nom:</strong></td><td>Martin Dubois</td></tr>
+                        <tr><td><strong>Poste:</strong></td><td>Développeur Senior</td></tr>
+                        <tr><td><strong>Département:</strong></td><td>Informatique</td></tr>
+                        <tr><td><strong>Date embauche:</strong></td><td>15/03/2021</td></tr>
+                        <tr><td><strong>Statut:</strong></td><td>CDI Temps plein</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scores IA -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="info-section p-4">
+                    <h4 class="h5 mb-3">
+                        <i class="fas fa-brain text-info me-2"></i>
+                        Scores des modèles IA
+                    </h4>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="score-card p-3 rounded">
+                                <h6 class="text-muted mb-1">Isolation Forest</h6>
+                                <div class="h3 text-danger mb-0">-0.72</div>
+                                <small class="text-muted">Anomalie détectée</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="score-card p-3 rounded">
+                                <h6 class="text-muted mb-1">Classification MLP</h6>
+                                <div class="h3 text-warning mb-0">0.89</div>
+                                <small class="text-muted">Confiance élevée</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="info-section p-4">
+                    <h4 class="h5 mb-3">
+                        <i class="fas fa-chart-line text-success me-2"></i>
+                        Visualisation des scores
+                    </h4>
+                    <div class="chart-container">
+                        <canvas id="scoresChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Explications IA -->
+        <div class="info-section p-4 mb-4">
+            <h4 class="h5 mb-3">
+                <i class="fas fa-lightbulb text-warning me-2"></i>
+                Explications des modèles IA
+            </h4>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="explanation-card p-3 rounded mb-3">
+                        <h6 class="fw-bold mb-2">
+                            <i class="fas fa-search me-1"></i>
+                            Isolation Forest (Détection)
+                        </h6>
+                        <p class="mb-2">
+                            L'employé présente un écart salarial de +38.6% par rapport à la moyenne des employés
+                            de son profil (poste, ancienneté, département).
+                        </p>
+                        <ul class="list-unstyled mb-0">
+                            <li><i class="fas fa-arrow-right text-danger me-2"></i>Salaire 1.4x supérieur à la médiane</li>
+                            <li><i class="fas fa-arrow-right text-danger me-2"></i>Aucune prime exceptionnelle justifiée</li>
+                            <li><i class="fas fa-arrow-right text-warning me-2"></i>Profil atypique détecté</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="explanation-card p-3 rounded mb-3">
+                        <h6 class="fw-bold mb-2">
+                            <i class="fas fa-tags me-1"></i>
+                            Classification MLP (Typologie)
+                        </h6>
+                        <p class="mb-2">
+                            Le modèle classe cette anomalie comme un "Écart salarial suspect"
+                            avec une confiance de 89%.
+                        </p>
+                        <ul class="list-unstyled mb-0">
+                            <li><i class="fas fa-percentage text-info me-2"></i>89% - Écart salarial</li>
+                            <li><i class="fas fa-percentage text-secondary me-2"></i>8% - Erreur saisie</li>
+                            <li><i class="fas fa-percentage text-secondary me-2"></i>3% - Prime non déclarée</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recommandations automatiques -->
+        <div class="info-section p-4 mb-4">
+            <h4 class="h5 mb-3">
+                <i class="fas fa-robot text-primary me-2"></i>
+                Recommandations automatiques
+            </h4>
+            <div class="alert alert-warning" role="alert">
+                <h6 class="alert-heading">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Action recommandée: Vérification urgente
+                </h6>
+                <p class="mb-2">
+                    Cet écart salarial important nécessite une vérification immédiate.
+                    Voici les actions suggérées par l'IA :
+                </p>
+                <ul class="mb-0">
+                    <li>Vérifier la grille salariale et la classification de l'employé</li>
+                    <li>Contrôler les heures supplémentaires et primes déclarées</li>
+                    <li>Valider avec le manager direct et les RH</li>
+                    <li>Examiner l'historique des modifications de salaire</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Historique des corrections -->
+        <div class="info-section p-4 mb-4">
+            <h4 class="h5 mb-3">
+                <i class="fas fa-history text-secondary me-2"></i>
+                Historique des corrections
+            </h4>
+
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-icon">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title mb-1">
+                                Détection automatique
+                                <small class="text-muted">15/12/2024 14:32</small>
+                            </h6>
+                            <p class="card-text mb-0">
+                                Anomalie détectée par le système IA lors de l'analyse de la session #12345.
+                                Score IF: -0.72, Classification: Écart salarial (89%)
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon bg-info">
+                        <i class="fas fa-eye"></i>
+                    </div>
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title mb-1">
+                                Consultation par Marie Durand
+                                <small class="text-muted">15/12/2024 15:45</small>
+                            </h6>
+                            <p class="card-text mb-0">
+                                L'anomalie a été consultée par Marie Durand (Auditeur Senior).
+                                Statut: En cours d'investigation.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center text-muted mt-3">
+                <i class="fas fa-clock me-2"></i>
+                Aucune correction n'a encore été apportée à cette anomalie
+            </div>
+        </div>
+
+        <!-- Actions disponibles -->
+        <div class="info-section p-4 mb-4">
+            <h4 class="h5 mb-3">
+                <i class="fas fa-tools text-success me-2"></i>
+                Actions disponibles
+            </h4>
+
+            <div class="action-buttons">
+                <button type="button" class="btn btn-success" onclick="window.location.href='corriger_anomalie.html'">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Corriger l'anomalie
+                </button>
+
+                <button type="button" class="btn btn-warning" onclick="markAsFalseAlert()">
+                    <i class="fas fa-times-circle me-2"></i>
+                    Marquer comme fausse alerte
+                </button>
+
+                <button type="button" class="btn btn-info" onclick="assignToUser()">
+                    <i class="fas fa-user-plus me-2"></i>
+                    Assigner à un utilisateur
+                </button>
+
+                <button type="button" class="btn btn-secondary" onclick="exportDetails()">
+                    <i class="fas fa-download me-2"></i>
+                    Exporter les détails
+                </button>
+
+                <button type="button" class="btn btn-outline-primary" onclick="addComment()">
+                    <i class="fas fa-comment me-2"></i>
+                    Ajouter un commentaire
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <button type="button" class="btn btn-outline-secondary" onclick="history.back()">
+                <i class="fas fa-arrow-left me-2"></i>
+                Retour à la session
+            </button>
+
+            <div>
+                <button type="button" class="btn btn-outline-primary me-2">
+                    <i class="fas fa-chevron-left me-1"></i>
+                    Anomalie précédente
+                </button>
+                <button type="button" class="btn btn-outline-primary">
+                    Anomalie suivante
+                    <i class="fas fa-chevron-right ms-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Graphique des scores IA
+        const ctx = document.getElementById('scoresChart').getContext('2d');
+        const scoresChart = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['Score IF', 'Confiance MLP', 'Niveau Risque', 'Écart Salarial', 'Fiabilité'],
+                datasets: [{
+                    label: 'Scores de l\'anomalie',
+                    data: [28, 89, 85, 95, 72], // Scores normalisés sur 100
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(255, 99, 132, 1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    r: {
+                        angleLines: {
+                            display: true
+                        },
+                        suggestedMin: 0,
+                        suggestedMax: 100,
+                        ticks: {
+                            stepSize: 20
+                        }
+                    }
+                }
+            }
+        });
+
+        // Fonctions d'actions
+        function markAsFalseAlert() {
+            if (confirm('Êtes-vous sûr de vouloir marquer cette anomalie comme fausse alerte ?')) {
+                // Logique de marquage comme fausse alerte
+                alert('Anomalie marquée comme fausse alerte');
+            }
+        }
+
+        function assignToUser() {
+            const user = prompt('Nom de l\'utilisateur à assigner :');
+            if (user) {
+                alert(`Anomalie assignée à ${user}`);
+            }
+        }
+
+        function exportDetails() {
+            // Logique d'export
+            alert('Export des détails en cours...');
+        }
+
+        function addComment() {
+            const comment = prompt('Votre commentaire :');
+            if (comment) {
+                // Logique d'ajout de commentaire
+                alert('Commentaire ajouté avec succès');
+            }
+        }
+
+        // Animation d'entrée
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.info-section');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.5s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        });
+    </script>
+</body>
+</html>

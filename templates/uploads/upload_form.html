@@ -1,0 +1,299 @@
+{% extends 'base.html' %}
+{% load static uploads_extras %}
+
+{% block title %}Nouveau fichier{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+  .file-drop-zone {
+    border: 2px dashed #dee2e6;
+    border-radius: .5rem;
+    padding: 3rem;
+    text-align: center;
+    transition: all .3s ease;
+    cursor: pointer;
+  }
+  .file-drop-zone:hover {
+    border-color: #0d6efd;
+    background-color: #f8f9fa;
+  }
+  .file-drop-zone.dragover {
+    border-color: #0d6efd;
+    background-color: #e7f1ff;
+  }
+  .file-preview {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: .5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+
+      <!-- En-tête -->
+      <div class="d-flex align-items-center mb-4">
+        <a href="{% url 'uploads:upload_list' %}" class="btn btn-outline-secondary me-3">
+          <i class="bi bi-arrow-left" aria-hidden="true"></i>
+        </a>
+        <div>
+          <h1 class="h3 mb-0">
+            <i class="bi bi-cloud-upload me-2" aria-hidden="true"></i>
+            Nouveau fichier
+          </h1>
+          <p class="text-muted mt-1">Uploadez un fichier pour votre mission d'audit</p>
+        </div>
+      </div>
+
+      <!-- Formulaire -->
+      <div class="card">
+        <div class="card-body">
+          <form method="post" enctype="multipart/form-data" id="uploadForm" novalidate>
+            {% csrf_token %}
+
+            <!-- Type de fichier -->
+            <div class="mb-4">
+              <label for="{{ form.type_fichier.id_for_label }}" class="form-label fw-medium">
+                <i class="bi bi-tag me-1" aria-hidden="true"></i>
+                {{ form.type_fichier.label }}
+              </label>
+              {{ form.type_fichier }}
+              {% if form.type_fichier.errors %}
+              <div class="invalid-feedback d-block">
+                {{ form.type_fichier.errors.0 }}
+              </div>
+              {% endif %}
+              <div class="form-text">
+                Sélectionnez le type de fichier que vous souhaitez uploader
+              </div>
+            </div>
+
+            <!-- Zone de dépôt -->
+            <div class="mb-4">
+              <label class="form-label fw-medium">
+                <i class="bi bi-file-earmark-arrow-up me-1" aria-hidden="true"></i>
+                Fichier à uploader
+              </label>
+
+              <div id="dropZone"
+                   class="file-drop-zone"
+                   role="button"
+                   aria-label="Glissez-déposez votre fichier ici">
+                <i class="bi bi-cloud-upload display-4 text-muted mb-3" aria-hidden="true"></i>
+                <h5 class="text-muted">Glissez-déposez votre fichier ici</h5>
+                <p class="text-muted mb-3">ou</p>
+                <button type="button"
+                        class="btn btn-outline-primary"
+                        onclick="document.getElementById('{{ form.fichier.id_for_label }}').click()">
+                  <i class="bi bi-folder2-open me-2" aria-hidden="true"></i>
+                  Parcourir les fichiers
+                </button>
+                <div class="mt-2">
+                  <small class="text-muted">
+                    Formats acceptés: CSV, Excel (.xlsx, .xls) | Taille max: 30 MB
+                  </small>
+                </div>
+              </div>
+
+              {# Input file caché, mais accessible via label #}
+              <div class="d-none">
+                <label for="{{ form.fichier.id_for_label }}" class="visually-hidden">
+                  Sélection du fichier
+                </label>
+                {{ form.fichier }}
+              </div>
+              {% if form.fichier.errors %}
+              <div class="invalid-feedback d-block mt-2">
+                {{ form.fichier.errors.0 }}
+              </div>
+              {% endif %}
+
+              <!-- Prévisualisation -->
+              <div id="filePreview" class="file-preview d-none">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-file-earmark-text fs-2 text-primary me-3" aria-hidden="true"></i>
+                  <div class="flex-grow-1">
+                    <div class="fw-medium" id="fileName"></div>
+                    <div class="text-muted small" id="fileInfo"></div>
+                  </div>
+                  <button type="button"
+                          class="btn btn-sm btn-outline-danger"
+                          onclick="clearFile()"
+                          aria-label="Supprimer le fichier sélectionné">
+                    <i class="bi bi-x" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Nom personnalisé -->
+            <div class="mb-4">
+              <label for="{{ form.nom_fichier.id_for_label }}" class="form-label fw-medium">
+                <i class="bi bi-tag me-1" aria-hidden="true"></i>
+                {{ form.nom_fichier.label }}
+              </label>
+              {{ form.nom_fichier }}
+              {% if form.nom_fichier.errors %}
+              <div class="invalid-feedback d-block">
+                {{ form.nom_fichier.errors.0 }}
+              </div>
+              {% endif %}
+              <div class="form-text">
+                Laissez vide pour utiliser le nom du fichier automatiquement
+              </div>
+            </div>
+
+            <!-- Colonnes attendues -->
+            <div class="alert alert-info d-none" id="columnsInfo">
+              <h6><i class="bi bi-info-circle me-2" aria-hidden="true"></i>Colonnes attendues :</h6>
+              <div id="expectedColumns"></div>
+            </div>
+
+            <!-- Boutons -->
+            <div class="d-flex justify-content-between">
+              <a href="{% url 'uploads:upload_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-x-circle me-2" aria-hidden="true"></i>Annuler
+              </a>
+              <button type="submit" class="btn btn-primary" id="submitBtn">
+                <i class="bi bi-cloud-upload me-2" aria-hidden="true"></i>
+                <span class="submit-text">Uploader le fichier</span>
+                <span class="spinner-border spinner-border-sm d-none" role="status">
+                  <span class="visually-hidden">Chargement…</span>
+                </span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Aide -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h6 class="mb-0">
+            <i class="bi bi-question-circle me-2" aria-hidden="true"></i>
+            Aide et conseils
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <h6>Formats acceptés</h6>
+              <ul class="list-unstyled">
+                <li><i class="bi bi-check-circle text-success me-2" aria-hidden="true"></i>CSV (UTF-8, Latin-1)</li>
+                <li><i class="bi bi-check-circle text-success me-2" aria-hidden="true"></i>Excel (.xlsx, .xls)</li>
+              </ul>
+            </div>
+            <div class="col-md-6">
+              <h6>Bonnes pratiques</h6>
+              <ul class="list-unstyled">
+                <li><i class="bi bi-lightbulb text-warning me-2" aria-hidden="true"></i>Vérifiez les noms de colonnes</li>
+                <li><i class="bi bi-lightbulb text-warning me-2" aria-hidden="true"></i>Évitez les caractères spéciaux</li>
+                <li><i class="bi bi-lightbulb text-warning me-2" aria-hidden="true"></i>Assurez-vous des données complètes</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Configuration des colonnes attendues
+  const expectedColumnsConfig = {
+    'paie': ['matricule','nom','prenom','salaire_brut','montant_total'],
+    'liste_personnel': ['matricule','nom','prenom','poste'],
+    'grille': ['poste','niveau','salaire_min','salaire_max'],
+    'convention': ['type_prime','montant','condition'],
+    'procedure': ['regle','description']
+  };
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const fileInput   = document.getElementById('{{ form.fichier.id_for_label }}');
+    const dropZone    = document.getElementById('dropZone');
+    const typeSelect  = document.getElementById('{{ form.type_fichier.id_for_label }}');
+    const submitBtn   = document.getElementById('submitBtn');
+
+    // Afficher colonnes attendues
+    const showExpected = (type) => {
+      const info = document.getElementById('columnsInfo');
+      const box  = document.getElementById('expectedColumns');
+      if (expectedColumnsConfig[type]) {
+        box.innerHTML = expectedColumnsConfig[type]
+          .map(c => `<span class="badge bg-primary me-1 mb-1">${c}</span>`).join('');
+        info.classList.remove('d-none');
+      } else {
+        info.classList.add('d-none');
+      }
+    };
+
+    // Initialisation
+    if (typeSelect.value) showExpected(typeSelect.value);
+    typeSelect.addEventListener('change', () => showExpected(typeSelect.value));
+
+    // Drag & Drop
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+    });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        showPreview(e.dataTransfer.files[0]);
+      }
+    });
+
+    // Changement de fichier manuel
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) {
+        showPreview(fileInput.files[0]);
+      }
+    });
+
+    // Soumission : spinner
+    document.getElementById('uploadForm').addEventListener('submit', () => {
+      submitBtn.querySelector('.spinner-border').classList.remove('d-none');
+      submitBtn.querySelector('.submit-text').textContent = 'Upload en cours…';
+      submitBtn.disabled = true;
+    });
+  });
+
+  function showPreview(file) {
+    const previewEl = document.getElementById('filePreview');
+    const nameEl    = document.getElementById('fileName');
+    const infoEl    = document.getElementById('fileInfo');
+    const nomInput  = document.getElementById('{{ form.nom_fichier.id_for_label }}');
+    const dropZone  = document.getElementById('dropZone');
+
+    nameEl.textContent = file.name;
+    infoEl.textContent = `${(file.size/(1024*1024)).toFixed(2)} MB — ${file.type||'Type inconnu'}`;
+
+    if (!nomInput.value) {
+      nomInput.value = file.name.replace(/\.[^/.]+$/, '');
+    }
+
+    previewEl.classList.remove('d-none');
+    dropZone.classList.add('d-none');
+  }
+
+  function clearFile() {
+    document.getElementById('{{ form.fichier.id_for_label }}').value = '';
+    document.getElementById('filePreview').classList.add('d-none');
+    document.getElementById('dropZone').classList.remove('d-none');
+  }
+</script>
+{% endblock %}

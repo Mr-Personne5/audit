@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Approuver le fichier{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="d-flex align-items-center mb-4">
+                <a href="{% url 'uploads:file_detail' fichier.pk %}" class="btn btn-outline-secondary me-3">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="bi bi-shield-check me-2"></i>
+                        Validation du fichier
+                    </h1>
+                    <p class="text-muted mt-1">Approuver ou rejeter le fichier "{{ fichier.nom_fichier }}"</p>
+                </div>
+            </div>
+
+            <!-- Informations du fichier -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Informations du fichier
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-5">Nom du fichier :</dt>
+                                <dd class="col-sm-7">{{ fichier.nom_fichier }}</dd>
+
+                                <dt class="col-sm-5">Type :</dt>
+                                <dd class="col-sm-7">
+                                    <span class="badge bg-secondary">
+                                        {{ fichier.get_type_fichier_display }}
+                                    </span>
+                                </dd>
+
+                                <dt class="col-sm-5">Taille :</dt>
+                                <dd class="col-sm-7">{{ fichier.get_file_size_mb }} MB</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-5">Lignes :</dt>
+                                <dd class="col-sm-7">{{ fichier.nb_lignes|default:"Non analysé" }}</dd>
+
+                                <dt class="col-sm-5">Utilisateur :</dt>
+                                <dd class="col-sm-7">
+                                    {{ fichier.utilisateur.get_full_name|default:fichier.utilisateur.username }}
+                                </dd>
+
+                                <dt class="col-sm-5">Mission :</dt>
+                                <dd class="col-sm-7">{{ fichier.mission.name }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonnes détectées -->
+            {% if fichier.colonnes_detectees %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-list-columns me-2"></i>
+                        Colonnes détectées
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for colonne in fichier.colonnes_detectees %}
+                        <div class="col-md-4 mb-2">
+                            <span class="badge bg-light text-dark border">
+                                {{ colonne }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Erreurs éventuelles -->
+            {% if fichier.erreurs_processing %}
+            <div class="alert alert-warning">
+                <h6><i class="bi bi-exclamation-triangle me-2"></i>Erreurs détectées :</h6>
+                <p class="mb-0">{{ fichier.erreurs_processing }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Formulaire de validation -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-check-square me-2"></i>
+                        Décision de validation
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <!-- Décision -->
+                        <div class="mb-4">
+                            <div class="form-check form-switch form-check-lg">
+                                {{ form.est_valide }}
+                                <label class="form-check-label fw-medium" for="{{ form.est_valide.id_for_label }}">
+                                    {{ form.est_valide.label }}
+                                </label>
+                            </div>
+                            {% if form.est_valide.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.est_valide.errors.0 }}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Activez ce bouton pour approuver le fichier, ou laissez-le désactivé pour le rejeter.
+                            </div>
+                        </div>
+
+                        <!-- Commentaire -->
+                        <div class="mb-4">
+                            <label for="{{ form.commentaire.id_for_label }}" class="form-label fw-medium">
+                                {{ form.commentaire.label }}
+                            </label>
+                            {{ form.commentaire }}
+                            {% if form.commentaire.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.commentaire.errors.0 }}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Ajoutez un commentaire expliquant votre décision (optionnel).
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'uploads:file_detail' fichier.pk %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle me-2"></i>Annuler
+                            </a>
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle me-2"></i>Valider la décision
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Guide de validation -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        Guide de validation
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-success">✅ Approuver si :</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-check text-success me-2"></i>Toutes les colonnes obligatoires sont présentes</li>
+                                <li><i class="bi bi-check text-success me-2"></i>Les données semblent cohérentes</li>
+                                <li><i class="bi bi-check text-success me-2"></i>Le format est correct</li>
+                                <li><i class="bi bi-check text-success me-2"></i>Aucune erreur majeure détectée</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-danger">❌ Rejeter si :</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-x text-danger me-2"></i>Colonnes manquantes importantes</li>
+                                <li><i class="bi bi-x text-danger me-2"></i>Données incohérentes ou corrompues</li>
+                                <li><i class="bi bi-x text-danger me-2"></i>Format de fichier incorrect</li>
+                                <li><i class="bi bi-x text-danger me-2"></i>Erreurs de traitement critiques</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const switchInput = document.getElementById('{{ form.est_valide.id_for_label }}');
+    const commentaireTextarea = document.getElementById('{{ form.commentaire.id_for_label }}');
+
+    // Fonction pour mettre à jour le placeholder du commentaire
+    function updateCommentairePlaceholder() {
+        if (switchInput.checked) {
+            commentaireTextarea.placeholder = 'Commentaire d\'approbation (optionnel)...';
+            commentaireTextarea.classList.remove('border-danger');
+            commentaireTextarea.classList.add('border-success');
+        } else {
+            commentaireTextarea.placeholder = 'Motif de rejet (recommandé)...';
+            commentaireTextarea.classList.remove('border-success');
+            commentaireTextarea.classList.add('border-warning');
+        }
+    }
+
+    // Initialiser
+    updateCommentairePlaceholder();
+
+    // Écouter les changements
+    switchInput.addEventListener('change', updateCommentairePlaceholder);
+});
+</script>
+{% endblock %}

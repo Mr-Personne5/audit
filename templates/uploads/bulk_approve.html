@@ -1,0 +1,117 @@
+<!-- templates/uploads/bulk_approve.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Approbation en lot{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-0">
+        <i class="bi bi-check2-all me-2"></i>
+        Approbation en lot
+      </h1>
+      <p class="text-muted mt-1">Approuver ou rejeter plusieurs fichiers</p>
+    </div>
+  </div>
+
+  {% if fichiers_pending %}
+  <div class="card">
+    <div class="card-header d-flex justify-content-between">
+      <h5 class="mb-0">Fichiers en attente de validation</h5>
+      <div>
+        <button type="button" class="btn btn-success btn-sm me-2" onclick="bulkAction('approve')">
+          <i class="bi bi-check-lg me-1"></i>Approuver sélectionnés
+        </button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="bulkAction('reject')">
+          <i class="bi bi-x-lg me-1"></i>Rejeter sélectionnés
+        </button>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>
+                <input type="checkbox" id="selectAll" class="form-check-input">
+              </th>
+              <th>Fichier</th>
+              <th>Type</th>
+              <th>Utilisateur</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for fichier in fichiers_pending %}
+            <tr>
+              <td>
+                <input type="checkbox" class="form-check-input file-checkbox" value="{{ fichier.pk }}">
+              </td>
+              <td>{{ fichier.nom_fichier }}</td>
+              <td>{{ fichier.get_type_fichier_display }}</td>
+              <td>{{ fichier.utilisateur.get_full_name|default:fichier.utilisateur.username }}</td>
+              <td>{{ fichier.date_import|date:"d/m/Y H:i" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-body text-center py-5">
+      <i class="bi bi-check-circle display-1 text-success"></i>
+      <h4 class="mt-3">Aucun fichier en attente</h4>
+      <p class="text-muted">Tous les fichiers ont été traités</p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+// Sélection multiple
+document.getElementById('selectAll').addEventListener('change', function() {
+  const checkboxes = document.querySelectorAll('.file-checkbox');
+  checkboxes.forEach(cb => cb.checked = this.checked);
+});
+
+function bulkAction(action) {
+  const selected = Array.from(document.querySelectorAll('.file-checkbox:checked'))
+                       .map(cb => cb.value);
+
+  if (selected.length === 0) {
+    alert('Veuillez sélectionner au moins un fichier');
+    return;
+  }
+
+  const actionText = action === 'approve' ? 'approuver' : 'rejeter';
+  if (!confirm(`Êtes-vous sûr de vouloir ${actionText} ${selected.length} fichier(s) ?`)) {
+    return;
+  }
+
+  fetch('{% url "uploads:bulk_approve" %}', {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': '{{ csrf_token }}',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      file_ids: selected,
+      action: action
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      location.reload();
+    } else {
+      alert('Erreur: ' + data.error);
+    }
+  })
+  .catch(err => alert('Erreur: ' + err));
+}
+</script>
+{% endblock %}

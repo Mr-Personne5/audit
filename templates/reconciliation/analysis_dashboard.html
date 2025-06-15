@@ -1,0 +1,386 @@
+{% extends 'reconciliation/base_reconciliation.html' %}
+{% load static %}
+
+{% block title %}Dashboard d'analyse - Rapprochements{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    .metric-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+    .trend-indicator {
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    .trend-up { color: #28a745; }
+    .trend-down { color: #dc3545; }
+    .trend-stable { color: #6c757d; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="reconciliation-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1><i class="bi bi-graph-up"></i> Dashboard d'analyse</h1>
+                <p class="mb-0">Vue d'ensemble des performances de rapprochement</p>
+            </div>
+            <div class="col-md-6 text-end">
+                {% if request.user.is_admin %}
+                    <div class="btn-group">
+                        <select class="form-select" id="mission-filter" onchange="filterByMission(this.value)">
+                            <option value="">Toutes les missions</option>
+                            {% for mission in missions %}
+                                <option value="{{ mission.id }}"
+                                        {% if current_mission == mission.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ mission.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                {% endif %}
+                <a href="{% url 'reconciliation:session_list' %}" class="btn btn-outline-light">
+                    <i class="bi bi-list-ul"></i> Voir les sessions
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Métriques principales -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card metric-card border-success">
+                <div class="card-body text-center">
+                    <i class="bi bi-check-circle-fill text-success display-4"></i>
+                    <h2 class="text-success mt-2">{{ stats.taux_rapprochement_moyen }}%</h2>
+                    <p class="text-muted mb-0">Taux de rapprochement moyen</p>
+                    <span class="trend-indicator trend-up">
+                        <i class="bi bi-arrow-up"></i> +2.3%
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card metric-card border-primary">
+                <div class="card-body text-center">
+                    <i class="bi bi-files text-primary display-4"></i>
+                    <h2 class="text-primary mt-2">{{ stats.sessions_completed }}</h2>
+                    <p class="text-muted mb-0">Sessions terminées</p>
+                    <span class="trend-indicator trend-up">
+                        <i class="bi bi-arrow-up"></i> +{{ stats.total_sessions|add:"-3" }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card metric-card border-warning">
+                <div class="card-body text-center">
+                    <i class="bi bi-exclamation-triangle-fill text-warning display-4"></i>
+                    <h2 class="text-warning mt-2">{{ stats.total_non_payes }}</h2>
+                    <p class="text-muted mb-0">Employés non payés</p>
+                    <span class="trend-indicator trend-down">
+                        <i class="bi bi-arrow-down"></i> -12
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card metric-card border-danger">
+                <div class="card-body text-center">
+                    <i class="bi bi-shield-exclamation text-danger display-4"></i>
+                    <h2 class="text-danger mt-2">{{ stats.total_non_declares }}</h2>
+                    <p class="text-muted mb-0">Risques de fraude</p>
+                    <span class="trend-indicator trend-stable">
+                        <i class="bi bi-dash"></i> Stable
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Évolution du taux de rapprochement -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-graph-up"></i> Évolution du taux de rapprochement
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="evolutionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top des problèmes -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-exclamation-triangle"></i> Principaux problèmes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="problemsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sessions récentes -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history"></i> Sessions récentes
+                    </h5>
+                    <a href="{% url 'reconciliation:session_list' %}" class="btn btn-outline-primary btn-sm">
+                        Voir toutes <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Session</th>
+                                    <th>Mission</th>
+                                    <th>Date</th>
+                                    <th>Durée</th>
+                                    <th>Taux</th>
+                                    <th>Problèmes</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for session in sessions_recentes %}
+                                <tr>
+                                    <td>
+                                        <div>
+                                            <strong>{{ session.nom_session }}</strong>
+                                            <br><small class="text-muted">{{ session.description|truncatechars:30 }}</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ session.mission.name }}</span>
+                                    </td>
+                                    <td>
+                                        <small>{{ session.date_completion|date:"d/m/Y H:i" }}</small>
+                                    </td>
+                                    <td>
+                                        {% if session.date_completion and session.date_traitement %}
+                                            <span class="duration-badge">
+                                                {{ session.date_completion|timeuntil:session.date_traitement }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress flex-grow-1 me-2" style="height: 8px;">
+                                                <div class="progress-bar
+                                                    {% if session.get_taux_rapprochement >= 90 %}bg-success
+                                                    {% elif session.get_taux_rapprochement >= 70 %}bg-warning
+                                                    {% else %}bg-danger{% endif %}"
+                                                     style="width: {{ session.get_taux_rapprochement }}%"></div>
+                                            </div>
+                                            <small class="text-nowrap">{{ session.get_taux_rapprochement }}%</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="small">
+                                            {% if session.nb_non_payes %}
+                                                <span class="badge bg-danger me-1">{{ session.nb_non_payes }} NP</span>
+                                            {% endif %}
+                                            {% if session.nb_non_declares %}
+                                                <span class="badge bg-warning me-1">{{ session.nb_non_declares }} ND</span>
+                                            {% endif %}
+                                            {% if session.nb_doublons %}
+                                                <span class="badge bg-info me-1">{{ session.nb_doublons }} D</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'reconciliation:session_detail' session.pk %}"
+                                               class="btn btn-outline-primary" title="Voir détails">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <a href="{% url 'reconciliation:detailed_analysis' session.pk %}"
+                                               class="btn btn-outline-info" title="Analyse détaillée">
+                                                <i class="bi bi-graph-up"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">
+                                        <i class="bi bi-inbox display-4 text-muted"></i>
+                                        <h5 class="text-muted mt-3">Aucune session trouvée</h5>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques détaillées -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-bar-chart"></i> Répartition des matches</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <h4 class="text-success">{{ stats.total_matches_parfaits }}</h4>
+                            <small class="text-muted">Parfaits</small>
+                        </div>
+                        <div class="col-4">
+                            <h4 class="text-warning">{{ stats.total_employes_rh|add:stats.total_matches_parfaits|sub }}</h4>
+                            <small class="text-muted">Partiels</small>
+                        </div>
+                        <div class="col-4">
+                            <h4 class="text-danger">{{ stats.total_non_payes }}</h4>
+                            <small class="text-muted">Échecs</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-people"></i> Volume de données</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <h4 class="text-primary">{{ stats.total_employes_rh }}</h4>
+                            <small class="text-muted">Employés RH</small>
+                        </div>
+                        <div class="col-4">
+                            <h4 class="text-info">{{ stats.total_employes_payes }}</h4>
+                            <small class="text-muted">Employés payés</small>
+                        </div>
+                        <div class="col-4">
+                            <h4 class="text-secondary">{{ stats.total_sessions }}</h4>
+                            <small class="text-muted">Sessions</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Graphique d'évolution
+    const evolutionCtx = document.getElementById('evolutionChart').getContext('2d');
+    const evolutionData = {{ evolution_data|safe }};
+
+    new Chart(evolutionCtx, {
+        type: 'line',
+        data: {
+            labels: evolutionData.map(d => d.date),
+            datasets: [{
+                label: 'Taux de rapprochement (%)',
+                data: evolutionData.map(d => d.taux),
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Graphique des problèmes
+    const problemsCtx = document.getElementById('problemsChart').getContext('2d');
+    const problemsData = {{ problemes_data|safe }};
+
+    new Chart(problemsCtx, {
+        type: 'doughnut',
+        data: {
+            labels: problemsData.map(d => d.type),
+            datasets: [{
+                data: problemsData.map(d => d.count),
+                backgroundColor: [
+                    '#dc3545',
+                    '#17a2b8',
+                    '#ffc107'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+});
+
+function filterByMission(missionId) {
+    const url = new URL(window.location);
+    if (missionId) {
+        url.searchParams.set('mission', missionId);
+    } else {
+        url.searchParams.delete('mission');
+    }
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,511 @@
+<!-- recommendations/templates/recommendations/recommandation_detail.html - VERSION COMPLETE -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ recommandation.titre }} - AuditIA</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-light">
+    <div class="container-fluid mt-4">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'recommendations:dashboard' %}">Recommandations</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'recommendations:list' %}">Liste</a></li>
+                <li class="breadcrumb-item active">{{ recommandation.code_recommandation }}</li>
+            </ol>
+        </nav>
+
+        <!-- Header avec actions -->
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="h3">{{ recommandation.code_recommandation }}</h1>
+                <h2 class="h5 text-muted">{{ recommandation.titre }}</h2>
+            </div>
+            <div class="col-auto">
+                <div class="btn-group" role="group">
+                    {% if can_edit %}
+                    <a href="{% url 'recommendations:edit' recommandation.pk %}" class="btn btn-outline-primary">
+                        <i class="bi bi-pencil me-1"></i> Modifier
+                    </a>
+                    {% endif %}
+
+                    {% if can_assign %}
+                    <a href="{% url 'recommendations:assign' recommandation.pk %}" class="btn btn-outline-success">
+                        <i class="bi bi-person-plus me-1"></i> Assigner
+                    </a>
+                    {% endif %}
+
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="bi bi-three-dots me-1"></i> Plus
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="window.print()">
+                                <i class="bi bi-printer me-1"></i> Imprimer
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'recommendations:action_create' recommandation.pk %}">
+                                <i class="bi bi-plus-circle me-1"></i> Ajouter Action
+                            </a></li>
+                            {% if can_edit and recommandation.statut in 'draft,rejected,cancelled' %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="{% url 'recommendations:delete' recommandation.pk %}">
+                                <i class="bi bi-trash me-1"></i> Supprimer
+                            </a></li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Contenu principal -->
+            <div class="col-md-8">
+                <!-- Détails de la recommandation -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-file-text me-1"></i> Description
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p>{{ recommandation.description|linebreaks }}</p>
+
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <h6>Informations générales</h6>
+                                <table class="table table-sm">
+                                    <tr>
+                                        <td><strong>Type :</strong></td>
+                                        <td>{{ recommandation.get_type_recommandation_display }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Source :</strong></td>
+                                        <td>{{ recommandation.get_source_display }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Impact estimé :</strong></td>
+                                        <td>{{ recommandation.get_impact_estime_display }}</td>
+                                    </tr>
+                                    {% if recommandation.duree_estimee_jours %}
+                                    <tr>
+                                        <td><strong>Durée estimée :</strong></td>
+                                        <td>{{ recommandation.duree_estimee_jours }} jour(s)</td>
+                                    </tr>
+                                    {% endif %}
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Planification</h6>
+                                <table class="table table-sm">
+                                    {% if recommandation.date_debut_prevue %}
+                                    <tr>
+                                        <td><strong>Début prévu :</strong></td>
+                                        <td>{{ recommandation.date_debut_prevue|date:"d/m/Y" }}</td>
+                                    </tr>
+                                    {% endif %}
+                                    {% if recommandation.date_echeance %}
+                                    <tr>
+                                        <td><strong>Échéance :</strong></td>
+                                        <td>
+                                            {{ recommandation.date_echeance|date:"d/m/Y" }}
+                                            {% if recommandation.is_overdue %}
+                                                <span class="badge bg-danger ms-1">En retard</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    {% if recommandation.get_jours_restants %}
+                                    <tr>
+                                        <td><strong>Jours restants :</strong></td>
+                                        <td>
+                                            {% with jours=recommandation.get_jours_restants %}
+                                                {% if jours < 0 %}
+                                                    <span class="text-danger">{{ jours|floatformat:"0" }} (en retard)</span>
+                                                {% elif jours < 7 %}
+                                                    <span class="text-warning">{{ jours }}</span>
+                                                {% else %}
+                                                    {{ jours }}
+                                                {% endif %}
+                                            {% endwith %}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Plan d'action -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-list-check me-1"></i> Plan d'Action
+                        </h5>
+                        {% if can_edit %}
+                        <a href="{% url 'recommendations:action_create' recommandation.pk %}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-plus me-1"></i> Ajouter Action
+                        </a>
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        {% if actions %}
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Action</th>
+                                            <th>Responsable</th>
+                                            <th>Échéance</th>
+                                            <th>Progression</th>
+                                            <th>Statut</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for action in actions %}
+                                        <tr>
+                                            <td>
+                                                <h6 class="mb-1">{{ action.nom_action }}</h6>
+                                                <small class="text-muted">{{ action.description_action|truncatechars:100 }}</small>
+                                            </td>
+                                            <td>
+                                                {% if action.responsable %}
+                                                    {{ action.responsable.get_full_name }}
+                                                {% else %}
+                                                    <span class="text-muted">Non assigné</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if action.date_fin_prevue %}
+                                                    {{ action.date_fin_prevue|date:"d/m/Y" }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar" role="progressbar"
+                                                         style="width: {{ action.pourcentage_completion }}%"
+                                                         aria-valuenow="{{ action.pourcentage_completion }}"
+                                                         aria-valuemin="0" aria-valuemax="100">
+                                                        {{ action.pourcentage_completion }}%
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-{% if action.statut == 'terminee' %}success{% elif action.statut == 'en_cours' %}warning{% elif action.statut == 'bloquee' %}danger{% else %}secondary{% endif %}">
+                                                    {{ action.get_statut_display }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center text-muted py-4">
+                                <i class="bi bi-clipboard fs-1"></i>
+                                <p class="mt-2">Aucune action définie</p>
+                                {% if can_edit %}
+                                <a href="{% url 'recommendations:action_create' recommandation.pk %}" class="btn btn-primary">
+                                    <i class="bi bi-plus me-1"></i> Créer la première action
+                                </a>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Historique des suivis -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-clock-history me-1"></i> Historique
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if suivis %}
+                            <div class="timeline">
+                                {% for suivi in suivis %}
+                                <div class="timeline-item">
+                                    <div class="timeline-marker bg-{% if suivi.type_evenement == 'creation' %}success{% elif suivi.type_evenement == 'validation' %}primary{% elif suivi.type_evenement == 'rejet' %}danger{% else %}secondary{% endif %}"></div>
+                                    <div class="timeline-content">
+                                        <h6 class="mb-1">{{ suivi.get_type_evenement_display }}</h6>
+                                        <p class="mb-1">{{ suivi.description }}</p>
+                                        {% if suivi.commentaire_utilisateur %}
+                                        <blockquote class="blockquote-sm">
+                                            <p class="mb-0 small fst-italic">"{{ suivi.commentaire_utilisateur }}"</p>
+                                        </blockquote>
+                                        {% endif %}
+                                        <small class="text-muted">
+                                            {% if suivi.utilisateur %}
+                                                {{ suivi.utilisateur.get_full_name }}
+                                            {% else %}
+                                                Système
+                                            {% endif %}
+                                            • {{ suivi.date_evenement|date:"d/m/Y H:i" }}
+                                        </small>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center text-muted py-4">
+                                <i class="bi bi-clock fs-1"></i>
+                                <p class="mt-2">Aucun historique disponible</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-md-4">
+                <!-- Statut et actions -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="bi bi-gear me-1"></i> Statut et Actions
+                        </h6>
+                    </div>
+                    <div class="card-body text-center">
+                        <!-- Statut actuel -->
+                        <div class="mb-3">
+                            <span class="badge bg-{{ recommandation.get_statut_color }} fs-6">
+                                {{ recommandation.get_statut_display }}
+                            </span>
+                        </div>
+
+                        <!-- Priorité -->
+                        <div class="mb-3">
+                            <span class="badge bg-{{ recommandation.get_priorite_color }} fs-6">
+                                {{ recommandation.get_priorite_display }}
+                            </span>
+                        </div>
+
+                        <!-- Avancement global -->
+                        <div class="mb-3">
+                            <h6>Avancement Global</h6>
+                            <div class="progress mb-2" style="height: 25px;">
+                                <div class="progress-bar" role="progressbar"
+                                     style="width: {{ recommandation.pourcentage_avancement }}%">
+                                    {{ recommandation.pourcentage_avancement }}%
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions de changement de statut -->
+                        {% if can_validate and recommandation.statut == 'pending' %}
+                        <div class="d-grid gap-2 mb-2">
+                            <button class="btn btn-success btn-sm" onclick="changeStatus('approved')">
+                                <i class="bi bi-check-lg me-1"></i> Approuver
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="changeStatus('rejected')">
+                                <i class="bi bi-x-lg me-1"></i> Rejeter
+                            </button>
+                        </div>
+                        {% endif %}
+
+                        {% if can_close and recommandation.statut == 'in_progress' %}
+                        <div class="d-grid gap-2 mb-2">
+                            <button class="btn btn-success btn-sm" onclick="changeStatus('completed')">
+                                <i class="bi bi-check-circle me-1"></i> Marquer Terminée
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Informations -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="bi bi-info-circle me-1"></i> Informations
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm">
+                            <tr>
+                                <td><strong>Créé par :</strong></td>
+                                <td>
+                                    {% if recommandation.cree_par %}
+                                        {{ recommandation.cree_par.get_full_name }}
+                                    {% else %}
+                                        <span class="text-muted">Système</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Date :</strong></td>
+                                <td>{{ recommandation.date_creation|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            {% if recommandation.assigne_a %}
+                            <tr>
+                                <td><strong>Assigné à :</strong></td>
+                                <td>{{ recommandation.assigne_a.get_full_name }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if recommandation.date_assignation %}
+                            <tr>
+                                <td><strong>Assigné le :</strong></td>
+                                <td>{{ recommandation.date_assignation|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            {% endif %}
+                            <tr>
+                                <td><strong>Modifié le :</strong></td>
+                                <td>{{ recommandation.date_modification|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Liens contextuels -->
+                {% if recommandation.anomalie_liee or recommandation.session_audit_liee %}
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="bi bi-link me-1"></i> Liens Contextuels
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        {% if recommandation.anomalie_liee %}
+                        <div class="mb-2">
+                            <strong>Anomalie liée :</strong><br>
+                            <a href="#" class="text-decoration-none">
+                                Anomalie #{{ recommandation.anomalie_liee.id }}
+                            </a>
+                        </div>
+                        {% endif %}
+
+                        {% if recommandation.session_audit_liee %}
+                        <div class="mb-2">
+                            <strong>Session d'audit :</strong><br>
+                            <a href="#" class="text-decoration-none">
+                                {{ recommandation.session_audit_liee.nom_session }}
+                            </a>
+                        </div>
+                        {% endif %}
+
+                        {% if recommandation.session_rapprochement_liee %}
+                        <div class="mb-2">
+                            <strong>Session de rapprochement :</strong><br>
+                            <a href="#" class="text-decoration-none">
+                                {{ recommandation.session_rapprochement_liee.nom_session }}
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pour changer de statut -->
+    <div class="modal fade" id="changeStatusModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Changer le Statut</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="statusForm">
+                        {% csrf_token %}
+                        <input type="hidden" id="newStatus" name="statut">
+                        <div class="mb-3">
+                            <label for="statusComment" class="form-label">Commentaire (optionnel)</label>
+                            <textarea class="form-control" id="statusComment" name="commentaire" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="submitStatusChange()">Confirmer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- CSS custom pour la timeline -->
+    <style>
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #dee2e6;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .timeline-marker {
+            position: absolute;
+            left: -22px;
+            top: 0;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+        }
+
+        .timeline-content {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid #dee2e6;
+        }
+    </style>
+
+    <script>
+        function changeStatus(newStatus) {
+            document.getElementById('newStatus').value = newStatus;
+            const modal = new bootstrap.Modal(document.getElementById('changeStatusModal'));
+            modal.show();
+        }
+
+        function submitStatusChange() {
+            const form = document.getElementById('statusForm');
+            const formData = new FormData(form);
+
+            fetch('{% url "recommendations:change_status" recommandation.pk %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Erreur: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                alert('Une erreur est survenue');
+            });
+        }
+    </script>
+</body>
+</html>

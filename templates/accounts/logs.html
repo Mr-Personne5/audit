@@ -1,0 +1,491 @@
+{% extends 'base.html' %}
+
+{% block title %}Logs d'Activité - AuditIA{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Header avec breadcrumbs -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb breadcrumb-modern">
+                    <li class="breadcrumb-item"><a href="{% url 'accounts:dashboard' %}" class="text-decoration-none">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Logs d'Activité</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 fw-bold text-dark mb-1">Logs d'Activité</h1>
+                    <p class="text-muted mb-0">Traçabilité complète des actions dans le système</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary btn-modern" onclick="location.reload()">
+                        <i class="bi bi-arrow-clockwise me-2"></i>Actualiser
+                    </button>
+                    <button class="btn btn-outline-success btn-modern" onclick="exportLogs()">
+                        <i class="bi bi-download me-2"></i>Exporter
+                    </button>
+                    <button class="btn btn-outline-info btn-modern" onclick="toggleAutoRefresh()">
+                        <i class="bi bi-arrow-repeat me-2" id="autoRefreshIcon"></i>
+                        <span id="autoRefreshText">Auto-refresh</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques rapides -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="modern-card stat-card animate-fade-in">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-semibold mb-1">TOTAL LOGS</div>
+                        <div class="h4 fw-bold text-dark mb-0">{{ page_obj.paginator.count }}</div>
+                    </div>
+                    <div class="p-2 rounded-3" style="background: var(--primary-color); opacity: 0.1;">
+                        <i class="bi bi-list-ul fs-4" style="color: var(--primary-color);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="modern-card stat-card stat-card-success animate-fade-in">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-semibold mb-1">AUJOURD'HUI</div>
+                        <div class="h4 fw-bold text-dark mb-0">156</div>
+                        <div class="small text-success mt-1">
+                            <i class="bi bi-arrow-up me-1"></i>+23%
+                        </div>
+                    </div>
+                    <div class="p-2 rounded-3" style="background: var(--success-color); opacity: 0.1;">
+                        <i class="bi bi-calendar-day fs-4" style="color: var(--success-color);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="modern-card stat-card stat-card-danger animate-fade-in">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-semibold mb-1">ERREURS</div>
+                        <div class="h4 fw-bold text-dark mb-0">3</div>
+                        <div class="small text-danger mt-1">
+                            <i class="bi bi-exclamation-triangle me-1"></i>À vérifier
+                        </div>
+                    </div>
+                    <div class="p-2 rounded-3" style="background: var(--danger-color); opacity: 0.1;">
+                        <i class="bi bi-exclamation-triangle fs-4" style="color: var(--danger-color);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="modern-card stat-card stat-card-info animate-fade-in">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-semibold mb-1">UTILISATEURS ACTIFS</div>
+                        <div class="h4 fw-bold text-dark mb-0">12</div>
+                        <div class="small text-info mt-1">
+                            <i class="bi bi-people me-1"></i>Dernières 24h
+                        </div>
+                    </div>
+                    <div class="p-2 rounded-3" style="background: var(--info-color); opacity: 0.1;">
+                        <i class="bi bi-person-check fs-4" style="color: var(--info-color);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres avancés -->
+    <div class="modern-card mb-4 animate-fade-in">
+        <div class="card-header bg-white border-0 p-4">
+            <h6 class="fw-bold mb-0">
+                <i class="bi bi-funnel me-2"></i>Filtres de recherche
+            </h6>
+        </div>
+        <div class="card-body p-4">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label for="user" class="form-label fw-semibold">Utilisateur</label>
+                    <select name="user" id="user" class="form-select form-control-modern">
+                        <option value="">Tous les utilisateurs</option>
+                        {% for user_obj in users_list %}
+                            <option value="{{ user_obj.id }}" {% if user_filter == user_obj.id|stringformat:"s" %}selected{% endif %}>
+                                {{ user_obj.get_full_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label for="action" class="form-label fw-semibold">Action</label>
+                    <select name="action" id="action" class="form-select form-control-modern">
+                        <option value="">Toutes les actions</option>
+                        <option value="creation" {% if action_filter == 'creation' %}selected{% endif %}>Création</option>
+                        <option value="modification" {% if action_filter == 'modification' %}selected{% endif %}>Modification</option>
+                        <option value="suppression" {% if action_filter == 'suppression' %}selected{% endif %}>Suppression</option>
+                        <option value="consultation" {% if action_filter == 'consultation' %}selected{% endif %}>Consultation</option>
+                        <option value="connexion" {% if action_filter == 'connexion' %}selected{% endif %}>Connexion</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label for="date_from" class="form-label fw-semibold">Du</label>
+                    <input type="date" name="date_from" id="date_from" class="form-control-modern"
+                           value="{{ request.GET.date_from }}">
+                </div>
+
+                <div class="col-md-2">
+                    <label for="date_to" class="form-label fw-semibold">Au</label>
+                    <input type="date" name="date_to" id="date_to" class="form-control-modern"
+                           value="{{ request.GET.date_to }}">
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">&nbsp;</label>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary-modern">
+                            <i class="bi bi-search"></i>
+                        </button>
+                        <a href="{% url 'accounts:logs' %}" class="btn btn-outline-secondary btn-modern">
+                            <i class="bi bi-x"></i>
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Table des logs -->
+    <div class="modern-card modern-table animate-fade-in">
+        <div class="card-header bg-white border-0 p-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold mb-0">
+                    <i class="bi bi-clock-history me-2"></i>Journal d'activité
+                    <span class="badge bg-success ms-2">Live</span>
+                </h6>
+                <div class="text-muted small">
+                    Mise à jour automatique toutes les 30 secondes
+                </div>
+            </div>
+        </div>
+
+        {% if page_obj %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="fw-semibold">Horodatage</th>
+                            <th class="fw-semibold">Utilisateur</th>
+                            <th class="fw-semibold">Action</th>
+                            <th class="fw-semibold">Module</th>
+                            <th class="fw-semibold">Cible</th>
+                            <th class="fw-semibold">Statut</th>
+                            <th class="fw-semibold">IP</th>
+                            <th class="fw-semibold text-center">Détails</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in page_obj %}
+                        <tr class="animate-fade-in" style="animation-delay: {{ forloop.counter0|floatformat:1 }}s;">
+                            <td>
+                                <div class="fw-semibold small">{{ log.timestamp|date:"d/m/Y" }}</div>
+                                <div class="text-muted small">{{ log.timestamp|date:"H:i:s" }}</div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="me-2" style="width: 35px; height: 35px; background: linear-gradient(135deg,
+                                        {% if log.user %}var(--primary-color), var(--primary-dark){% else %}var(--secondary-color), #475569{% endif %});
+                                        border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                                        <span class="text-white fw-bold small">
+                                            {% if log.user %}
+                                                {{ log.user.first_name|first }}{{ log.user.last_name|first }}
+                                            {% else %}
+                                                S
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <div class="fw-semibold small">
+                                            {% if log.user %}
+                                                {{ log.user.get_full_name }}
+                                            {% else %}
+                                                Système
+                                            {% endif %}
+                                        </div>
+                                        <small class="text-muted">
+                                            {% if log.user %}
+                                                {{ log.user.get_role_display }}
+                                            {% else %}
+                                                Automatique
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge rounded-pill" style="background:
+                                {% if log.action == 'creation' %}var(--success-color)
+                                {% elif log.action == 'modification' %}var(--warning-color)
+                                {% elif log.action == 'suppression' %}var(--danger-color)
+                                {% elif log.action == 'consultation' %}var(--info-color)
+                                {% elif log.action == 'connexion' %}var(--primary-color)
+                                {% else %}var(--secondary-color){% endif %};">
+                                    <i class="bi bi-{% if log.action == 'creation' %}plus-circle{% elif log.action == 'modification' %}pencil-square{% elif log.action == 'suppression' %}trash{% elif log.action == 'consultation' %}eye{% elif log.action == 'connexion' %}box-arrow-in-right{% else %}activity{% endif %} me-1"></i>
+                                    {{ log.action|capfirst }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="fw-semibold">{{ log.feature }}</span>
+                            </td>
+                            <td>
+                                {% if log.target %}
+                                    <div class="fw-semibold small">{{ log.target }}</div>
+                                    {% if log.resource_id %}
+                                        <small class="text-muted">ID: {{ log.resource_id }}</small>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted fst-italic">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.status == 'success' %}
+                                    <i class="bi bi-check-circle-fill text-success fs-5" title="Succès"></i>
+                                {% elif log.status == 'failed' %}
+                                    <i class="bi bi-x-circle-fill text-danger fs-5" title="Échec"></i>
+                                {% else %}
+                                    <i class="bi bi-clock-fill text-warning fs-5" title="En cours"></i>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.ip_address %}
+                                    <code class="small bg-light px-2 py-1 rounded">{{ log.ip_address }}</code>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-outline-primary btn-sm rounded-pill"
+                                        data-bs-toggle="modal" data-bs-target="#logDetailModal{{ log.id }}"
+                                        title="Voir les détails">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+
+                        <!-- Modal pour les détails du log -->
+                        <div class="modal fade" id="logDetailModal{{ log.id }}" tabindex="-1">
+                            <div class="modal-dialog modal-xl">
+                                <div class="modal-content modern-card">
+                                    <div class="modal-header border-0" style="background: linear-gradient(135deg, var(--info-color), #2563eb);">
+                                        <h5 class="modal-title text-white fw-bold">Détails du Log #{{ log.id }}</h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body p-4">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h6 class="fw-bold mb-3">Informations de base</h6>
+                                                <div class="mb-2"><strong>Horodatage :</strong> {{ log.timestamp|date:"d/m/Y H:i:s" }}</div>
+                                                <div class="mb-2"><strong>Utilisateur :</strong>
+                                                    {% if log.user %}
+                                                        {{ log.user.get_full_name }} ({{ log.user.username }})
+                                                    {% else %}
+                                                        Système
+                                                    {% endif %}
+                                                </div>
+                                                {% if log.user %}
+                                                    <div class="mb-2"><strong>Rôle :</strong> {{ log.user.get_role_display }}</div>
+                                                {% endif %}
+                                                <div class="mb-2"><strong>Action :</strong> {{ log.action|capfirst }}</div>
+                                                <div class="mb-2"><strong>Module :</strong> {{ log.feature }}</div>
+                                                <div class="mb-2"><strong>Statut :</strong>
+                                                    <span class="badge bg-{% if log.status == 'success' %}success{% elif log.status == 'failed' %}danger{% else %}warning{% endif %}">
+                                                        {{ log.status|capfirst }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6 class="fw-bold mb-3">Informations techniques</h6>
+                                                <div class="mb-2"><strong>Adresse IP :</strong>
+                                                    {% if log.ip_address %}
+                                                        <code>{{ log.ip_address }}</code>
+                                                    {% else %}
+                                                        <span class="text-muted">Non disponible</span>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="mb-2"><strong>User Agent :</strong></div>
+                                                {% if log.user_agent %}
+                                                    <div class="p-2 bg-light rounded small" style="max-height: 100px; overflow-y: auto;">
+                                                        {{ log.user_agent }}
+                                                    </div>
+                                                {% else %}
+                                                    <span class="text-muted">Non disponible</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        {% if log.target or log.resource_id %}
+                                            <hr>
+                                            <h6 class="fw-bold mb-3">Cible de l'action</h6>
+                                            {% if log.target %}
+                                                <div class="mb-2"><strong>Cible :</strong> {{ log.target }}</div>
+                                            {% endif %}
+                                            {% if log.resource_id %}
+                                                <div class="mb-2"><strong>ID Ressource :</strong> {{ log.resource_id }}</div>
+                                            {% endif %}
+                                        {% endif %}
+
+                                        {% if log.old_value or log.new_value %}
+                                            <hr>
+                                            <h6 class="fw-bold mb-3">Valeurs modifiées</h6>
+                                            {% if log.old_value %}
+                                                <div class="mb-3">
+                                                    <strong>Ancienne valeur :</strong>
+                                                    <pre class="bg-light p-3 rounded small mt-2" style="max-height: 150px; overflow-y: auto;">{{ log.old_value }}</pre>
+                                                </div>
+                                            {% endif %}
+                                            {% if log.new_value %}
+                                                <div class="mb-3">
+                                                    <strong>Nouvelle valeur :</strong>
+                                                    <pre class="bg-light p-3 rounded small mt-2" style="max-height: 150px; overflow-y: auto;">{{ log.new_value }}</pre>
+                                                </div>
+                                            {% endif %}
+                                        {% endif %}
+
+                                        <hr>
+                                        <h6 class="fw-bold mb-3">Export JSON</h6>
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <small class="text-muted">Format JSON complet pour l'intégration</small>
+                                            <button class="btn btn-outline-primary btn-sm" onclick="copyToClipboard('json{{ log.id }}')">
+                                                <i class="bi bi-clipboard me-1"></i>Copier
+                                            </button>
+                                        </div>
+                                        <pre id="json{{ log.id }}" class="bg-dark text-light p-3 rounded small" style="max-height: 200px; overflow-y: auto;">{{ log.to_json|pprint }}</pre>
+                                    </div>
+                                    <div class="modal-footer border-0">
+                                        <button type="button" class="btn btn-secondary btn-modern" data-bs-dismiss="modal">Fermer</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+                <div class="card-footer bg-white border-0 p-4">
+                    <nav aria-label="Pagination des logs">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link rounded-pill me-1" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        <i class="bi bi-chevron-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link rounded-pill me-1" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link rounded-pill mx-1" style="background: var(--primary-color); border-color: var(--primary-color);">{{ num }}</span>
+                                    </li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link rounded-pill mx-1" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link rounded-pill ms-1" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link rounded-pill ms-1" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        <i class="bi bi-chevron-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="card-body text-center py-5">
+                <i class="bi bi-clock-history fs-1 text-muted"></i>
+                <h5 class="text-muted mt-3">Aucun log trouvé</h5>
+                <p class="text-muted">Les activités des utilisateurs apparaîtront ici</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    let autoRefreshInterval = null;
+    let isAutoRefreshActive = false;
+
+    function refreshLogs() {
+        window.location.reload();
+    }
+
+    function toggleAutoRefresh() {
+        const icon = document.getElementById('autoRefreshIcon');
+        const text = document.getElementById('autoRefreshText');
+
+        if (isAutoRefreshActive) {
+            clearInterval(autoRefreshInterval);
+            isAutoRefreshActive = false;
+            icon.classList.remove('text-success');
+            text.textContent = 'Auto-refresh';
+            showNotification('Auto-refresh désactivé', 'info');
+        } else {
+            autoRefreshInterval = setInterval(refreshLogs, 30000); // Refresh every 30 seconds
+            isAutoRefreshActive = true;
+            icon.classList.add('text-success');
+            text.textContent = 'Auto-refresh ON';
+            showNotification('Auto-refresh activé (30s)', 'success');
+        }
+    }
+
+    function exportLogs() {
+        showNotification('Export en cours de développement', 'info');
+    }
+
+    function copyToClipboard(elementId) {
+        const element = document.getElementById(elementId);
+        const text = element.textContent;
+
+        navigator.clipboard.writeText(text).then(function() {
+            showNotification('JSON copié dans le presse-papiers', 'success');
+        }, function() {
+            showNotification('Erreur lors de la copie', 'error');
+        });
+    }
+
+    // Auto-scroll for new logs notification
+    document.addEventListener('DOMContentLoaded', function() {
+        // Highlight new logs (simulate)
+        setTimeout(function() {
+            const firstRow = document.querySelector('tbody tr');
+            if (firstRow) {
+                firstRow.style.background = 'rgba(37, 99, 235, 0.1)';
+                setTimeout(() => {
+                    firstRow.style.background = '';
+                }, 3000);
+            }
+        }, 1000);
+    });
+</script>
+{% endblock %}

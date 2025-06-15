@@ -1,0 +1,415 @@
+{% extends 'reconciliation/base_reconciliation.html' %}
+{% load static %}
+
+{% block title %}Administration des règles - Rapprochements{% endblock %}
+
+{% block content %}
+<div class="reconciliation-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb text-white-50 mb-2">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'reconciliation:session_list' %}" class="text-white-50">
+                                Rapprochements
+                            </a>
+                        </li>
+                        <li class="breadcrumb-item active text-white">Administration des règles</li>
+                    </ol>
+                </nav>
+                <h1><i class="bi bi-gear"></i> Administration des règles</h1>
+                <p class="mb-0">Configuration des règles de validation et rapprochement</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <span class="badge bg-warning">
+                    <i class="bi bi-info-circle"></i> Mode lecture seule
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Règles par défaut (codées en dur) -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-code-slash"></i> Règles par défaut (intégrées)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                                                <i class="bi bi-info-circle"></i>
+                        <strong>Information:</strong> Ces règles sont intégrées dans le code et s'appliquent automatiquement à toutes les sessions.
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Règle</th>
+                                    <th>Description</th>
+                                    <th>Type</th>
+                                    <th>Configuration</th>
+                                    <th>Statut</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for regle in regles_par_defaut %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ regle.nom }}</strong>
+                                    </td>
+                                    <td>
+                                        {{ regle.description }}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ regle.type }}</span>
+                                    </td>
+                                    <td>
+                                        <code class="small">{{ regle.valeur }}</code>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle"></i> Actif
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Règles configurables -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-sliders"></i> Règles configurables
+                    </h5>
+                    {% if can_edit %}
+                        <button class="btn btn-primary btn-sm">
+                            <i class="bi bi-plus"></i> Ajouter une règle
+                        </button>
+                    {% else %}
+                        <span class="text-muted small">
+                            <i class="bi bi-lock"></i> Fonctionnalité en développement
+                        </span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if regles_configurables %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Nom</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                        <th>Valeur numérique</th>
+                                        <th>Valeur texte</th>
+                                        <th>Statut</th>
+                                        <th>Modifié par</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for regle in regles_configurables %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ regle.nom_regle }}</strong>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">
+                                                {{ regle.get_type_regle_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {{ regle.description|truncatechars:50 }}
+                                        </td>
+                                        <td>
+                                            {% if regle.valeur_numerique %}
+                                                <code>{{ regle.valeur_numerique }}</code>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if regle.valeur_texte %}
+                                                <code>{{ regle.valeur_texte|truncatechars:30 }}</code>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if regle.est_active %}
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-check-circle"></i> Actif
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">
+                                                    <i class="bi bi-pause-circle"></i> Inactif
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ regle.cree_par.get_full_name|default:regle.cree_par.username }}
+                                                <br>{{ regle.date_modification|date:"d/m/Y" }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            {% if can_edit %}
+                                                <div class="btn-group btn-group-sm">
+                                                    <button class="btn btn-outline-primary" title="Modifier">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-danger" title="Supprimer">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">
+                                                    <i class="bi bi-lock"></i>
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-sliders display-1 text-muted"></i>
+                            <h4 class="text-muted mt-3">Aucune règle configurée</h4>
+                            <p class="text-muted">Les règles par défaut sont appliquées automatiquement</p>
+                            {% if can_edit %}
+                                <button class="btn btn-primary">
+                                    <i class="bi bi-plus-circle"></i> Créer la première règle
+                                </button>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Documentation des règles -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-book"></i> Documentation - Logique de rapprochement
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="accordion" id="logicAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#priorite1">
+                                    <i class="bi bi-1-circle text-success me-2"></i>
+                                    Priorité 1: Matricule
+                                </button>
+                            </h2>
+                            <div id="priorite1" class="accordion-collapse collapse show">
+                                <div class="accordion-body">
+                                    <p><strong>Critère:</strong> Correspondance exacte sur le matricule</p>
+                                    <p><strong>Confiance:</strong> 99%</p>
+                                    <p><strong>Logique:</strong> Recherche directe dans le fichier paie des employés ayant le même matricule que dans le fichier RH.</p>
+                                    <div class="alert alert-success small">
+                                        <strong>Avantage:</strong> Très fiable car le matricule est unique
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#priorite2">
+                                    <i class="bi bi-2-circle text-warning me-2"></i>
+                                    Priorité 2: Nom + Prénom
+                                </button>
+                            </h2>
+                            <div id="priorite2" class="accordion-collapse collapse">
+                                <div class="accordion-body">
+                                    <p><strong>Critère:</strong> Similarité >= 85% sur nom + prénom</p>
+                                    <p><strong>Confiance:</strong> Variable (85-95%)</p>
+                                    <p><strong>Logique:</strong> Utilise l'algorithme de similarité fuzzy pour les employés RH non encore matchés.</p>
+                                    <div class="alert alert-warning small">
+                                        <strong>Attention:</strong> Peut créer des faux positifs en cas d'homonymes
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#detection">
+                                    <i class="bi bi-shield-exclamation text-danger me-2"></i>
+                                    Détections automatiques
+                                </button>
+                            </h2>
+                            <div id="detection" class="accordion-collapse collapse">
+                                <div class="accordion-body">
+                                    <ul>
+                                        <li><strong>Non payés:</strong> Employés présents en RH mais absents de la paie</li>
+                                        <li><strong>Non déclarés:</strong> Employés payés mais non déclarés en RH (risque fraude)</li>
+                                        <li><strong>Doublons:</strong> Plusieurs paies pour un même matricule</li>
+                                    </ul>
+                                    <div class="alert alert-info small">
+                                        <strong>Automatique:</strong> Ces détections sont effectuées systématiquement
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-code-square"></i> Types de règles configurables (futures)
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <div class="border rounded p-3">
+                                <h6 class="text-primary">
+                                    <i class="bi bi-percent"></i> Tolérance écart salaire
+                                </h6>
+                                <p class="small text-muted mb-1">
+                                    Définir un seuil d'alerte pour les écarts entre salaire prévu et payé
+                                </p>
+                                <code class="small">Exemple: alerter si écart > 5%</code>
+                            </div>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <div class="border rounded p-3">
+                                <h6 class="text-warning">
+                                    <i class="bi bi-credit-card"></i> Validation format RIB
+                                </h6>
+                                <p class="small text-muted mb-1">
+                                    Vérifier la validité des RIB selon les standards bancaires
+                                </p>
+                                <code class="small">Exemple: format IBAN français</code>
+                            </div>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <div class="border rounded p-3">
+                                <h6 class="text-info">
+                                    <i class="bi bi-files"></i> Détection doublons RIB
+                                </h6>
+                                <p class="small text-muted mb-1">
+                                    Alerter en cas de RIB identique pour plusieurs employés
+                                </p>
+                                <code class="small">Exemple: même compte familial</code>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="border rounded p-3">
+                                <h6 class="text-success">
+                                    <i class="bi bi-check-square"></i> Matricule obligatoire
+                                </h6>
+                                <p class="small text-muted mb-1">
+                                    Forcer la présence du matricule pour validation
+                                </p>
+                                <code class="small">Exemple: rejeter si matricule vide</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Évolutions futures -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">
+                        <i class="bi bi-lightbulb"></i> Évolutions prévues
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6 class="text-primary">Phase 1 (Actuel)</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-check-circle text-success"></i> Règles codées en dur</li>
+                                <li><i class="bi bi-check-circle text-success"></i> Rapprochement matricule</li>
+                                <li><i class="bi bi-check-circle text-success"></i> Rapprochement nom/prénom</li>
+                                <li><i class="bi bi-check-circle text-success"></i> Détection anomalies</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-warning">Phase 2 (Développement)</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-clock text-warning"></i> Interface d'édition des règles</li>
+                                <li><i class="bi bi-clock text-warning"></i> Règles par mission</li>
+                                <li><i class="bi bi-clock text-warning"></i> Seuils configurables</li>
+                                <li><i class="bi bi-clock text-warning"></i> Validation RIB/IBAN</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-info">Phase 3 (Planifié)</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-hourglass text-info"></i> Machine Learning</li>
+                                <li><i class="bi bi-hourglass text-info"></i> Règles auto-adaptatives</li>
+                                <li><i class="bi bi-hourglass text-info"></i> API externe validation</li>
+                                <li><i class="bi bi-hourglass text-info"></i> Workflow d'approbation</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animation des cartes de types de règles
+    const ruleCards = document.querySelectorAll('.border.rounded.p-3');
+    ruleCards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+
+        setTimeout(() => {
+            card.style.transition = 'all 0.5s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 200);
+    });
+
+    // Tooltip pour les badges de statut
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}
