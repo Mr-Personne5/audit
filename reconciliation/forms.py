@@ -2,7 +2,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
-from .models import RapprochementSession, RegleValidation
+from .models import RapprochementSession, ResultatRapprochement, RegleValidation
 from uploads.models import FichierImporte
 
 
@@ -119,7 +119,7 @@ class FilterResultsForm(forms.Form):
 
     type_match = forms.ChoiceField(
         required=False,
-        choices=[('', 'Tous les types')] + RapprochementSession.STATUS_CHOICES,
+        choices=[('', 'Tous les types')] + ResultatRapprochement.TYPE_MATCH,
         widget=forms.Select(attrs={'class': 'form-select'}),
         label="Type de match"
     )

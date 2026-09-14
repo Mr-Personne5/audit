@@ -25,7 +25,7 @@ class RapprochementEngine:
 
         try:
             self.session.status = 'processing'
-            self.session.date_traitement = datetime.now()
+            self.session.date_traitement = datetime.now().replace(tzinfo=None)
             self.session.save()
 
             # 1. Charger les données
@@ -45,7 +45,7 @@ class RapprochementEngine:
             self._calculer_statistiques()
 
             self.session.status = 'completed'
-            self.session.date_completion = datetime.now()
+            self.session.date_completion = datetime.now().replace(tzinfo=None)
             self.session.logs_traitement = self.logs
             self.session.save()
 
@@ -121,20 +121,25 @@ class RapprochementEngine:
     def _rapprocher_donnees(self, df_rh: pd.DataFrame, df_paie: pd.DataFrame) -> List[Dict[str, Any]]:
         """Exécute le rapprochement selon les critères prioritaires"""
         resultats = []
-        employes_paie_matches = set()  # Pour éviter les doublons
+        employes_paie_matches = set()  # Index (df_paie) des lignes déjà rapprochées
+        employes_rh_matches = set()  # Index (df_rh) des lignes déjà rapprochées
 
         self._log("Début du rapprochement...")
 
         # ÉTAPE 1: Rapprochement par matricule (priorité 1)
-        resultats_matricule = self._rapprocher_par_matricule(df_rh, df_paie, employes_paie_matches)
+        resultats_matricule = self._rapprocher_par_matricule(
+            df_rh, df_paie, employes_paie_matches, employes_rh_matches
+        )
         resultats.extend(resultats_matricule)
 
         # ÉTAPE 2: Rapprochement par nom+prénom pour les non-matchés
-        resultats_nom = self._rapprocher_par_nom_prenom(df_rh, df_paie, employes_paie_matches, resultats)
+        resultats_nom = self._rapprocher_par_nom_prenom(
+            df_rh, df_paie, employes_paie_matches, employes_rh_matches
+        )
         resultats.extend(resultats_nom)
 
         # ÉTAPE 3: Identifier les employés RH non payés
-        resultats_non_payes = self._identifier_non_payes(df_rh, resultats)
+        resultats_non_payes = self._identifier_non_payes(df_rh, employes_rh_matches)
         resultats.extend(resultats_non_payes)
 
         # ÉTAPE 4: Identifier les employés payés non déclarés
@@ -149,7 +154,7 @@ class RapprochementEngine:
         return resultats
 
     def _rapprocher_par_matricule(self, df_rh: pd.DataFrame, df_paie: pd.DataFrame,
-                                  employes_paie_matches: set) -> List[Dict[str, Any]]:
+                                  employes_paie_matches: set, employes_rh_matches: set) -> List[Dict[str, Any]]:
         """Rapprochement par matricule (critère prioritaire)"""
         resultats = []
 
@@ -169,6 +174,7 @@ class RapprochementEngine:
                 # Match parfait
                 row_paie = matches_paie.iloc[0]
                 employes_paie_matches.add(row_paie.name)
+                employes_rh_matches.add(idx_rh)
 
                 resultat = self._creer_resultat_match(
                     row_rh, row_paie, 'parfait', 'matricule', 99.0
@@ -177,6 +183,7 @@ class RapprochementEngine:
 
             elif len(matches_paie) > 1:
                 # Doublon détecté
+                employes_rh_matches.add(idx_rh)
                 for _, row_paie in matches_paie.iterrows():
                     employes_paie_matches.add(row_paie.name)
 
@@ -190,17 +197,13 @@ class RapprochementEngine:
         return resultats
 
     def _rapprocher_par_nom_prenom(self, df_rh: pd.DataFrame, df_paie: pd.DataFrame,
-                                   employes_paie_matches: set, resultats_existants: List) -> List[Dict[str, Any]]:
+                                   employes_paie_matches: set, employes_rh_matches: set) -> List[Dict[str, Any]]:
         """Rapprochement par nom+prénom pour les employés RH non encore matchés"""
         resultats = []
 
-        # Employés RH déjà matchés
-        matricules_rh_matches = {r.get('matricule_rh') for r in resultats_existants if r.get('matricule_rh')}
-
         for idx_rh, row_rh in df_rh.iterrows():
-            matricule_rh = str(row_rh.get('matricule', '')).strip()
-            if matricule_rh in matricules_rh_matches:
-                continue  # Déjà matché
+            if idx_rh in employes_rh_matches:
+                continue  # Déjà matché par matricule
 
             nom_rh = str(row_rh.get('nom', '')).strip().title()
             prenom_rh = str(row_rh.get('prenom', '')).strip().title()
@@ -208,7 +211,11 @@ class RapprochementEngine:
             if not nom_rh or not prenom_rh:
                 continue
 
-            # Rechercher dans la paie (employés non encore matchés)
+            # Rechercher le MEILLEUR candidat dans la paie (employés non encore matchés)
+            meilleur_score = None
+            meilleur_idx_paie = None
+            meilleur_row_paie = None
+
             for idx_paie, row_paie in df_paie.iterrows():
                 if idx_paie in employes_paie_matches:
                     continue
@@ -221,30 +228,31 @@ class RapprochementEngine:
                 score_prenom = fuzz.ratio(prenom_rh, prenom_paie)
                 score_global = (score_nom + score_prenom) / 2
 
-                if score_global >= 85:  # Seuil élevé pour éviter les faux positifs
-                    employes_paie_matches.add(idx_paie)
+                if score_global >= 85 and (meilleur_score is None or score_global > meilleur_score):
+                    meilleur_score = score_global
+                    meilleur_idx_paie = idx_paie
+                    meilleur_row_paie = row_paie
 
-                    resultat = self._creer_resultat_match(
-                        row_rh, row_paie, 'partiel', 'nom_prenom_ddn', score_global
-                    )
-                    resultat['commentaires'] = f"Match nom/prénom (score: {score_global:.1f}%)"
-                    resultats.append(resultat)
-                    break  # Un seul match par employé RH
+            if meilleur_score is not None:  # Seuil élevé pour éviter les faux positifs
+                employes_paie_matches.add(meilleur_idx_paie)
+                employes_rh_matches.add(idx_rh)
+
+                resultat = self._creer_resultat_match(
+                    row_rh, meilleur_row_paie, 'partiel', 'nom_prenom_ddn', meilleur_score
+                )
+                resultat['commentaires'] = f"Match nom/prénom (score: {meilleur_score:.1f}%)"
+                resultats.append(resultat)
 
         self._log(f"Rapprochement nom/prénom: {len(resultats)} matches trouvés")
         return resultats
 
-    def _identifier_non_payes(self, df_rh: pd.DataFrame, resultats_existants: List) -> List[Dict[str, Any]]:
+    def _identifier_non_payes(self, df_rh: pd.DataFrame, employes_rh_matches: set) -> List[Dict[str, Any]]:
         """Identifier les employés RH qui n'ont pas été payés"""
         resultats = []
 
-        # Employés RH déjà matchés
-        matricules_rh_matches = {r.get('matricule_rh') for r in resultats_existants if r.get('matricule_rh')}
-
         for idx_rh, row_rh in df_rh.iterrows():
-            matricule_rh = str(row_rh.get('matricule', '')).strip()
-
-            if matricule_rh not in matricules_rh_matches:
+            if idx_rh not in employes_rh_matches:
+                matricule_rh = str(row_rh.get('matricule', '')).strip()
                 resultat = {
                     'type_match': 'non_paye',
                     'critere_match': 'aucun',
@@ -299,7 +307,7 @@ class RapprochementEngine:
         salaire_paye = self._convertir_decimal(row_paie.get('montant_total', 0))
 
         ecart_salaire = None
-        if salaire_prevu and salaire_paye:
+        if salaire_prevu is not None and salaire_paye is not None:
             ecart_salaire = salaire_paye - salaire_prevu
 
         return {
@@ -350,8 +358,11 @@ class RapprochementEngine:
         """Calcule et sauvegarde les statistiques globales"""
         resultats = ResultatRapprochement.objects.filter(session=self.session)
 
-        self.session.nb_employes_rh = len({r.matricule_rh for r in resultats if r.matricule_rh})
-        self.session.nb_employes_payes = len({r.matricule_paie for r in resultats if r.matricule_paie})
+        # Basé sur le numéro de ligne d'origine (pas le matricule, qui peut être vide
+        # quand le rapprochement s'est fait par nom/prénom) pour ne pas sous-compter
+        # les employés dont le matricule est manquant.
+        self.session.nb_employes_rh = len({r.ligne_rh for r in resultats if r.ligne_rh is not None})
+        self.session.nb_employes_payes = len({r.ligne_paie for r in resultats if r.ligne_paie is not None})
         self.session.nb_matches_parfaits = resultats.filter(type_match='parfait').count()
         self.session.nb_matches_partiels = resultats.filter(type_match='partiel').count()
         self.session.nb_non_payes = resultats.filter(type_match='non_paye').count()
@@ -363,7 +374,7 @@ class RapprochementEngine:
     def _log(self, message: str):
         """Ajoute un message aux logs"""
         self.logs.append({
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': datetime.now().replace(tzinfo=None).isoformat(),
             'message': message
         })
         logger.info(f"RapprochementEngine [{self.session.id}]: {message}")

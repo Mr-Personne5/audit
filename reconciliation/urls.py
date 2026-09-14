@@ -26,4 +26,5 @@ urlpatterns = [
 
     # API utilitaires
     path('api/files/', views.get_available_files, name='get_available_files'),
+    path('api/dashboard_stats/', views.dashboard_reconciliation_stats_api, name='dashboard_reconciliation_stats_api'),
 ]

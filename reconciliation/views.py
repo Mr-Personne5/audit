@@ -1,24 +1,22 @@
 # reconciliation/views.py
 
-import json
 import logging
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
+
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponse
+from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
+from django.db.models import Q, Avg, Sum
+from django.http import JsonResponse, HttpResponse
+from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
-from django.db.models import Q, Count
 
-from django.utils import timezone
-
-from .models import RapprochementSession, ResultatRapprochement, RegleValidation
-from .forms import RapprochementSessionForm, FilterResultsForm
-from .engine import RapprochementEngine
-from uploads.models import FichierImporte
 from accounts.utils import log_user_action
+from uploads.models import FichierImporte
+from .engine import RapprochementEngine
+from .forms import RapprochementSessionForm
+from .models import RapprochementSession, ResultatRapprochement, RegleValidation
 
 logger = logging.getLogger('auditia')
 
@@ -160,6 +158,7 @@ def session_detail(request, pk):
 
 
 @login_required
+@require_http_methods(["POST"])
 def process_session(request, pk):
     """Lancer le traitement d'une session"""
     session = get_object_or_404(RapprochementSession, pk=pk)
@@ -360,6 +359,9 @@ def analysis_dashboard(request):
         'total_non_declares': sum(s.nb_non_declares for s in sessions_completed),
         'total_doublons': sum(s.nb_doublons for s in sessions_completed),
     }
+    
+    # Calculer les matches partiels
+    stats['total_matches_partiels'] = stats['total_employes_rh'] - stats['total_matches_parfaits'] - stats['total_non_payes']
 
     # Taux de rapprochement moyen
     if stats['total_employes_rh'] > 0:
@@ -536,3 +538,28 @@ def rules_admin(request):
     }
 
     return render(request, 'reconciliation/rules_admin.html', context)
+
+@login_required
+def dashboard_reconciliation_stats_api(request):
+    # Calculer le taux de rapprochement moyen manuellement
+    sessions_completed = RapprochementSession.objects.filter(status='completed')
+    total_taux = 0
+    nb_sessions = sessions_completed.count()
+    
+    if nb_sessions > 0:
+        for session in sessions_completed:
+            total_taux += session.get_taux_rapprochement()
+        taux_rapprochement_moyen = total_taux / nb_sessions
+    else:
+        taux_rapprochement_moyen = 0
+    
+    total_non_payes = RapprochementSession.objects.aggregate(total=Sum('nb_non_payes'))['total'] or 0
+    total_non_declares = RapprochementSession.objects.aggregate(total=Sum('nb_non_declares'))['total'] or 0
+    
+    stats = {
+        'taux_rapprochement_moyen': round(taux_rapprochement_moyen, 1),
+        'sessions_completed': nb_sessions,
+        'total_non_payes': total_non_payes,
+        'total_non_declares': total_non_declares,
+    }
+    return JsonResponse(stats)
