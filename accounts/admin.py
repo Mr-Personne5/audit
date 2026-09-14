@@ -27,9 +27,9 @@ class CustomUserAdmin(UserAdmin):
 @admin.register(Mission)
 class MissionAdmin(admin.ModelAdmin):
     """Interface d'administration pour les missions"""
-    list_display = ('name', 'client', 'start_date', 'end_date', 'is_active', 'users_count', 'created_at')
-    list_filter = ('is_active', 'start_date', 'created_at')
-    search_fields = ('name', 'client', 'description')
+    list_display = ('name', 'client', 'assigned_auditor', 'start_date', 'end_date', 'is_active', 'users_count', 'created_at')
+    list_filter = ('is_active', 'start_date', 'created_at', 'assigned_auditor')
+    search_fields = ('name', 'client', 'description', 'assigned_auditor__first_name', 'assigned_auditor__last_name')
     date_hierarchy = 'start_date'
     ordering = ('-created_at',)
 

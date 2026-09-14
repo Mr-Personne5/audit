@@ -52,3 +52,11 @@ def pprint(value):
         return json.dumps(parsed, indent=2, ensure_ascii=False)
     except (json.JSONDecodeError, TypeError):  # ✅ Exceptions spécifiques
         return str(value)
+
+@register.filter
+def mul(value, arg):
+    """Multiplie la valeur par l'argument (usage : {{ value|mul:100 }})"""
+    try:
+        return float(value) * float(arg)
+    except (ValueError, TypeError):
+        return ''

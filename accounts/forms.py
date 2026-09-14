@@ -94,15 +94,21 @@ class MissionForm(forms.ModelForm):
 
     class Meta:
         model = Mission
-        fields = ['name', 'client', 'description', 'start_date', 'end_date', 'is_active']
+        fields = ['name', 'client', 'description', 'start_date', 'end_date', 'assigned_auditor', 'is_active']
         widgets = {
             'start_date': forms.DateInput(attrs={'type': 'date'}),
             'end_date': forms.DateInput(attrs={'type': 'date'}),
             'description': forms.Textarea(attrs={'rows': 4}),
+            'assigned_auditor': forms.Select(attrs={'class': 'form-select form-control-modern'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # Filtrer les auditeurs disponibles (rôle 'user' seulement)
+        from .models import CustomUser
+        self.fields['assigned_auditor'].queryset = CustomUser.objects.filter(role='user', is_active=True).order_by('first_name', 'last_name')
+        self.fields['assigned_auditor'].empty_label = "Sélectionner un auditeur (optionnel)"
 
         # Classes CSS modernes pour tous les champs
         field_classes = {
@@ -111,6 +117,7 @@ class MissionForm(forms.ModelForm):
             'description': 'form-control-modern',
             'start_date': 'form-control-modern',
             'end_date': 'form-control-modern',
+            'assigned_auditor': 'form-select form-control-modern',
         }
 
         for field_name, css_class in field_classes.items():

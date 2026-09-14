@@ -7,10 +7,19 @@ from django.utils import timezone
 class Mission(models.Model):
     """Modèle pour isoler les données par mission d'audit"""
     name = models.CharField(max_length=200, verbose_name="Nom de la mission")
-    client = models.CharField(max_length=200, verbose_name="Client")
+    client = models.CharField(max_length=200, verbose_name="Client", blank=True)
     description = models.TextField(blank=True, verbose_name="Description")
     start_date = models.DateField(verbose_name="Date de début")
     end_date = models.DateField(null=True, blank=True, verbose_name="Date de fin")
+    assigned_auditor = models.ForeignKey(
+        'CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Auditeur assigné",
+        related_name='assigned_missions',
+        limit_choices_to={'role': 'user'}
+    )
     is_active = models.BooleanField(default=True, verbose_name="Mission active")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

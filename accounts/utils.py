@@ -23,25 +23,30 @@ def log_user_action(user, action, feature, target="", resource_id="",
 
         user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]  # Limiter la taille
 
-    # Créer le log en base
-    user_log = UserLog.objects.create(
-        user=user,
-        action=action,
-        feature=feature,
-        target=target,
-        resource_id=resource_id,
-        old_value=str(old_value),
-        new_value=str(new_value),
-        status=status,
-        ip_address=ip_address,
-        user_agent=user_agent
-    )
+    # Créer le log en base. Ne doit jamais faire échouer l'action métier appelante
+    # (souvent dans le même bloc transaction.atomic()) si la journalisation échoue.
+    try:
+        user_log = UserLog.objects.create(
+            user=user,
+            action=action,
+            feature=feature,
+            target=target,
+            resource_id=resource_id,
+            old_value=str(old_value),
+            new_value=str(new_value),
+            status=status,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
 
-    # Log également dans le fichier système
-    log_data = user_log.to_json()
-    logger.info(f"USER_ACTION: {log_data}")
+        # Log également dans le fichier système
+        log_data = user_log.to_json()
+        logger.info(f"USER_ACTION: {log_data}")
 
-    return user_log
+        return user_log
+    except Exception as e:
+        logger.error(f"Erreur lors de la journalisation de l'action utilisateur: {str(e)}")
+        return None
 
 
 def log_authentication(user, action, status="success", request=None):
