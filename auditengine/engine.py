@@ -331,8 +331,41 @@ class AuditEngine:
             raise Exception(f"Erreur chargement modèles: {str(e)}")
 
     def _preparer_features(self):
-        """Prépare les features pour les modèles"""
+        """Prépare les features pour les modèles.
+
+        ghost_employee et duplicate_rib ne sont pas séparables des lignes
+        normales sur les seules variables numériques de paie (vérifié dans
+        reentrainement_modeles_IA.ipynb, section 2) : leur signal réel est
+        l'absence d'identité et la duplication de compte bancaire. Ces deux
+        colonnes dérivées sont calculées ici, sur le lot en cours d'analyse,
+        AVANT l'extraction des features attendues par les modèles — les
+        modèles ré-entraînés les exposent dans leur feature_names_in_, donc
+        _extraire_features_isolation_forest et _extraire_features_mlp les
+        récupèrent automatiquement sans modification supplémentaire.
+        """
         self._log("Préparation des features...")
+
+        nom = self.df_data['nom'] if 'nom' in self.df_data.columns else pd.Series([None] * len(self.df_data))
+        prenom = self.df_data['prenom'] if 'prenom' in self.df_data.columns else pd.Series([None] * len(self.df_data))
+        self.df_data['identite_manquante'] = (
+            nom.isna() | (nom.astype(str).str.strip() == '') |
+            prenom.isna() | (prenom.astype(str).str.strip() == '')
+        ).astype(int)
+
+        if 'numero_compte' in self.df_data.columns:
+            col_numero_compte = self.df_data['numero_compte']
+            if isinstance(col_numero_compte, pd.DataFrame):
+                # mapping_colonnes_robuste peut faire correspondre plusieurs
+                # colonnes sources distinctes (ex: 'Compte' et 'Banque') à ce
+                # même nom canonique, ce qui donne ici plusieurs colonnes
+                # 'numero_compte' au lieu d'une seule Series. On ne bloque pas
+                # l'audit pour autant : on retient la première valeur non vide
+                # par ligne parmi les colonnes en conflit.
+                col_numero_compte = col_numero_compte.bfill(axis=1).iloc[:, 0]
+            comptage = col_numero_compte.map(col_numero_compte.value_counts())
+            self.df_data['rib_duplique'] = (comptage.fillna(0) > 1).astype(int)
+        else:
+            self.df_data['rib_duplique'] = 0
 
         # Features pour Isolation Forest (détection d'anomalies)
         self.features_if = self._extraire_features_isolation_forest()
