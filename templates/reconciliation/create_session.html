@@ -141,7 +141,7 @@
                         <div class="row">
                             <div class="col-12">
                                 <div class="d-flex justify-content-between">
-                                    <a href="{% url 'reconciliation:session_list' %}" class="btn btn-outline-secondary">
+                                    <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary">
                                         <i class="bi bi-arrow-left"></i> Retour
                                     </a>
                                     <div>
@@ -239,8 +239,8 @@ function loadPreview(fichierRHId, fichierPaieId) {
     const previewContent = document.getElementById('preview-content');
 
     Promise.all([
-        fetch(`/uploads/files/${fichierRHId}/preview_data/?nb_lignes=5`),
-        fetch(`/uploads/files/${fichierPaieId}/preview_data/?nb_lignes=5`)
+                        fetch(`/uploads/preview/${fichierRHId}/?nb_lignes=5`),
+                fetch(`/uploads/preview/${fichierPaieId}/?nb_lignes=5`)
     ])
     .then(responses => Promise.all(responses.map(r => r.json())))
     .then(data => {

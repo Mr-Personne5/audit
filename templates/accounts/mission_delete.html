@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Supprimer Mission - AuditIA{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Header avec breadcrumbs -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb breadcrumb-modern">
+                    <li class="breadcrumb-item"><a href="{% url 'accounts:dashboard' %}" class="text-decoration-none">Tableau de bord</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'accounts:mission_list' %}" class="text-decoration-none">Missions</a></li>
+                    <li class="breadcrumb-item active">Supprimer Mission</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 fw-bold text-dark mb-1">Supprimer Mission</h1>
+                    <p class="text-muted mb-0">Confirmez la suppression de la mission</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'accounts:mission_list' %}" class="btn btn-outline-secondary btn-modern">
+                        <i class="bi bi-arrow-left me-2"></i>Retour
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="modern-card">
+                <div class="card-body p-4">
+                    <!-- Avertissement -->
+                    <div class="alert alert-danger mb-4">
+                        <div class="d-flex">
+                            <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+                            <div>
+                                <h5 class="alert-heading fw-bold">Attention !</h5>
+                                <p class="mb-0">Vous êtes sur le point de supprimer la mission <strong>{{ object.name }}</strong>. Cette action est irréversible.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Informations mission -->
+                    <div class="mb-4">
+                        <h5 class="fw-bold mb-3">Informations de la mission</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label text-muted">Nom</label>
+                                <div class="fw-semibold">{{ object.name }}</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted">Client</label>
+                                <div class="fw-semibold">{{ object.client }}</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted">Date de début</label>
+                                <div class="fw-semibold">{{ object.start_date|date:"d/m/Y" }}</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted">Date de fin</label>
+                                <div class="fw-semibold">
+                                    {% if object.end_date %}
+                                        {{ object.end_date|date:"d/m/Y" }}
+                                    {% else %}
+                                        <span class="text-muted">Non définie</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Utilisateurs affectés -->
+                    <div class="mb-4">
+                        <h5 class="fw-bold mb-3">Utilisateurs affectés</h5>
+                        {% if object.users.all %}
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Utilisateur</th>
+                                            <th>Rôle</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for user in object.users.all %}
+                                        <tr>
+                                            <td>{{ user.get_full_name }}</td>
+                                            <td>{{ user.get_role_display }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted mb-0">Aucun utilisateur affecté à cette mission</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Conséquences -->
+                    <div class="alert alert-warning mb-4">
+                        <h6 class="fw-bold mb-2">Conséquences de la suppression :</h6>
+                        <ul class="mb-0">
+                            <li>Tous les utilisateurs affectés à cette mission seront désassignés</li>
+                            <li>Les données d'audit associées à cette mission seront conservées</li>
+                            <li>Les logs d'activité de la mission seront conservés</li>
+                        </ul>
+                    </div>
+
+                    <!-- Formulaire de confirmation -->
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'accounts:mission_list' %}" class="btn btn-outline-secondary btn-modern">
+                                <i class="bi bi-x-circle me-2"></i>Annuler
+                            </a>
+                            <button type="submit" class="btn btn-danger-modern">
+                                <i class="bi bi-trash me-2"></i>Confirmer la suppression
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

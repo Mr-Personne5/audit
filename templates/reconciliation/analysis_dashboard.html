@@ -1,7 +1,7 @@
 {% extends 'reconciliation/base_reconciliation.html' %}
 {% load static %}
 
-{% block title %}Dashboard d'analyse - Rapprochements{% endblock %}
+{% block title %}Tableau de bord d'analyse - Rapprochements{% endblock %}
 
 {% block extra_css %}
 {{ block.super }}
@@ -33,12 +33,15 @@
     <div class="container">
         <div class="row align-items-center">
             <div class="col-md-6">
-                <h1><i class="bi bi-graph-up"></i> Dashboard d'analyse</h1>
+                <h1><i class="bi bi-graph-up"></i> Tableau de bord d'analyse</h1>
                 <p class="mb-0">Vue d'ensemble des performances de rapprochement</p>
             </div>
             <div class="col-md-6 text-end">
+                <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary me-2">
+                    <i class="bi bi-arrow-left"></i> Retour
+                </a>
                 {% if request.user.is_admin %}
-                    <div class="btn-group">
+                    <div class="btn-group me-2">
                         <select class="form-select" id="mission-filter" onchange="filterByMission(this.value)">
                             <option value="">Toutes les missions</option>
                             {% for mission in missions %}
@@ -65,7 +68,7 @@
             <div class="card metric-card border-success">
                 <div class="card-body text-center">
                     <i class="bi bi-check-circle-fill text-success display-4"></i>
-                    <h2 class="text-success mt-2">{{ stats.taux_rapprochement_moyen }}%</h2>
+                    <h2 class="text-success mt-2" id="taux_rapprochement_moyen">{{ stats.taux_rapprochement_moyen }}%</h2>
                     <p class="text-muted mb-0">Taux de rapprochement moyen</p>
                     <span class="trend-indicator trend-up">
                         <i class="bi bi-arrow-up"></i> +2.3%
@@ -77,7 +80,7 @@
             <div class="card metric-card border-primary">
                 <div class="card-body text-center">
                     <i class="bi bi-files text-primary display-4"></i>
-                    <h2 class="text-primary mt-2">{{ stats.sessions_completed }}</h2>
+                    <h2 class="text-primary mt-2" id="sessions_completed">{{ stats.sessions_completed }}</h2>
                     <p class="text-muted mb-0">Sessions terminées</p>
                     <span class="trend-indicator trend-up">
                         <i class="bi bi-arrow-up"></i> +{{ stats.total_sessions|add:"-3" }}
@@ -89,7 +92,7 @@
             <div class="card metric-card border-warning">
                 <div class="card-body text-center">
                     <i class="bi bi-exclamation-triangle-fill text-warning display-4"></i>
-                    <h2 class="text-warning mt-2">{{ stats.total_non_payes }}</h2>
+                    <h2 class="text-warning mt-2" id="total_non_payes">{{ stats.total_non_payes }}</h2>
                     <p class="text-muted mb-0">Employés non payés</p>
                     <span class="trend-indicator trend-down">
                         <i class="bi bi-arrow-down"></i> -12
@@ -101,7 +104,7 @@
             <div class="card metric-card border-danger">
                 <div class="card-body text-center">
                     <i class="bi bi-shield-exclamation text-danger display-4"></i>
-                    <h2 class="text-danger mt-2">{{ stats.total_non_declares }}</h2>
+                    <h2 class="text-danger mt-2" id="total_non_declares">{{ stats.total_non_declares }}</h2>
                     <p class="text-muted mb-0">Risques de fraude</p>
                     <span class="trend-indicator trend-stable">
                         <i class="bi bi-dash"></i> Stable
@@ -263,7 +266,7 @@
                             <small class="text-muted">Parfaits</small>
                         </div>
                         <div class="col-4">
-                            <h4 class="text-warning">{{ stats.total_employes_rh|add:stats.total_matches_parfaits|sub }}</h4>
+                            <h4 class="text-warning">{{ stats.total_matches_partiels|default:"0" }}</h4>
                             <small class="text-muted">Partiels</small>
                         </div>
                         <div class="col-4">
@@ -298,6 +301,10 @@
             </div>
         </div>
     </div>
+
+    <button id="refreshRecoStatsBtn" class="btn btn-outline-primary btn-modern" onclick="refreshRecoStats()">
+        <i class="bi bi-arrow-clockwise me-2"></i>Actualiser
+    </button>
 </div>
 {% endblock %}
 
@@ -382,5 +389,36 @@ function filterByMission(missionId) {
     }
     window.location.href = url.toString();
 }
+
+function refreshRecoStats() {
+    // Récupérer le token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                     document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+    
+    fetch('/reconciliation/api/dashboard_stats/', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(stats => {
+        document.getElementById('taux_rapprochement_moyen').textContent = stats.taux_rapprochement_moyen + '%';
+        document.getElementById('sessions_completed').textContent = stats.sessions_completed;
+        document.getElementById('total_non_payes').textContent = stats.total_non_payes;
+        document.getElementById('total_non_declares').textContent = stats.total_non_declares;
+    })
+    .catch((error) => {
+        console.error('Erreur lors du rafraîchissement des statistiques:', error);
+        showNotification('Erreur lors du rafraîchissement des statistiques', 'danger');
+    });
+}
+document.addEventListener('DOMContentLoaded', refreshRecoStats);
 </script>
 {% endblock %}

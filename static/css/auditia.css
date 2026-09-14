@@ -98,6 +98,85 @@ body {
 .stat-card-success { border-left-color: var(--success-color); }
 .stat-card-warning { border-left-color: var(--warning-color); }
 .stat-card-info { border-left-color: var(--info-color); }
+
+/* Améliorations du tableau des résultats */
+.results-table {
+    font-size: 0.9rem;
+}
+
+.results-table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid var(--border-color);
+    font-weight: 600;
+    color: var(--dark-text);
+    padding: 0.75rem 0.5rem;
+}
+
+.results-table td {
+    padding: 0.75rem 0.5rem;
+    vertical-align: middle;
+}
+
+.results-table .table-warning {
+    background-color: rgba(255, 193, 7, 0.1);
+}
+
+.recommendation-tooltip {
+    cursor: help;
+    position: relative;
+}
+
+.recommendation-tooltip:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+    border-radius: 4px;
+    padding: 2px 4px;
+}
+
+/* Barres de score améliorées */
+.score-bar {
+    width: 100%;
+    height: 8px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 2px 0;
+}
+
+.score-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.score-if {
+    background: linear-gradient(90deg, #ff6b6b, #ff8e8e);
+}
+
+.score-mlp {
+    background: linear-gradient(90deg, #4ecdc4, #6ee7df);
+}
+
+/* Boutons d'export */
+.export-buttons .btn {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Responsive pour le tableau */
+@media (max-width: 768px) {
+    .results-table {
+        font-size: 0.8rem;
+    }
+    
+    .results-table th,
+    .results-table td {
+        padding: 0.5rem 0.25rem;
+    }
+    
+    .score-bar {
+        height: 6px;
+    }
+}
 .stat-card-danger { border-left-color: var(--danger-color); }
 
 /* Boutons modernes */
@@ -199,19 +278,24 @@ body {
 }
 
 .animate-fade-in {
-    animation: fadeInUp 0.6s ease-out;
+    animation: fadeInUp 0.6s ease-out forwards;
 }
 
 /* Notifications */
 .notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
     background: var(--danger-color);
     color: white;
-    font-size: 0.75rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 12px;
-    position: absolute;
-    top: -8px;
-    right: -8px;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
 }
 
 /* Tables modernes */
@@ -231,27 +315,421 @@ body {
     border: none;
     font-weight: 600;
     color: var(--secondary-color);
-    padding: 1rem;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
 }
 
 .modern-table .table tbody td {
-    border: none;
-    padding: 1rem;
     border-top: 1px solid var(--border-color);
+    vertical-align: middle;
 }
 
 /* Breadcrumbs */
 .breadcrumb-modern {
     background: transparent;
-    padding: 1rem 0;
-    margin-bottom: 0;
+    padding: 0;
+    margin: 0;
 }
 
 .breadcrumb-modern .breadcrumb-item {
-    color: var(--secondary-color);
+    font-size: 0.9rem;
 }
 
 .breadcrumb-modern .breadcrumb-item.active {
-    color: var(--primary-color);
+    color: var(--secondary-color);
+}
+
+/* Styles pour le bouton profil utilisateur amélioré */
+.user-avatar {
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.user-avatar:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* Menu dropdown du profil */
+.dropdown-menu-dark {
+    background: linear-gradient(135deg, #1e293b, #334155);
+    border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+}
+
+.dropdown-menu-dark .dropdown-item {
+    color: rgba(255,255,255,0.8);
+    transition: all 0.3s ease;
+    border-radius: 8px;
+    margin: 2px 8px;
+}
+
+.dropdown-menu-dark .dropdown-item:hover {
+    background: rgba(255,255,255,0.1);
+    color: white;
+    transform: translateX(5px);
+}
+
+.dropdown-menu-dark .dropdown-header {
+    color: rgba(255,255,255,0.6);
     font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Animation pour les éléments du menu */
+.dropdown-menu-dark .dropdown-item {
+    animation: slideInRight 0.3s ease-out forwards;
+    opacity: 0;
+    transform: translateX(-10px);
+}
+
+.dropdown-menu-dark .dropdown-item:nth-child(1) { animation-delay: 0.1s; }
+.dropdown-menu-dark .dropdown-item:nth-child(2) { animation-delay: 0.15s; }
+.dropdown-menu-dark .dropdown-item:nth-child(3) { animation-delay: 0.2s; }
+.dropdown-menu-dark .dropdown-item:nth-child(4) { animation-delay: 0.25s; }
+.dropdown-menu-dark .dropdown-item:nth-child(5) { animation-delay: 0.3s; }
+
+@keyframes slideInRight {
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Indicateur de statut en ligne */
+.status-indicator {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+    }
+}
+
+/* Responsive pour le profil */
+@media (max-width: 768px) {
+    .user-avatar {
+        width: 35px !important;
+        height: 35px !important;
+    }
+    
+    .dropdown-menu-dark {
+        width: 280px !important;
+        margin-top: 10px;
+    }
+    
+    .dropdown-menu-dark .dropdown-item {
+        padding: 0.75rem !important;
+    }
+}
+
+/* Hover effects pour les icônes du menu */
+.dropdown-menu-dark .dropdown-item:hover i {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+}
+
+/* Style pour les badges dans le menu */
+.dropdown-menu-dark .badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Animation d'entrée pour le menu */
+.dropdown-menu.show {
+    animation: fadeInDown 0.3s ease-out;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Classes de couleurs thématiques pour le tableau de bord */
+.text-indigo {
+    color: #6366f1 !important;
+}
+
+.text-emerald {
+    color: #059669 !important;
+}
+
+.text-violet {
+    color: #7c3aed !important;
+}
+
+.text-cyan {
+    color: #0891b2 !important;
+}
+
+.text-orange {
+    color: #ea580c !important;
+}
+
+.text-pink {
+    color: #be185d !important;
+}
+
+/* Boutons thématiques */
+.btn-user-management {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: white;
+    border-radius: 12px;
+    font-weight: 500;
+    padding: 0.5rem 1.5rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn-user-management:hover {
+    background: #4f46e5;
+    border-color: #4f46e5;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+}
+
+.btn-mission-management {
+    background: #059669;
+    border-color: #059669;
+    color: white;
+    border-radius: 12px;
+    font-weight: 500;
+    padding: 0.5rem 1.5rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn-mission-management:hover {
+    background: #047857;
+    border-color: #047857;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(5, 150, 105, 0.3);
+}
+
+.btn-file-upload {
+    background: #7c3aed;
+    border-color: #7c3aed;
+    color: white;
+    border-radius: 12px;
+    font-weight: 500;
+    padding: 0.5rem 1.5rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn-file-upload:hover {
+    background: #6d28d9;
+    border-color: #6d28d9;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(124, 58, 237, 0.3);
+}
+
+.btn-reconciliation {
+    background: #0891b2;
+    border-color: #0891b2;
+    color: white;
+    border-radius: 12px;
+    font-weight: 500;
+    padding: 0.5rem 1.5rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn-reconciliation:hover {
+    background: #0e7490;
+    border-color: #0e7490;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(8, 145, 178, 0.3);
+}
+
+.btn-ai-detection {
+    background: #ea580c;
+    border-color: #ea580c;
+    color: white;
+    border-radius: 12px;
+    font-weight: 500;
+    padding: 0.5rem 1.5rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn-ai-detection:hover {
+    background: #c2410c;
+    border-color: #c2410c;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(234, 88, 12, 0.3);
+}
+
+.btn-mlp-classification {
+    background: #be185d;
+    border-color: #be185d;
+    color: white;
+    border-radius: 12px;
+    font-weight: 500;
+    padding: 0.5rem 1.5rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn-mlp-classification:hover {
+    background: #9d174d;
+    border-color: #9d174d;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(190, 24, 93, 0.3);
+}
+
+/* Boutons outline thématiques */
+.btn-outline-indigo {
+    color: #6366f1;
+    border-color: #6366f1;
+    background: transparent;
+    border-radius: 12px;
+    font-weight: 500;
+    padding: 0.5rem 1.5rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn-outline-indigo:hover {
+    color: white;
+    background-color: #6366f1;
+    border-color: #6366f1;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+}
+
+.btn-outline-emerald {
+    color: #059669;
+    border-color: #059669;
+    background: transparent;
+    border-radius: 12px;
+    font-weight: 500;
+    padding: 0.5rem 1.5rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn-outline-emerald:hover {
+    color: white;
+    background-color: #059669;
+    border-color: #059669;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(5, 150, 105, 0.3);
+}
+
+/* Classes pour les blocs du tableau de bord */
+.block-subtle-user-management {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(79, 70, 229, 0.05));
+    border: 2px solid rgba(99, 102, 241, 0.25);
+}
+
+.block-subtle-mission-management {
+    background: linear-gradient(135deg, rgba(5, 150, 105, 0.05), rgba(4, 120, 87, 0.05));
+    border: 2px solid rgba(5, 150, 105, 0.25);
+}
+
+.block-subtle-file-upload {
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.05), rgba(109, 40, 217, 0.05));
+    border: 2px solid rgba(124, 58, 237, 0.25);
+}
+
+.block-subtle-reconciliation {
+    background: linear-gradient(135deg, rgba(8, 145, 178, 0.05), rgba(14, 116, 144, 0.05));
+    border: 2px solid rgba(8, 145, 178, 0.25);
+}
+
+.block-subtle-ai-detection {
+    background: linear-gradient(135deg, rgba(234, 88, 12, 0.05), rgba(194, 65, 12, 0.05));
+    border: 2px solid rgba(234, 88, 12, 0.25);
+}
+
+.block-subtle-mlp-classification {
+    background: linear-gradient(135deg, rgba(190, 24, 93, 0.05), rgba(157, 23, 77, 0.05));
+    border: 2px solid rgba(190, 24, 93, 0.25);
+}
+
+/* Icônes thématiques */
+.icon-file-upload {
+    background: #7c3aed;
+    color: white;
+}
+
+.icon-reconciliation {
+    background: #0891b2;
+    color: white;
+}
+
+.icon-ai-detection {
+    background: #ea580c;
+    color: white;
+}
+
+.icon-mlp-classification {
+    background: #be185d;
+    color: white;
+}
+
+/* Animations pour les blocs */
+.block-card {
+    transition: all 0.3s ease;
+}
+
+.block-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
 }

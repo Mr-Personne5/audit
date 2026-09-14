@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Supprimer Utilisateur - AuditIA{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Header avec breadcrumbs -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb breadcrumb-modern">
+                    <li class="breadcrumb-item"><a href="{% url 'accounts:dashboard' %}" class="text-decoration-none">Tableau de bord</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'accounts:user_list' %}" class="text-decoration-none">Utilisateurs</a></li>
+                    <li class="breadcrumb-item active">Supprimer Utilisateur</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 fw-bold text-dark mb-1">Supprimer Utilisateur</h1>
+                    <p class="text-muted mb-0">Confirmez la suppression de l'utilisateur</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-secondary btn-modern">
+                        <i class="bi bi-arrow-left me-2"></i>Retour
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="modern-card">
+                <div class="card-body p-4">
+                    <!-- Avertissement -->
+                    <div class="alert alert-danger mb-4">
+                        <div class="d-flex">
+                            <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+                            <div>
+                                <h5 class="alert-heading fw-bold">Attention !</h5>
+                                <p class="mb-0">Vous êtes sur le point de supprimer l'utilisateur <strong>{{ object.get_full_name }}</strong>. Cette action est irréversible.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Informations utilisateur -->
+                    <div class="mb-4">
+                        <h5 class="fw-bold mb-3">Informations de l'utilisateur</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label text-muted">Nom complet</label>
+                                <div class="fw-semibold">{{ object.get_full_name }}</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted">Email</label>
+                                <div class="fw-semibold">{{ object.email }}</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted">Rôle</label>
+                                <div class="fw-semibold">{{ object.get_role_display }}</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted">Mission</label>
+                                <div class="fw-semibold">
+                                    {% if object.mission %}
+                                        {{ object.mission.name }}
+                                    {% else %}
+                                        <span class="text-muted">Aucune mission</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Conséquences -->
+                    <div class="alert alert-warning mb-4">
+                        <h6 class="fw-bold mb-2">Conséquences de la suppression :</h6>
+                        <ul class="mb-0">
+                            <li>Toutes les données associées à cet utilisateur seront conservées</li>
+                            <li>L'utilisateur ne pourra plus se connecter au système</li>
+                            <li>Les logs d'activité de l'utilisateur seront conservés</li>
+                        </ul>
+                    </div>
+
+                    <!-- Formulaire de confirmation -->
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-secondary btn-modern">
+                                <i class="bi bi-x-circle me-2"></i>Annuler
+                            </a>
+                            <button type="submit" class="btn btn-danger-modern">
+                                <i class="bi bi-trash me-2"></i>Confirmer la suppression
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

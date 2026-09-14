@@ -1,3 +1,4 @@
+{% load custom_filters %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -16,6 +17,9 @@
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="{{ csrf_token }}">
 
     <style>
         :root {
@@ -35,6 +39,54 @@
             background-color: var(--light-bg);
             color: var(--dark-text);
             line-height: 1.6;
+        }
+
+        /* OPTIMISATION: Indicateur de chargement */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 1rem;
+            color: var(--secondary-color);
+            font-weight: 500;
+        }
+
+        /* OPTIMISATION: Skeleton loading */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 4px;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
 
         .navbar {
@@ -230,6 +282,126 @@
             transition: width 0.6s ease;
         }
 
+        /* OPTIMISATION: États vides et skeletons */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--secondary-color);
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-state h4 {
+            margin-bottom: 0.5rem;
+            color: var(--dark-text);
+        }
+
+        .empty-state p {
+            margin-bottom: 1.5rem;
+        }
+
+        /* OPTIMISATION: Tooltips et infobulles */
+        .info-tooltip {
+            position: relative;
+            cursor: help;
+        }
+
+        .info-tooltip:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            z-index: 1000;
+        }
+
+        /* OPTIMISATION: Hiérarchie visuelle améliorée */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .section-header h3 {
+            margin: 0;
+            color: var(--dark-text);
+            font-weight: 600;
+        }
+
+        .section-header .badge {
+            font-size: 0.8rem;
+        }
+
+        /* OPTIMISATION: Cards avec hover states */
+        .enhanced-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .enhanced-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .enhanced-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--primary-color);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .enhanced-card:hover::before {
+            opacity: 1;
+        }
+
+        /* OPTIMISATION: Légendes cliquables */
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 1rem;
+            margin-bottom: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .legend-item:hover {
+            background: rgba(37, 99, 235, 0.1);
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        /* OPTIMISATION: Responsive improvements */
         @media (max-width: 768px) {
             .main-content {
                 padding-top: 1rem;
@@ -247,14 +419,37 @@
             .chart-wrapper {
                 height: 300px;
             }
+
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+
+            .legend-item {
+                margin-right: 0.5rem;
+                font-size: 0.9rem;
+            }
+
+            .enhanced-card {
+                padding: 1rem;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- OPTIMISATION: Indicateur de chargement -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="text-center">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Génération du rapport en cours...</div>
+        </div>
+    </div>
+
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center" href="#">
+            <a class="navbar-brand d-flex align-items-center" href="{% url 'auditengine:dashboard' %}">
                 <i class="fas fa-robot me-2"></i>
                 AuditIA
             </a>
@@ -264,10 +459,10 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="#"><i class="fas fa-tachometer-alt me-1"></i> Dashboard</a>
+                        <a class="nav-link" href="{% url 'auditengine:dashboard' %}"><i class="fas fa-tachometer-alt me-1"></i> Tableau de bord</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#"><i class="fas fa-list me-1"></i> Sessions</a>
+                        <a class="nav-link" href="{% url 'auditengine:session_list' %}"><i class="fas fa-list me-1"></i> Sessions</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link active" href="#"><i class="fas fa-chart-line me-1"></i> Recommandations</a>
@@ -279,8 +474,8 @@
                             <i class="fas fa-user me-1"></i> Admin
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i> Paramètres</a></li>
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-sign-out-alt me-2"></i> Déconnexion</a></li>
+                            <li><a class="dropdown-item" href="{% url 'auditengine:parametrage_ia' %}"><i class="fas fa-cog me-2"></i> Paramètres</a></li>
+                            <li><a class="dropdown-item" href="/accounts/logout/"><i class="fas fa-sign-out-alt me-2"></i> Déconnexion</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -299,17 +494,20 @@
                         Rapport de Recommandations IA
                     </h1>
                     <p class="text-muted mb-0">
-                        <i class="fas fa-calendar me-1"></i> Session: Audit Paie Mars 2024 - Généré le 15/03/2024 à 14:30
+                        <i class="fas fa-calendar me-1"></i>
+                        Session: {{ session.nom_session }}
+                        {% if session.date_completion %} - Généré le {{ session.date_completion|date:"d/m/Y H:i" }}{% endif %}
                     </p>
                     <p class="text-muted mb-0">
-                        <i class="fas fa-building me-1"></i> Mission: Entreprise XYZ - Audit Trimestriel
+                        <i class="fas fa-building me-1"></i>
+                        Mission: {{ recos.resume.mission|default:"-" }}
                     </p>
                 </div>
                 <div class="col-md-4 text-end">
-                    <button class="btn btn-outline-primary me-2">
+                    <button class="btn btn-outline-primary me-2" id="btn-print">
                         <i class="fas fa-print me-1"></i> Imprimer
                     </button>
-                    <button class="btn btn-primary">
+                    <button class="btn btn-primary" id="btn-export-pdf">
                         <i class="fas fa-download me-1"></i> Exporter PDF
                     </button>
                 </div>
@@ -325,18 +523,18 @@
             <div class="row">
                 <div class="col-md-8">
                     <p class="mb-2">
-                        L'analyse IA a détecté <strong>23 anomalies</strong> sur 847 lignes de paie analysées,
-                        soit un taux d'anomalie de <strong>2.7%</strong>. Les anomalies de type "Écart salarial"
-                        représentent 43% des cas détectés.
+                        L'analyse IA a détecté <strong>{{ recos.resume.total_anomalies }}</strong> anomalies sur
+                        <strong>{{ recos.resume.total_lignes }}</strong> lignes de paie analysées,
+                        soit un taux d'anomalie de <strong>{{ recos.resume.taux_anomalies }}%</strong>.
                     </p>
                     <p class="mb-0">
-                        <strong>Actions prioritaires:</strong> 12 anomalies critiques nécessitent une attention immédiate,
-                        représentant un impact financier estimé à <strong>15 420 €</strong>.
+                        <strong>Actions prioritaires:</strong>
+                        {{ rapport.resume.risques_critiques|default:0 }} anomalie(s) critique(s) nécessitent une attention immédiate.
                     </p>
                 </div>
                 <div class="col-md-4">
                     <div class="text-center">
-                        <div class="h2 text-warning mb-1">2.7%</div>
+                        <div class="h2 text-warning mb-1">{{ recos.resume.taux_anomalies }}%</div>
                         <div class="text-muted">Taux d'anomalie</div>
                     </div>
                 </div>
@@ -346,38 +544,63 @@
         <!-- Statistics Cards -->
         <div class="row mb-4">
             <div class="col-lg-3 col-md-6 mb-3">
-                <div class="stats-card text-center">
-                    <div class="stats-number text-primary">847</div>
-                    <div class="stats-label">Lignes Analysées</div>
-                    <div class="mt-2">
-                        <i class="fas fa-users fa-2x text-primary opacity-50"></i>
+                <div class="stats-card">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="stats-number text-primary">{{ recos.resume.total_lignes|floatformat:0 }}</div>
+                            <div class="stats-label">Lignes Analysées</div>
+                        </div>
+                        <div class="text-primary">
+                            <i class="fas fa-file-alt fa-2x"></i>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6 mb-3">
-                <div class="stats-card text-center">
-                    <div class="stats-number text-warning">23</div>
-                    <div class="stats-label">Anomalies Détectées</div>
-                    <div class="mt-2">
-                        <i class="fas fa-exclamation-triangle fa-2x text-warning opacity-50"></i>
+                <div class="stats-card">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="stats-number text-danger">{{ recos.resume.total_anomalies|floatformat:0 }}</div>
+                            <div class="stats-label">
+                                Anomalies Détectées
+                                <i class="fas fa-info-circle info-tooltip ms-1" data-tooltip="Nombre total d'anomalies identifiées par l'IA"></i>
+                            </div>
+                        </div>
+                        <div class="text-danger">
+                            <i class="fas fa-exclamation-triangle fa-2x"></i>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6 mb-3">
-                <div class="stats-card text-center">
-                    <div class="stats-number text-danger">12</div>
-                    <div class="stats-label">Critiques</div>
-                    <div class="mt-2">
-                        <i class="fas fa-fire fa-2x text-danger opacity-50"></i>
+                <div class="stats-card">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="stats-number text-warning">{{ recos.resume.taux_anomalies }}%</div>
+                            <div class="stats-label">
+                                Taux d'Anomalie
+                                <i class="fas fa-info-circle info-tooltip ms-1" data-tooltip="Pourcentage d'anomalies par rapport au total analysé"></i>
+                            </div>
+                        </div>
+                        <div class="text-warning">
+                            <i class="fas fa-percentage fa-2x"></i>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6 mb-3">
-                <div class="stats-card text-center">
-                    <div class="stats-number text-success">97.3%</div>
-                    <div class="stats-label">Taux de Conformité</div>
-                    <div class="mt-2">
-                        <i class="fas fa-check-circle fa-2x text-success opacity-50"></i>
+                <div class="stats-card">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="stats-number text-success">{{ recos.resume.taux_conformite }}%</div>
+                            <div class="stats-label">
+                                Taux de Conformité
+                                <i class="fas fa-info-circle info-tooltip ms-1" data-tooltip="Pourcentage de données conformes"></i>
+                            </div>
+                        </div>
+                        <div class="text-success">
+                            <i class="fas fa-check-circle fa-2x"></i>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -386,25 +609,79 @@
         <!-- Charts Row -->
         <div class="row mb-4">
             <div class="col-lg-6">
-                <div class="chart-container">
-                    <h5 class="mb-3">
-                        <i class="fas fa-chart-pie me-2"></i>
-                        Répartition par Type d'Anomalie
-                    </h5>
-                    <div class="chart-wrapper">
-                        <canvas id="anomalyTypeChart"></canvas>
+                <div class="enhanced-card">
+                    <div class="section-header">
+                        <h3>
+                            <i class="fas fa-chart-pie me-2"></i>
+                            Répartition par Type d'Anomalie
+                        </h3>
+                        <span class="badge bg-primary">{{ recos.repartition_types|length }} types</span>
                     </div>
+                    
+                    {% if recos.repartition_types %}
+                        <div class="chart-wrapper">
+                            <canvas id="anomalyTypeChart"></canvas>
+                        </div>
+                        
+                        <!-- Légende cliquable -->
+                        <div class="mt-3">
+                            <h6 class="mb-2">Légende :</h6>
+                            <div class="legend-container">
+                                {% for type in recos.repartition_types %}
+                                <div class="legend-item" onclick="filterByType('{{ type.code }}')">
+                                    <div class="legend-color" style="background-color: {{ type.color|default:'#3b82f6' }};"></div>
+                                    <span>{{ type.label }} ({{ type.count }})</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-chart-pie"></i>
+                            <h4>Aucune anomalie détectée</h4>
+                            <p>Aucun type d'anomalie n'a été identifié dans cette session.</p>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
             <div class="col-lg-6">
-                <div class="chart-container">
-                    <h5 class="mb-3">
-                        <i class="fas fa-chart-bar me-2"></i>
-                        Répartition par Niveau de Risque
-                    </h5>
-                    <div class="chart-wrapper">
-                        <canvas id="riskLevelChart"></canvas>
+                <div class="enhanced-card">
+                    <div class="section-header">
+                        <h3>
+                            <i class="fas fa-chart-bar me-2"></i>
+                            Répartition par Niveau de Risque
+                        </h3>
+                        <span class="badge bg-warning">{{ recos.repartition_risques|length }} niveaux</span>
                     </div>
+                    
+                    {% if recos.repartition_risques %}
+                        <div class="chart-wrapper">
+                            <canvas id="riskLevelChart"></canvas>
+                        </div>
+                        
+                        <!-- Légende cliquable -->
+                        <div class="mt-3">
+                            <h6 class="mb-2">Légende :</h6>
+                            <div class="legend-container">
+                                {% for risque in recos.repartition_risques %}
+                                <div class="legend-item" onclick="filterByRisk('{{ risque.code }}')">
+                                    <div class="legend-color" style="background-color: 
+                                        {% if risque.code == 'critique' %}#ef4444
+                                        {% elif risque.code == 'eleve' %}#f59e0b
+                                        {% elif risque.code == 'moyen' %}#3b82f6
+                                        {% else %}#10b981{% endif %};"></div>
+                                    <span>{{ risque.label }} ({{ risque.count }})</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-chart-bar"></i>
+                            <h4>Aucun risque identifié</h4>
+                            <p>Aucun niveau de risque n'a été détecté dans cette session.</p>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -412,215 +689,188 @@
         <!-- Recommendations Section -->
         <div class="row">
             <div class="col-lg-8">
-                <h2 class="section-title">
-                    <i class="fas fa-lightbulb me-2"></i>
-                    Recommandations Prioritaires
-                </h2>
-
-                <div class="recommendation-card">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <h5 class="mb-0">Révision des Écarts Salariaux</h5>
-                        <span class="priority-badge priority-high">
-                            <i class="fas fa-exclamation-circle me-1"></i>
-                            Critique
-                        </span>
+                <div class="enhanced-card">
+                    <div class="section-header">
+                        <h3>
+                            <i class="fas fa-lightbulb me-2"></i>
+                            Recommandations Prioritaires
+                        </h3>
+                        <span class="badge bg-info">{{ recos.recommandations_prioritaires|length }} recommandations</span>
                     </div>
-                    <p class="text-muted mb-3">
-                        10 employés présentent des écarts salariaux supérieurs à 5% par rapport à leur grille de référence.
-                        Impact financier estimé: 8 420 €.
-                    </p>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <strong>Employés concernés:</strong> 10
+                    
+                    {% if recos.recommandations_prioritaires %}
+                        {% for item in recos.recommandations_prioritaires %}
+                        <div class="recommendation-card mb-3">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-arrow-right text-primary me-2"></i>
+                                    {{ item.titre }}
+                                </h5>
+                                {% with p=item.priorite|lower %}
+                                    <span class="priority-badge {% if 'urgent' in p %}priority-high{% elif 'elev' in p %}priority-medium{% else %}priority-low{% endif %}">
+                                        <i class="fas fa-exclamation-circle me-1"></i>
+                                        {{ item.priorite|title }}
+                                    </span>
+                                {% endwith %}
+                            </div>
+                            {% if item.details %}
+                            <p class="text-muted mb-2">
+                                <i class="fas fa-info-circle me-1"></i>
+                                {{ item.details }}
+                            </p>
+                            {% endif %}
+                            {% if item.action %}
+                            <div class="action-highlight">
+                                <strong><i class="fas fa-tasks me-1"></i>Action requise:</strong> 
+                                <span class="text-primary">{{ item.action }}</span>
+                            </div>
+                            {% endif %}
                         </div>
-                        <div class="col-md-6">
-                            <strong>Délai recommandé:</strong> 3 jours
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-lightbulb"></i>
+                            <h4>Aucune recommandation prioritaire</h4>
+                            <p>Toutes les données analysées semblent conformes aux normes.</p>
+                            <button class="btn btn-outline-primary" onclick="window.location.reload()">
+                                <i class="fas fa-refresh me-1"></i>Actualiser
+                            </button>
                         </div>
-                    </div>
-                    <div class="mt-3">
-                        <button class="btn btn-primary btn-sm me-2">
-                            <i class="fas fa-eye me-1"></i> Voir détails
-                        </button>
-                        <button class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-tasks me-1"></i> Créer tâche
-                        </button>
-                    </div>
-                </div>
-
-                <div class="recommendation-card">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <h5 class="mb-0">Vérification des Heures Supplémentaires</h5>
-                        <span class="priority-badge priority-high">
-                            <i class="fas fa-exclamation-circle me-1"></i>
-                            Critique
-                        </span>
-                    </div>
-                    <p class="text-muted mb-3">
-                        7 employés ont des heures supplémentaires anormalement élevées (>20h/mois).
-                        Risque de non-conformité légale et surcoût de 4 200 €.
-                    </p>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <strong>Employés concernés:</strong> 7
-                        </div>
-                        <div class="col-md-6">
-                            <strong>Délai recommandé:</strong> 2 jours
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <button class="btn btn-primary btn-sm me-2">
-                            <i class="fas fa-eye me-1"></i> Voir détails
-                        </button>
-                        <button class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-tasks me-1"></i> Créer tâche
-                        </button>
-                    </div>
-                </div>
-
-                <div class="recommendation-card">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <h5 class="mb-0">Contrôle des Primes Variables</h5>
-                        <span class="priority-badge priority-medium">
-                            <i class="fas fa-exclamation-triangle me-1"></i>
-                            Moyen
-                        </span>
-                    </div>
-                    <p class="text-muted mb-3">
-                        4 employés ont des primes variables sans justificatif dans le système.
-                        Montant total: 2 800 €.
-                    </p>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <strong>Employés concernés:</strong> 4
-                        </div>
-                        <div class="col-md-6">
-                            <strong>Délai recommandé:</strong> 1 semaine
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <button class="btn btn-primary btn-sm me-2">
-                            <i class="fas fa-eye me-1"></i> Voir détails
-                        </button>
-                        <button class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-tasks me-1"></i> Créer tâche
-                        </button>
-                    </div>
-                </div>
-
-                <div class="recommendation-card">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <h5 class="mb-0">Mise à jour des Données Personnelles</h5>
-                        <span class="priority-badge priority-low">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Faible
-                        </span>
-                    </div>
-                    <p class="text-muted mb-3">
-                        2 employés ont des incohérences dans leurs données personnelles (adresse, RIB).
-                        Risque administratif faible.
-                    </p>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <strong>Employés concernés:</strong> 2
-                        </div>
-                        <div class="col-md-6">
-                            <strong>Délai recommandé:</strong> 2 semaines
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <button class="btn btn-primary btn-sm me-2">
-                            <i class="fas fa-eye me-1"></i> Voir détails
-                        </button>
-                        <button class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-tasks me-1"></i> Créer tâche
-                        </button>
-                    </div>
+                    {% endif %}
                 </div>
             </div>
 
             <div class="col-lg-4">
-                <h2 class="section-title">
-                    <i class="fas fa-clipboard-list me-2"></i>
-                    Plan d'Action
-                </h2>
+                <div class="enhanced-card">
+                    <div class="section-header">
+                        <h3>
+                            <i class="fas fa-clipboard-list me-2"></i>
+                            Plan d'Action
+                        </h3>
+                        <span class="badge bg-success">{{ recos.plan_action|length }} actions</span>
+                    </div>
 
-                <div class="action-item">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0">Phase 1 - Actions Critiques</h6>
-                        <span class="badge bg-danger">0-3 jours</span>
-                    </div>
-                    <div class="progress-custom mb-2">
-                        <div class="progress-bar-custom bg-danger" style="width: 0%"></div>
-                    </div>
-                    <ul class="list-unstyled mb-0">
-                        <li><i class="fas fa-circle impact-high"></i> Écarts salariaux (10 cas)</li>
-                        <li><i class="fas fa-circle impact-high"></i> Heures supplémentaires (7 cas)</li>
-                    </ul>
+                    {% if recos.plan_action %}
+                        {% for p in recos.plan_action %}
+                        <div class="action-item mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-check-circle text-success me-1"></i>
+                                    {{ p.type }}
+                                </h6>
+                                {% with dl=p.delai|default:''|lower %}
+                                <span class="badge {% if dl|slice:':3' == 'imm' %}bg-danger{% elif dl|slice:':5' == 'court' %}bg-warning{% else %}bg-success{% endif %}">
+                                    <i class="fas fa-clock me-1"></i>{{ p.delai }}
+                                </span>
+                                {% endwith %}
+                            </div>
+                            <div class="progress-custom mb-2">
+                                {% with dl=p.delai|default:''|lower %}
+                                <div class="progress-bar-custom {% if dl|slice:':3' == 'imm' %}bg-danger{% elif dl|slice:':5' == 'court' %}bg-warning{% else %}bg-success{% endif %}"
+                                     style="width: {{ p.count|default:0|floatformat:0 }}%"></div>
+                                {% endwith %}
+                            </div>
+                            <ul class="list-unstyled mb-0">
+                                <li><i class="fas fa-circle impact-high"></i> Cas détectés: {{ p.count }}</li>
+                                <li><i class="fas fa-circle impact-medium"></i> Responsable: {{ p.responsable }}</li>
+                                <li><i class="fas fa-circle impact-low"></i> Action: {{ p.action }}</li>
+                            </ul>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-clipboard-list"></i>
+                            <h4>Aucun plan d'action</h4>
+                            <p>Aucune action corrective n'est nécessaire pour le moment.</p>
+                        </div>
+                    {% endif %}
                 </div>
+            </div>
+        </div>
 
-                <div class="action-item">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0">Phase 2 - Actions Moyennes</h6>
-                        <span class="badge bg-warning">4-7 jours</span>
-                    </div>
-                    <div class="progress-custom mb-2">
-                        <div class="progress-bar-custom bg-warning" style="width: 0%"></div>
-                    </div>
-                    <ul class="list-unstyled mb-0">
-                        <li><i class="fas fa-circle impact-medium"></i> Primes variables (4 cas)</li>
-                    </ul>
-                </div>
-
-                <div class="action-item">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0">Phase 3 - Actions Préventives</h6>
-                        <span class="badge bg-success">8-14 jours</span>
-                    </div>
-                    <div class="progress-custom mb-2">
-                        <div class="progress-bar-custom bg-success" style="width: 0%"></div>
-                    </div>
-                    <ul class="list-unstyled mb-0">
-                        <li><i class="fas fa-circle impact-low"></i> Données personnelles (2 cas)</li>
-                    </ul>
-                </div>
-
-                <!-- Impact Financier -->
+                <!-- Impact Financier Réel -->
                 <div class="stats-card mt-4">
-                    <h6 class="text-center mb-3">Impact Financier Estimé</h6>
+                    <h6 class="text-center mb-3">
+                        <i class="fas fa-euro-sign me-2"></i>
+                        Impact Financier Réel
+                    </h6>
                     <div class="text-center">
-                        <div class="h3 text-warning mb-2">15 420 €</div>
-                        <div class="text-muted">Économies potentielles</div>
+                        <div class="h3 text-danger mb-2">{{ recos.impact_financier.total|floatformat:0 }} €</div>
+                        <div class="text-muted">Montant total estimé</div>
                     </div>
                     <hr>
                     <div class="row text-center">
+                        {% for type_code, impact in recos.impact_financier.par_type.items|slice:':3' %}
                         <div class="col-4">
-                            <div class="h6 text-danger">8 420 €</div>
-                            <div class="small text-muted">Écarts</div>
+                            <div class="h6 {% if forloop.counter0 == 0 %}text-danger{% elif forloop.counter0 == 1 %}text-warning{% else %}text-info{% endif %}">
+                                {{ impact.montant|floatformat:0 }} €
+                            </div>
+                            <div class="small text-muted">{{ impact.label }}</div>
+                            <div class="small text-muted">({{ impact.count }} cas)</div>
                         </div>
-                        <div class="col-4">
-                            <div class="h6 text-warning">4 200 €</div>
-                            <div class="small text-muted">Heures Sup.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Exemples Cliquables -->
+                <div class="stats-card mt-4">
+                    <h6 class="text-center mb-3">
+                        <i class="fas fa-eye me-2"></i>
+                        Exemples d'Anomalies
+                    </h6>
+                    <div class="row">
+                        {% for type_code, exemples in recos.exemples.items %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">{{ recos.impact_financier.par_type|get_item:type_code|get_item:'label' }}</h6>
+                                </div>
+                                <div class="card-body p-2">
+                                    {% for exemple in exemples %}
+                                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
+                                        <div>
+                                            <strong>{{ exemple.nom }}</strong>
+                                            <br>
+                                            <small class="text-muted">
+                                                {% if exemple.salaire_brut %}
+                                                    Salaire: {{ exemple.salaire_brut|floatformat:0 }} €
+                                                {% endif %}
+                                                {% if exemple.montant_primes %}
+                                                    | Primes: {{ exemple.montant_primes|floatformat:0 }} €
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge bg-{% if exemple.niveau_risque == 'critique' %}danger{% elif exemple.niveau_risque == 'eleve' %}warning{% elif exemple.niveau_risque == 'moyen' %}info{% else %}success{% endif %}">
+                                                {{ exemple.niveau_risque|title }}
+                                            </span>
+                                            <br>
+                                            <a href="{{ exemple.url }}" class="btn btn-sm btn-outline-primary mt-1">
+                                                <i class="fas fa-external-link-alt"></i> Voir
+                                            </a>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-4">
-                            <div class="h6 text-info">2 800 €</div>
-                            <div class="small text-muted">Primes</div>
-                        </div>
+                        {% endfor %}
                     </div>
                 </div>
 
                 <!-- Actions Buttons -->
                 <div class="d-grid gap-2 mt-4">
-                    <button class="btn btn-primary">
+                    <button class="btn btn-primary" onclick="creerTachesAction()">
                         <i class="fas fa-tasks me-2"></i>
                         Créer Toutes les Tâches
                     </button>
-                    <button class="btn btn-outline-primary">
+                    <a href="{% url 'auditengine:liste_taches_action' session.id %}" class="btn btn-outline-primary">
+                        <i class="fas fa-list me-2"></i>
+                        Voir les Tâches
+                    </a>
+                    <button class="btn btn-outline-secondary">
                         <i class="fas fa-envelope me-2"></i>
                         Envoyer Rapport par Email
-                    </button>
-                    <button class="btn btn-outline-secondary">
-                        <i class="fas fa-calendar-plus me-2"></i>
-                        Programmer Suivi
                     </button>
                 </div>
             </div>
@@ -632,14 +882,20 @@
 
     <!-- Charts Initialization -->
     <script>
-        // Anomaly Type Chart
+        // Anomaly Type Chart (données réelles)
         const ctx1 = document.getElementById('anomalyTypeChart').getContext('2d');
+        const typeLabels = [
+            {% for t in recos.repartition_types %}'{{ t.label }}'{% if not forloop.last %}, {% endif %}{% endfor %}
+        ];
+        const typeValues = [
+            {% for t in recos.repartition_types %}{{ t.count }}{% if not forloop.last %}, {% endif %}{% endfor %}
+        ];
         const anomalyTypeChart = new Chart(ctx1, {
             type: 'doughnut',
             data: {
-                labels: ['Écart Salarial', 'Heures Supplémentaires', 'Primes Variables', 'Données Personnelles', 'Autres'],
+                labels: typeLabels,
                 datasets: [{
-                    data: [10, 7, 4, 2, 0],
+                    data: typeValues,
                     backgroundColor: [
                         '#ef4444',
                         '#f59e0b',
@@ -675,15 +931,21 @@
             }
         });
 
-        // Risk Level Chart
+        // Risk Level Chart (données réelles)
         const ctx2 = document.getElementById('riskLevelChart').getContext('2d');
+        const riskLabels = [
+            {% for r in recos.repartition_risques %}'{{ r.label }}'{% if not forloop.last %}, {% endif %}{% endfor %}
+        ];
+        const riskValues = [
+            {% for r in recos.repartition_risques %}{{ r.count }}{% if not forloop.last %}, {% endif %}{% endfor %}
+        ];
         const riskLevelChart = new Chart(ctx2, {
             type: 'bar',
             data: {
-                labels: ['Critique', 'Élevé', 'Moyen', 'Faible'],
+                labels: riskLabels,
                 datasets: [{
                     label: 'Nombre d\'anomalies',
-                    data: [12, 5, 4, 2],
+                    data: riskValues,
                     backgroundColor: [
                         '#ef4444',
                         '#f97316',
@@ -738,5 +1000,202 @@
             });
         });
     </script>
+
+    <!-- Modale de détails recommandation -->
+    <div class="modal fade" id="detailsModal" tabindex="-1" aria-labelledby="detailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detailsModalLabel">Détail de la recommandation</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+                <div class="modal-body" id="detailsModalBody">
+                    <!-- Contenu dynamique -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% block extra_js %}
+    <script>
+    // OPTIMISATION: Gestion du chargement
+    document.addEventListener('DOMContentLoaded', function() {
+        // Masquer l'indicateur de chargement après 500ms
+        setTimeout(function() {
+            const loadingOverlay = document.getElementById('loading-overlay');
+            if (loadingOverlay) {
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => loadingOverlay.style.display = 'none', 300);
+            }
+        }, 500);
+
+        // Impression
+        const btnPrint = document.getElementById('btn-print');
+        if (btnPrint) {
+            btnPrint.addEventListener('click', function() {
+                window.print();
+            });
+        }
+
+        // Export PDF
+        var exportPdfUrl = "{% url 'auditengine:export_recommendations_pdf' session.pk %}";
+        const btnExportPdf = document.getElementById('btn-export-pdf');
+        if (btnExportPdf) {
+            btnExportPdf.addEventListener('click', function() {
+                // OPTIMISATION: Afficher un indicateur de chargement pour l'export
+                btnExportPdf.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Génération...';
+                btnExportPdf.disabled = true;
+                
+                window.open(exportPdfUrl, '_blank');
+                
+                // Restaurer le bouton après 3 secondes
+                setTimeout(() => {
+                    btnExportPdf.innerHTML = '<i class="fas fa-file-pdf me-2"></i>Exporter PDF';
+                    btnExportPdf.disabled = false;
+                }, 3000);
+            });
+        }
+
+        // Voir détails (pour chaque card)
+        [1,2,3,4].forEach(function(idx) {
+            var btn = document.getElementById('btn-view-detail-' + idx);
+            if (btn) {
+                btn.addEventListener('click', function() {
+                    var card = btn.closest('.recommendation-card');
+                    var content = card ? card.innerHTML : '';
+                    document.getElementById('detailsModalBody').innerHTML = content;
+                    var modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+                    modal.show();
+                });
+            }
+        });
+
+        // OPTIMISATION: Lazy loading des graphiques
+        const observerOptions = {
+            root: null,
+            rootMargin: '50px',
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const chart = entry.target;
+                    if (chart.dataset.loaded !== 'true') {
+                        chart.dataset.loaded = 'true';
+                        // Initialiser le graphique ici si nécessaire
+                    }
+                }
+            });
+        }, observerOptions);
+
+        // Observer les conteneurs de graphiques
+        document.querySelectorAll('.chart-container').forEach(chart => {
+            observer.observe(chart);
+        });
+
+        // OPTIMISATION: Initialisation des tooltips
+        initializeTooltips();
+    });
+
+    // OPTIMISATION: Fonctions pour les légendes cliquables
+    function filterByType(typeCode) {
+        console.log('Filtrer par type:', typeCode);
+        // Ici on pourrait filtrer les données ou naviguer vers une vue filtrée
+        showNotification(`Filtrage par type: ${typeCode}`, 'info');
+    }
+
+    function filterByRisk(riskCode) {
+        console.log('Filtrer par risque:', riskCode);
+        // Ici on pourrait filtrer les données ou naviguer vers une vue filtrée
+        showNotification(`Filtrage par risque: ${riskCode}`, 'warning');
+    }
+
+    // OPTIMISATION: Système de notifications
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-dismiss après 3 secondes
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 3000);
+    }
+
+    // OPTIMISATION: Initialisation des tooltips
+    function initializeTooltips() {
+        const tooltips = document.querySelectorAll('.info-tooltip');
+        tooltips.forEach(tooltip => {
+            tooltip.addEventListener('mouseenter', function() {
+                const tooltipText = this.getAttribute('data-tooltip');
+                if (tooltipText) {
+                    this.setAttribute('title', tooltipText);
+                }
+            });
+        });
+    }
+
+    // OPTIMISATION: Amélioration de l'accessibilité
+    document.addEventListener('keydown', function(e) {
+        // Navigation au clavier pour les légendes
+        if (e.key === 'Enter' || e.key === ' ') {
+            const activeElement = document.activeElement;
+            if (activeElement.classList.contains('legend-item')) {
+                e.preventDefault();
+                activeElement.click();
+            }
+        }
+    });
+
+    // Fonction pour créer les tâches d'action
+    function creerTachesAction() {
+        const sessionId = {{ session.id }};
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        
+        // OPTIMISATION: Afficher un indicateur de chargement
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Création en cours...';
+        btn.disabled = true;
+        
+        fetch(`/auditengine/sessions/${sessionId}/creer-taches/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`✅ ${data.message}`);
+                // Rediriger vers la liste des tâches
+                window.location.href = `/auditengine/sessions/${sessionId}/taches/`;
+            } else {
+                alert(`❌ Erreur: ${data.error}`);
+                // Restaurer le bouton en cas d'erreur
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('❌ Erreur lors de la création des tâches');
+            // Restaurer le bouton en cas d'erreur
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        });
+    }
+    </script>
+    {% endblock %}
 </body>
 </html>

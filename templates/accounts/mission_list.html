@@ -19,14 +19,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="card-subtitle mb-2 text-muted">Total Missions</h6>
-                        <h2 class="card-title text-info mb-0">
-                            {% for mission in missions %}
-                                {% if forloop.first %}0{% endif %}
-                            {% empty %}
-                                0
-                            {% endfor %}
-                            <!-- Temporaire en attendant le template tag -->
-                        </h2>
+                        <h2 class="card-title text-info mb-0">{{ stats.total_missions }}</h2>
                     </div>
                     <div class="bg-primary bg-opacity-10 rounded-circle p-3">
                         <i class="bi bi-briefcase fs-3 text-primary"></i>
@@ -42,7 +35,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="card-subtitle mb-2 text-muted">Missions Actives</h6>
-                        <h2 class="card-title text-success mb-0">{% for mission in missions %}{% if mission.is_active %}{{ forloop.counter }}{% endif %}{% empty %}0{% endfor %}</h2>
+                        <h2 class="card-title text-success mb-0">{{ stats.missions_actives }}</h2>
                     </div>
                     <div class="bg-success bg-opacity-10 rounded-circle p-3">
                         <i class="bi bi-play-circle fs-3 text-success"></i>
@@ -58,7 +51,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="card-subtitle mb-2 text-muted">Utilisateurs Assignés</h6>
-                        <h2 class="card-title text-info mb-0">{% load custom_filters %}{{ missions|count_assigned_users }}</h2>
+                        <h2 class="card-title text-info mb-0">{{ stats.utilisateurs_assignes }}</h2>
                     </div>
                     <div class="bg-info bg-opacity-10 rounded-circle p-3">
                         <i class="bi bi-people fs-3 text-info"></i>
@@ -74,10 +67,26 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="card-subtitle mb-2 text-muted">Missions Terminées</h6>
-                        <h2 class="card-title text-secondary mb-0">{% for mission in missions %}{% if not mission.is_active %}{{ forloop.counter }}{% endif %}{% empty %}0{% endfor %}</h2>
+                        <h2 class="card-title text-secondary mb-0">{{ stats.missions_terminees }}</h2>
                     </div>
                     <div class="bg-secondary bg-opacity-10 rounded-circle p-3">
                         <i class="bi bi-check-circle fs-3 text-secondary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stats-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-muted">Avec Auditeur</h6>
+                        <h2 class="card-title text-warning mb-0">{{ stats.missions_avec_auditeur }}</h2>
+                    </div>
+                    <div class="bg-warning bg-opacity-10 rounded-circle p-3">
+                        <i class="bi bi-person-check fs-3 text-warning"></i>
                     </div>
                 </div>
             </div>
@@ -98,15 +107,58 @@
                             <th>Mission</th>
                             <th>Client</th>
                             <th>Période</th>
+                            <th>Auditeur Principal</th>
                             <th>Utilisateurs Assignés</th>
                             <th>Statut</th>
-                            <th class="col-2">Actions</th>  <!-- ✅ Utiliser class au lieu de width -->
+                            <th class="col-2">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for mission in missions %}
                         <tr>
-                            <!-- Le contenu des lignes reste identique -->
+                            <td>
+                                <div>
+                                    <strong>{{ mission.name }}</strong>
+                                    {% if mission.description %}
+                                        <br><small class="text-muted">{{ mission.description|truncatechars:50 }}</small>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>{{ mission.client|default:"-" }}</td>
+                            <td>
+                                {% if mission.start_date and mission.end_date %}
+                                    {{ mission.start_date|date:"d/m/Y" }} - {{ mission.end_date|date:"d/m/Y" }}
+                                {% elif mission.start_date %}
+                                    À partir du {{ mission.start_date|date:"d/m/Y" }}
+                                {% elif mission.end_date %}
+                                    Jusqu'au {{ mission.end_date|date:"d/m/Y" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if mission.assigned_auditor %}
+                                    <span class="badge bg-primary">{{ mission.assigned_auditor.get_full_name }}</span>
+                                {% else %}
+                                    <span class="text-muted">Non assigné</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if mission.customuser_set.all %}
+                                    {% for user in mission.customuser_set.all %}
+                                        <span class="badge bg-info me-1">{{ user.get_full_name }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-muted">Aucun utilisateur assigné</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if mission.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Terminée</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
                                     <a href="{% url 'accounts:mission_edit' mission.id %}"
@@ -126,7 +178,7 @@
                             </td>
                         </tr>
 
-                        <!-- ✅ Modal corrigé -->
+                        <!-- Modal pour les détails -->
                         <div class="modal fade" id="missionDetailModal{{ mission.id }}" tabindex="-1"
                              aria-labelledby="missionDetailLabel{{ mission.id }}" aria-hidden="true">
                             <div class="modal-dialog modal-lg">
@@ -135,7 +187,66 @@
                                         <h5 class="modal-title" id="missionDetailLabel{{ mission.id }}">{{ mission.name }}</h5>
                                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
                                     </div>
-                                    <!-- Le reste du modal reste identique -->
+                                    <div class="modal-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h6>Informations générales</h6>
+                                                <p><strong>Client:</strong> {{ mission.client|default:"Non spécifié" }}</p>
+                                                <p><strong>Description:</strong> {{ mission.description|default:"Aucune description" }}</p>
+                                                <p><strong>Auditeur Principal:</strong> 
+                                                    {% if mission.assigned_auditor %}
+                                                        <span class="badge bg-primary">{{ mission.assigned_auditor.get_full_name }}</span>
+                                                    {% else %}
+                                                        <span class="text-muted">Non assigné</span>
+                                                    {% endif %}
+                                                </p>
+                                                <p><strong>Statut:</strong> 
+                                                    {% if mission.is_active %}
+                                                        <span class="badge bg-success">Active</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">Terminée</span>
+                                                    {% endif %}
+                                                </p>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6>Période</h6>
+                                                <p><strong>Date de début:</strong> {{ mission.start_date|date:"d/m/Y"|default:"Non définie" }}</p>
+                                                <p><strong>Date de fin:</strong> {{ mission.end_date|date:"d/m/Y"|default:"Non définie" }}</p>
+                                                <p><strong>Créée le:</strong> {{ mission.created_at|date:"d/m/Y H:i" }}</p>
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="row">
+                                            <div class="col-12">
+                                                <h6>Utilisateurs assignés</h6>
+                                                {% if mission.customuser_set.all %}
+                                                    <div class="row">
+                                                        {% for user in mission.customuser_set.all %}
+                                                            <div class="col-md-6 mb-2">
+                                                                <div class="d-flex align-items-center">
+                                                                    <div class="bg-primary bg-opacity-10 rounded-circle p-2 me-2">
+                                                                        <i class="bi bi-person text-primary"></i>
+                                                                    </div>
+                                                                    <div>
+                                                                        <strong>{{ user.get_full_name }}</strong><br>
+                                                                        <small class="text-muted">{{ user.email }}</small>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% else %}
+                                                    <p class="text-muted">Aucun utilisateur assigné à cette mission</p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <a href="{% url 'accounts:mission_edit' mission.id %}" class="btn btn-primary">
+                                            <i class="bi bi-pencil me-2"></i>Modifier
+                                        </a>
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

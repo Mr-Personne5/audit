@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Conflit de fichier - Remplacement ou nouvelle version{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+      <div class="alert alert-warning">
+        <h4 class="alert-heading"><i class="bi bi-exclamation-triangle me-2"></i>Fichier déjà existant</h4>
+        <p>Un fichier de ce type (<b>{{ type_fichier }}</b>) et de cette version (<b>{{ version }}</b>) existe déjà pour la mission <b>{{ mission }}</b>.</p>
+        <p>Vous pouvez :</p>
+        <ul>
+          <li><b>Remplacer</b> le fichier existant (l'ancien sera supprimé et remplacé par le nouveau)</li>
+          <li><b>Uploader en version suivante</b> (le nouveau fichier sera enregistré en version {{ version_suivante }})</li>
+          <li><b>Annuler</b> l'opération</li>
+        </ul>
+      </div>
+      <div class="d-flex gap-3">
+        <form method="post" action="{% url 'uploads:replace_file' %}">
+          {% csrf_token %}
+          <input type="hidden" name="mission_id" value="{{ mission_id }}">
+          <input type="hidden" name="type_fichier" value="{{ type_fichier }}">
+          <input type="hidden" name="version" value="{{ version }}">
+          <input type="hidden" name="nom_fichier" value="{{ nom_fichier }}">
+          <input type="hidden" name="fichier" value="{{ fichier_temp }}">
+          <button type="submit" class="btn btn-danger">Remplacer l'existant</button>
+        </form>
+        <form method="post" action="{% url 'uploads:increment_version' %}">
+          {% csrf_token %}
+          <input type="hidden" name="mission_id" value="{{ mission_id }}">
+          <input type="hidden" name="type_fichier" value="{{ type_fichier }}">
+          <input type="hidden" name="version" value="{{ version }}">
+          <input type="hidden" name="nom_fichier" value="{{ nom_fichier }}">
+          <input type="hidden" name="fichier" value="{{ fichier_temp }}">
+          <button type="submit" class="btn btn-primary">Uploader en version {{ version_suivante }}</button>
+        </form>
+        <a href="{% url 'uploads:upload_file' %}" class="btn btn-outline-secondary">Annuler</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} 

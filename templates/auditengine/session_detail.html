@@ -1,9 +1,11 @@
 {% extends 'auditengine/base_auditengine.html' %}
 {% load static %}
+{% load custom_filters %}
 
 {% block title %}{{ session.nom_session }} - Audit IA{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="auditengine-header">
     <div class="container">
         <div class="row align-items-center">
@@ -162,9 +164,20 @@
                 </div>
                 <div class="card-body text-center">
                     {% if session.status == 'completed' %}
-                        <div class="position-relative d-inline-block mb-3">
-                            <div class="display-1 text-primary">{{ session.get_taux_anomalies }}%</div>
-                            <small class="text-muted">Taux d'anomalies</small>
+                        <!-- Taux global vs filtré -->
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <div class="position-relative d-inline-block">
+                                    <div class="display-4 text-primary">{{ taux_global }}%</div>
+                                    <small class="text-muted">Taux global</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="position-relative d-inline-block">
+                                    <div class="display-4 text-info">{{ taux_filtre }}%</div>
+                                    <small class="text-muted">Taux filtré</small>
+                                </div>
+                            </div>
                         </div>
                         <div class="row text-center">
                             <div class="col-6">
@@ -194,7 +207,7 @@
                 <div class="anomalie-card card text-center critique">
                     <div class="card-body">
                         <i class="bi bi-person-x text-danger display-4"></i>
-                        <h4 class="text-danger">{{ stats_detail.employes_fantomes }}</h4>
+                        <h4 class="text-danger" id="employes_fantomes">{{ stats_detail.employes_fantomes }}</h4>
                         <small class="text-muted">Employés fantômes</small>
                     </div>
                 </div>
@@ -203,7 +216,7 @@
                 <div class="anomalie-card card text-center eleve">
                     <div class="card-body">
                         <i class="bi bi-currency-euro text-warning display-4"></i>
-                        <h4 class="text-warning">{{ stats_detail.salaires_anormaux }}</h4>
+                        <h4 class="text-warning" id="salaires_anormaux">{{ stats_detail.salaires_anormaux }}</h4>
                         <small class="text-muted">Salaires anormaux</small>
                     </div>
                 </div>
@@ -212,7 +225,7 @@
                 <div class="anomalie-card card text-center moyen">
                     <div class="card-body">
                         <i class="bi bi-gift text-info display-4"></i>
-                        <h4 class="text-info">{{ stats_detail.primes_anormales }}</h4>
+                        <h4 class="text-info" id="primes_anormales">{{ stats_detail.primes_anormales }}</h4>
                         <small class="text-muted">Primes anormales</small>
                     </div>
                 </div>
@@ -221,7 +234,7 @@
                 <div class="anomalie-card card text-center moyen">
                     <div class="card-body">
                         <i class="bi bi-clock text-warning display-4"></i>
-                        <h4 class="text-warning">{{ stats_detail.heures_excessives }}</h4>
+                        <h4 class="text-warning" id="heures_excessives">{{ stats_detail.heures_excessives }}</h4>
                         <small class="text-muted">Heures excessives</small>
                     </div>
                 </div>
@@ -230,7 +243,7 @@
                 <div class="anomalie-card card text-center faible">
                     <div class="card-body">
                         <i class="bi bi-credit-card text-secondary display-4"></i>
-                        <h4 class="text-secondary">{{ stats_detail.rib_dupliques }}</h4>
+                        <h4 class="text-dark" id="rib_dupliques">{{ stats_detail.rib_dupliques }}</h4>
                         <small class="text-muted">RIB dupliqués</small>
                     </div>
                 </div>
@@ -254,22 +267,49 @@
                         <h6 class="mb-0"><i class="bi bi-shield-exclamation"></i> Répartition par niveau de risque</h6>
                     </div>
                     <div class="card-body">
-                        <div class="row">
+                        <!-- Stats filtrées (actuelles) -->
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <h6 class="text-muted mb-2"><i class="bi bi-funnel"></i> Statistiques filtrées</h6>
+                            </div>
                             <div class="col-md-3 text-center">
-                                <div class="h2 text-danger">{{ stats_risque.critique }}</div>
+                                <div class="h2 text-danger" id="risque_critique">{{ stats_risque.critique }}</div>
                                 <span class="badge bg-danger w-100">Critique</span>
                             </div>
                             <div class="col-md-3 text-center">
-                                <div class="h2 text-warning">{{ stats_risque.eleve }}</div>
+                                <div class="h2 text-warning" id="risque_eleve">{{ stats_risque.eleve }}</div>
                                 <span class="badge bg-warning w-100">Élevé</span>
                             </div>
                             <div class="col-md-3 text-center">
-                                <div class="h2 text-info">{{ stats_risque.moyen }}</div>
+                                <div class="h2 text-info" id="risque_moyen">{{ stats_risque.moyen }}</div>
                                 <span class="badge bg-info w-100">Moyen</span>
                             </div>
                             <div class="col-md-3 text-center">
-                                <div class="h2 text-success">{{ stats_risque.faible }}</div>
+                                <div class="h2 text-success" id="risque_faible">{{ stats_risque.faible }}</div>
                                 <span class="badge bg-success w-100">Faible</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Stats globales (comparaison) -->
+                        <div class="row">
+                            <div class="col-12">
+                                <h6 class="text-muted mb-2"><i class="bi bi-globe"></i> Statistiques globales (toute la session)</h6>
+                    </div>
+                            <div class="col-md-3 text-center">
+                                <div class="h4 text-danger">{{ stats_risque_global.critique }}</div>
+                                <small class="text-muted">Critique</small>
+                </div>
+                            <div class="col-md-3 text-center">
+                                <div class="h4 text-warning">{{ stats_risque_global.eleve }}</div>
+                                <small class="text-muted">Élevé</small>
+                            </div>
+                            <div class="col-md-3 text-center">
+                                <div class="h4 text-info">{{ stats_risque_global.moyen }}</div>
+                                <small class="text-muted">Moyen</small>
+                            </div>
+                            <div class="col-md-3 text-center">
+                                <div class="h4 text-success">{{ stats_risque_global.faible }}</div>
+                                <small class="text-muted">Faible</small>
                             </div>
                         </div>
                     </div>
@@ -277,13 +317,60 @@
             </div>
         </div>
 
-        <!-- Filtres des résultats -->
+        <!-- Documentation des seuils de détection -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-info-circle"></i> Critères de détection des anomalies</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-danger">🚨 RIB dupliqué</h6>
+                                <p class="small text-muted">
+                                    <strong>Seuil:</strong> RIB apparaît ≥ 2 fois dans le fichier<br>
+                                    <strong>Justification:</strong> Un RIB ne devrait être utilisé que par un seul employé
+                                </p>
+                                
+                                <h6 class="text-warning">👻 Employé fantôme</h6>
+                                <p class="small text-muted">
+                                    <strong>Seuil:</strong> Nom ≤ 2 caractères OU prénom ≤ 2 caractères OU nom = "nan"/"none"/vide<br>
+                                    <strong>Justification:</strong> Un employé doit avoir un nom et prénom valides
+                                </p>
+                                
+                                <h6 class="text-info">⏰ Heures excessives</h6>
+                                <p class="small text-muted">
+                                    <strong>Seuil:</strong> > 250 heures par mois<br>
+                                    <strong>Justification:</strong> Au-delà de 250h/mois, risque de non-respect du droit du travail
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-primary">🎁 Prime anormale</h6>
+                                <p class="small text-muted">
+                                    <strong>Seuil:</strong> Prime > 50% du salaire brut<br>
+                                    <strong>Justification:</strong> Une prime ne devrait pas dépasser 50% du salaire de base
+                                </p>
+                                
+                                <h6 class="text-secondary">💰 Salaire anormal</h6>
+                                <p class="small text-muted">
+                                    <strong>Seuil:</strong> Salaire > 2 écarts-types de la moyenne du fichier<br>
+                                    <strong>Justification:</strong> Salaire statistiquement anormal par rapport aux autres employés
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtres et recherche des résultats -->
         <div class="card mb-3">
             <div class="card-body">
-                <form method="get" class="row g-3 align-items-end">
+                <form method="get" class="row g-3 align-items-end" id="results-filters-form">
                     <div class="col-md-2">
                         <label class="form-label">Type d'anomalie</label>
-                        <select name="type" class="form-select">
+                        <select name="type" class="form-select" id="filter-type">
                             <option value="">Tous les types</option>
                             {% for type_code, type_label in type_choices %}
                                 <option value="{{ type_code }}"
@@ -295,11 +382,11 @@
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">Niveau de risque</label>
-                        <select name="niveau" class="form-select">
+                        <select name="niveau_risque" class="form-select" id="filter-niveau">
                             <option value="">Tous les niveaux</option>
-                            {% for niveau_code, niveau_label in niveau_choices %}
+                            {% for niveau_code, niveau_label in niveau_risque_choices %}
                                 <option value="{{ niveau_code }}"
-                                        {% if current_filters.niveau == niveau_code %}selected{% endif %}>
+                                        {% if current_filters.niveau_risque == niveau_code %}selected{% endif %}>
                                     {{ niveau_label }}
                                 </option>
                             {% endfor %}
@@ -307,7 +394,7 @@
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">Anomalie</label>
-                        <select name="anomalie" class="form-select">
+                        <select name="anomalie" class="form-select" id="filter-anomalie">
                             <option value="">Tous</option>
                             <option value="oui" {% if current_filters.anomalie == 'oui' %}selected{% endif %}>
                                 Anomalies seulement
@@ -316,6 +403,28 @@
                                 Normaux seulement
                             </option>
                         </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Fausse alerte</label>
+                        <select name="fausse_alerte" class="form-select" id="filter-fausse-alerte">
+                            <option value="">Tous</option>
+                            <option value="oui" {% if current_filters.fausse_alerte == 'oui' %}selected{% endif %}>
+                                Fausses alertes
+                            </option>
+                            <option value="non" {% if current_filters.fausse_alerte == 'non' %}selected{% endif %}>
+                                Vraies anomalies
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Recherche</label>
+                        <div class="input-group">
+                            <input type="text" name="search" class="form-control" placeholder="Nom, prénom, matricule..." 
+                                   value="{{ current_filters.search|default:'' }}" id="search-input">
+                            <button class="btn btn-outline-secondary" type="button" id="clear-search">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="col-md-3">
                         <button type="submit" class="btn btn-primary">
@@ -326,12 +435,24 @@
                             <i class="bi bi-arrow-clockwise"></i> Reset
                         </a>
                     </div>
-                    <div class="col-md-3 text-end">
+                </form>
+                <div class="row mt-2">
+                    <div class="col-md-6">
                         <span class="text-muted">
                             {{ resultats_page.paginator.count }} résultat{{ resultats_page.paginator.count|pluralize }}
                         </span>
                     </div>
-                </form>
+                    <div class="col-md-6 text-end">
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-primary" id="export-csv">
+                                <i class="bi bi-download"></i> CSV
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" id="export-excel">
+                                <i class="bi bi-file-earmark-excel"></i> Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -343,19 +464,45 @@
             <div class="card-body p-0">
                 {% if resultats_page %}
                     <div class="table-responsive">
-                        <table class="table table-sm mb-0">
+                        <table class="table table-sm mb-0 results-table">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Employé</th>
+                                    <th>
+                                        <a href="?ordering={% if current_filters.ordering == 'nom' %}-nom{% else %}nom{% endif %}{% if current_filters.type %}&type={{ current_filters.type }}{% endif %}{% if current_filters.niveau_risque %}&niveau_risque={{ current_filters.niveau_risque }}{% endif %}{% if current_filters.anomalie %}&anomalie={{ current_filters.anomalie }}{% endif %}{% if current_filters.fausse_alerte %}&fausse_alerte={{ current_filters.fausse_alerte }}{% endif %}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}" 
+                                           class="text-decoration-none text-dark">
+                                            Employé
+                                            {% if current_filters.ordering == 'nom' %}
+                                                <i class="bi bi-sort-alpha-down"></i>
+                                            {% elif current_filters.ordering == '-nom' %}
+                                                <i class="bi bi-sort-alpha-up"></i>
+                                            {% else %}
+                                                <i class="bi bi-sort-alpha-down text-muted"></i>
+                                            {% endif %}
+                                        </a>
+                                    </th>
                                     <th>Détection IA</th>
                                     <th>Classification</th>
-                                    <th>Scores IA</th>
+                                    <th>
+                                        <div class="dropdown">
+                                            <a href="#" class="text-decoration-none text-dark dropdown-toggle" data-bs-toggle="dropdown">
+                                                Scores IA
+                                            </a>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="?ordering={% if current_filters.ordering == 'score_if' %}-score_if{% else %}score_if{% endif %}{% if current_filters.type %}&type={{ current_filters.type }}{% endif %}{% if current_filters.niveau_risque %}&niveau_risque={{ current_filters.niveau_risque }}{% endif %}{% if current_filters.anomalie %}&anomalie={{ current_filters.anomalie }}{% endif %}{% if current_filters.fausse_alerte %}&fausse_alerte={{ current_filters.fausse_alerte }}{% endif %}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}">
+                                                    Score IF {% if current_filters.ordering == 'score_if' %}<i class="bi bi-sort-down"></i>{% elif current_filters.ordering == '-score_if' %}<i class="bi bi-sort-up"></i>{% endif %}
+                                                </a></li>
+                                                <li><a class="dropdown-item" href="?ordering={% if current_filters.ordering == 'score_mlp' %}-score_mlp{% else %}score_mlp{% endif %}{% if current_filters.type %}&type={{ current_filters.type }}{% endif %}{% if current_filters.niveau_risque %}&niveau_risque={{ current_filters.niveau_risque }}{% endif %}{% if current_filters.anomalie %}&anomalie={{ current_filters.anomalie }}{% endif %}{% if current_filters.fausse_alerte %}&fausse_alerte={{ current_filters.fausse_alerte }}{% endif %}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}">
+                                                    Score MLP {% if current_filters.ordering == 'score_mlp' %}<i class="bi bi-sort-down"></i>{% elif current_filters.ordering == '-score_mlp' %}<i class="bi bi-sort-up"></i>{% endif %}
+                                                </a></li>
+                                            </ul>
+                                        </div>
+                                    </th>
                                     <th>Données financières</th>
                                     <th>Recommandation</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="results-tbody">
                                 {% for resultat in resultats_page %}
                                 <tr class="{% if resultat.est_anomalie %}table-warning{% endif %}">
                                     <td>
@@ -413,9 +560,9 @@
                                                 <small class="text-muted">IF:</small>
                                                 <div class="score-bar">
                                                     <div class="score-fill score-if"
-                                                         style="width: {{ resultat.score_anomalie_if|floatformat:0 }}%"></div>
+                                                         style="width: {% widthratio resultat.score_anomalie_if 1 100 %}%"></div>
                                                 </div>
-                                                <small>{{ resultat.score_anomalie_if|floatformat:3 }}</small>
+                                                <small>{% widthratio resultat.score_anomalie_if 1 100 %}%</small>
                                             </div>
                                         {% endif %}
                                         {% if resultat.score_classification_mlp %}
@@ -423,29 +570,36 @@
                                                 <small class="text-muted">MLP:</small>
                                                 <div class="score-bar">
                                                     <div class="score-fill score-mlp"
-                                                         style="width: {{ resultat.score_classification_mlp|floatformat:0 }}%"></div>
+                                                         style="width: {% widthratio resultat.score_classification_mlp 1 100 %}%"></div>
                                                 </div>
-                                                <small>{{ resultat.score_classification_mlp|floatformat:3 }}</small>
+                                                <small>{% widthratio resultat.score_classification_mlp 1 100 %}%</small>
                                             </div>
                                         {% endif %}
                                     </td>
                                     <td class="small">
+                                        <div class="d-flex flex-column gap-1">
                                         {% if resultat.salaire_brut %}
-                                            <div><strong>Brut:</strong> {{ resultat.salaire_brut|floatformat:0 }} €</div>
+                                                <span class="text-nowrap"><strong>Brut:</strong> {{ resultat.salaire_brut|floatformat:0 }}€</span>
                                         {% endif %}
                                         {% if resultat.montant_total %}
-                                            <div><strong>Total:</strong> {{ resultat.montant_total|floatformat:0 }} €</div>
+                                                <span class="text-nowrap"><strong>Total:</strong> {{ resultat.montant_total|floatformat:0 }}€</span>
                                         {% endif %}
                                         {% if resultat.heures_travaillees %}
-                                            <div><strong>Heures:</strong> {{ resultat.heures_travaillees }}h</div>
+                                                <span class="text-nowrap"><strong>H:</strong> {{ resultat.heures_travaillees }}h</span>
                                         {% endif %}
                                         {% if resultat.montant_primes %}
-                                            <div><strong>Primes:</strong> {{ resultat.montant_primes|floatformat:0 }} €</div>
+                                                <span class="text-nowrap"><strong>Prime:</strong> {{ resultat.montant_primes|floatformat:0 }}€</span>
                                         {% endif %}
+                                        </div>
                                     </td>
                                     <td>
                                         {% if resultat.recommandation_auto %}
-                                            <small class="text-muted">{{ resultat.recommandation_auto|truncatechars:60 }}</small>
+                                            <div class="recommendation-tooltip" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ resultat.recommandation_auto }}">
+                                                <small class="text-muted">{{ resultat.recommandation_auto|truncatechars:80 }}</small>
+                                                {% if resultat.recommandation_auto|length > 80 %}
+                                                    <i class="bi bi-info-circle text-info ms-1"></i>
+                                                {% endif %}
+                                            </div>
                                         {% else %}
                                             <span class="text-muted">-</span>
                                         {% endif %}
@@ -456,16 +610,19 @@
                                                class="btn btn-outline-primary" title="Voir détails">
                                                 <i class="bi bi-eye"></i>
                                             </a>
-                                            {% if resultat.est_anomalie %}
                                                 <a href="{% url 'auditengine:corriger_anomalie' resultat.pk %}"
-                                                   class="btn btn-outline-warning" title="Corriger">
+                                               class="btn btn-outline-warning" title="{% if resultat.est_anomalie %}Corriger anomalie{% else %}Modifier{% endif %}">
                                                     <i class="bi bi-pencil"></i>
                                                 </a>
-                                            {% endif %}
                                             {% if resultat.valide_par_humain %}
                                                 <span class="btn btn-outline-success" title="Validé">
                                                     <i class="bi bi-check-lg"></i>
                                                 </span>
+                                            {% else %}
+                                                <button class="btn btn-outline-info" title="Marquer comme validé" 
+                                                        onclick="validerResultat({{ resultat.pk }})">
+                                                    <i class="bi bi-check"></i>
+                                                </button>
                                             {% endif %}
                                         </div>
                                     </td>
@@ -548,11 +705,14 @@
 
                 <div class="row justify-content-center mt-4">
                     <div class="col-md-8">
-                        <div class="progress mb-3" style="height: 8px;">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                 role="progressbar" style="width: 100%"></div>
+                        <div class="progress mb-3" style="height: 16px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" id="main-progress-bar"
+                                 role="progressbar" style="width: 0%">0%</div>
                         </div>
                         <small class="text-muted" id="live-status">Analyse en cours...</small>
+                        <div class="mt-2">
+                            <small class="text-muted" id="progress-count"></small>
+                        </div>
                     </div>
                 </div>
 
@@ -599,9 +759,12 @@
                     <p class="text-muted">L'IA examine chaque employé pour détecter les anomalies</p>
                 </div>
 
-                <div class="progress mb-3" style="height: 6px;">
-                    <div class="progress-bar progress-bar-striped progress-bar-animated"
-                         role="progressbar" style="width: 100%"></div>
+                <div class="progress mb-3" style="height: 16px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" id="modal-progress-bar"
+                         role="progressbar" style="width: 0%">0%</div>
+                </div>
+                <div class="mb-2">
+                    <small class="text-muted" id="modal-progress-count"></small>
                 </div>
 
                 <div class="row text-center">
@@ -624,6 +787,10 @@
         </div>
     </div>
 </div>
+
+<button id="refreshSessionStatsBtn" class="btn btn-outline-primary btn-modern" onclick="refreshSessionStats()">
+    <i class="bi bi-arrow-clockwise me-2"></i>Actualiser les statistiques
+</button>
 {% endblock %}
 
 {% block extra_js %}
@@ -649,12 +816,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Auto-refresh si en cours de traitement
     {% if session.status == 'processing' %}
-        const pollInterval = setInterval(function() {
+        const updateProgressBar = (data) => {
+            const progressBar = document.getElementById('main-progress-bar');
+            const progressCount = document.getElementById('progress-count');
+            if (data.progress && data.progress.nb_total_lignes) {
+                const total = data.progress.nb_total_lignes;
+                const done = data.progress.nb_lignes_analysees;
+                const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+                progressBar.style.width = percent + '%';
+                progressBar.textContent = percent + '%';
+                progressCount.textContent = `${done} / ${total} lignes analysées`;
+            } else {
+                progressBar.style.width = '100%';
+                progressBar.textContent = 'Analyse...';
+                progressCount.textContent = '';
+            }
+        };
+        setInterval(function() {
             fetch(`/auditengine/sessions/{{ session.pk }}/status/`)
             .then(response => response.json())
             .then(data => {
+                updateProgressBar(data);
                 if (data.status === 'completed' || data.status === 'error') {
-                    clearInterval(pollInterval);
                     location.reload();
                 } else if (data.last_logs && data.last_logs.length > 0) {
                     const statusEl = document.getElementById('live-status');
@@ -664,7 +847,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => console.error('Erreur polling:', error));
-        }, 5000); // Poll toutes les 5 secondes
+        }, 3000);
     {% endif %}
 
     // Animation des cartes d'anomalies
@@ -683,6 +866,30 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Fonction robuste pour récupérer le token CSRF (cookie ou meta)
+function getCSRFToken() {
+    // 1. Essayer via le cookie (méthode Django classique)
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, 10) === 'csrftoken=') {
+                cookieValue = decodeURIComponent(cookie.substring(10));
+                break;
+            }
+        }
+    }
+    // 2. Fallback : balise meta[name=csrf-token]
+    if (!cookieValue) {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) {
+            cookieValue = meta.getAttribute('content');
+        }
+    }
+    return cookieValue;
+}
+
 function processSession(sessionId) {
     const modal = new bootstrap.Modal(document.getElementById('processingModal'));
     modal.show();
@@ -698,6 +905,8 @@ function processSession(sessionId) {
 
     let messageIndex = 0;
     const statusEl = document.getElementById('processing-status');
+    const modalProgressBar = document.getElementById('modal-progress-bar');
+    const modalProgressCount = document.getElementById('modal-progress-count');
 
     // Simuler le progrès avec messages
     const progressInterval = setInterval(() => {
@@ -712,6 +921,26 @@ function processSession(sessionId) {
         fetch(`/auditengine/sessions/${sessionId}/status/`)
         .then(response => response.json())
         .then(data => {
+            // MAJ barre de progression modale
+            if (data.progress && data.progress.nb_total_lignes && data.progress.nb_lignes_analysees) {
+                const total = data.progress.nb_total_lignes;
+                const done = data.progress.nb_lignes_analysees;
+                const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+                modalProgressBar.style.width = percent + '%';
+                modalProgressBar.textContent = percent + '%';
+                modalProgressCount.textContent = `${done} / ${total} lignes analysées`;
+            } else if (data.status === 'processing') {
+                // Si on n'a pas le total mais que c'est en cours, afficher une progression animée
+                modalProgressBar.style.width = '100%';
+                modalProgressBar.textContent = 'Analyse...';
+                modalProgressCount.textContent = data.progress?.nb_lignes_analysees ? 
+                    `${data.progress.nb_lignes_analysees} lignes analysées` : '';
+            } else {
+                modalProgressBar.style.width = '100%';
+                modalProgressBar.textContent = 'Terminé';
+                modalProgressCount.textContent = '';
+            }
+            
             if (data.status === 'completed') {
                 clearInterval(pollInterval);
                 clearInterval(progressInterval);
@@ -736,12 +965,20 @@ function processSession(sessionId) {
         });
     }, 3000);
 
+    // Récupérer le token CSRF
+    const csrfToken = getCSRFToken();
+    if (!csrfToken) {
+        modal.hide();
+        showNotification('Erreur: Token CSRF manquant', 'danger');
+        return;
+    }
+
     // Lancer le traitement
     fetch(`/auditengine/sessions/${sessionId}/process/`, {
         method: 'POST',
         headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
         }
     })
     .then(response => response.json())
@@ -784,19 +1021,175 @@ function downloadLogs(sessionId) {
     });
 }
 
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
+function refreshSessionStats() {
+    const sessionId = {{ session.id }};
+    // Récupérer les filtres actuels
+    const type = document.getElementById('filter-type').value;
+    const niveau = document.getElementById('filter-niveau').value;
+    const anomalie = document.getElementById('filter-anomalie').value;
+    
+    // Construire les paramètres
+    const params = new URLSearchParams();
+    if (type) params.append('type', type);
+    if (niveau) params.append('niveau', niveau);
+    if (anomalie) params.append('anomalie', anomalie);
+    
+    fetch(`/auditengine/api/session_stats/${sessionId}/?${params.toString()}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-        }
-    }
-    return cookieValue;
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            document.getElementById('employes_fantomes').textContent = data.stats_detail.employes_fantomes;
+            document.getElementById('salaires_anormaux').textContent = data.stats_detail.salaires_anormaux;
+            document.getElementById('primes_anormales').textContent = data.stats_detail.primes_anormales;
+            document.getElementById('heures_excessives').textContent = data.stats_detail.heures_excessives;
+            document.getElementById('rib_dupliques').textContent = data.stats_detail.rib_dupliques;
+            document.getElementById('risque_critique').textContent = data.stats_risque.critique;
+            document.getElementById('risque_eleve').textContent = data.stats_risque.eleve;
+            document.getElementById('risque_moyen').textContent = data.stats_risque.moyen;
+            document.getElementById('risque_faible').textContent = data.stats_risque.faible;
+        })
+        .catch(error => {
+            console.error('Erreur API session stats:', error);
+            showNotification('Erreur lors du rafraîchissement des statistiques: ' + error.message, 'danger');
+        });
 }
+document.addEventListener('DOMContentLoaded', refreshSessionStats);
+
+function renderResultsTable(results) {
+    let html = '';
+    for (const r of results) {
+        html += `<tr${r.est_anomalie ? ' class="table-warning"' : ''}>
+            <td><div class="d-flex align-items-center"><div><strong>${r.nom} ${r.prenom}</strong>`;
+        if (r.matricule) html += `<br><small class="text-muted">Mat: ${r.matricule}</small>`;
+        if (r.poste) html += `<br><small class="text-muted">${r.poste}</small>`;
+        html += `</div></div></td>
+            <td><div class="d-flex align-items-center">`;
+        if (r.est_anomalie) {
+            html += `<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i><div><span class="badge bg-danger">Anomalie</span><br><small class="text-muted">${r.explication_if ? r.explication_if.substring(0,40) : 'Analyse automatique'}</small></div>`;
+        } else {
+            html += `<i class="bi bi-check-circle-fill text-success me-2"></i><div><span class="badge bg-success">Normal</span><br><small class="text-muted">Profil normal</small></div>`;
+        }
+        html += `</div></td>
+            <td><span class="badge">${r.type_anomalie}</span><br><span class="badge">${r.niveau_risque}</span></td>
+            <td>${r.salaire_brut || ''} / ${r.montant_total || ''} / ${r.heures_travaillees || ''}</td>
+            <td>${r.montant_primes || ''}</td>
+            <td>${r.recommandation_auto || ''}</td>
+            <td>${r.commentaire_utilisateur || ''}</td>
+            <td>
+                <div class="btn-group btn-group-sm">
+                    <a href="/auditengine/anomalies/${r.id}/" class="btn btn-outline-primary" title="Voir détails">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                    <a href="/auditengine/anomalies/${r.id}/correct/" class="btn btn-outline-warning" title="${r.est_anomalie ? 'Corriger anomalie' : 'Modifier'}">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    ${r.valide_par_humain ? 
+                        '<span class="btn btn-outline-success" title="Validé"><i class="bi bi-check-lg"></i></span>' :
+                        '<button class="btn btn-outline-info" title="Marquer comme validé" onclick="validerResultat(' + r.id + ')"><i class="bi bi-check"></i></button>'
+                    }
+                </div>
+            </td>
+        </tr>`;
+    }
+    document.getElementById('results-tbody').innerHTML = html;
+}
+
+function reloadResultsAJAX() {
+    const sessionId = {{ session.id }};
+    const type = document.getElementById('filter-type').value;
+    const niveau = document.getElementById('filter-niveau').value;
+    const anomalie = document.getElementById('filter-anomalie').value;
+    // TODO: ajouter la recherche si besoin
+    const params = new URLSearchParams({type, niveau, anomalie});
+    fetch(`/auditengine/api/session_results/${sessionId}/?${params.toString()}`)
+        .then(response => response.json())
+        .then(data => {
+            renderResultsTable(data.results);
+            refreshSessionStats();
+        })
+        .catch(() => {
+            showNotification('Erreur lors du filtrage des résultats', 'danger');
+        });
+}
+
+// Initialisation des tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialiser les tooltips Bootstrap
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Gestionnaire pour le bouton de recherche
+    document.getElementById('clear-search').addEventListener('click', function() {
+        document.getElementById('search-input').value = '';
+        document.getElementById('results-filters-form').submit();
+    });
+    
+    // Export CSV
+    document.getElementById('export-csv').addEventListener('click', function() {
+        const currentUrl = new URL(window.location);
+        currentUrl.searchParams.set('format', 'csv');
+        window.location.href = currentUrl.toString();
+    });
+    
+    // Export Excel
+    document.getElementById('export-excel').addEventListener('click', function() {
+        const currentUrl = new URL(window.location);
+        currentUrl.searchParams.set('format', 'excel');
+        window.location.href = currentUrl.toString();
+    });
+    
+    // Recherche en temps réel (optionnel)
+    let searchTimeout;
+    document.getElementById('search-input').addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            if (this.value.length >= 2 || this.value.length === 0) {
+                document.getElementById('results-filters-form').submit();
+            }
+        }, 500);
+    });
+});
+
+// Fonction pour valider un résultat
+function validerResultat(resultatId) {
+    if (confirm('Êtes-vous sûr de vouloir marquer ce résultat comme validé ?')) {
+        // Récupérer le token CSRF
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                         document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+        
+        fetch(`/auditengine/resultats/${resultatId}/valider/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur lors de la validation: ' + (data.error || 'Erreur inconnue'));
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur lors de la validation');
+        });
+    }
+}
+
+document.getElementById('filter-type').addEventListener('change', reloadResultsAJAX);
+document.getElementById('filter-niveau').addEventListener('change', reloadResultsAJAX);
+document.getElementById('filter-anomalie').addEventListener('change', reloadResultsAJAX);
 </script>
 {% endblock %}

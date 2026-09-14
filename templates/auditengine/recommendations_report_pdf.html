@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Rapport de Recommandations IA</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #222; }
+        h1, h2, h3, h4 { color: #2563eb; }
+        .section { margin-bottom: 24px; }
+        .card { border: 1px solid #ccc; border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+        .stats-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        .stats-table th, .stats-table td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+        .priority-high { color: #ef4444; font-weight: bold; }
+        .priority-medium { color: #f59e0b; font-weight: bold; }
+        .priority-low { color: #10b981; font-weight: bold; }
+        .mb-2 { margin-bottom: 8px; }
+        .mb-3 { margin-bottom: 12px; }
+        .mb-4 { margin-bottom: 18px; }
+    </style>
+</head>
+<body>
+    <h1>Rapport de Recommandations IA</h1>
+    <div class="section mb-4">
+        <strong>Session :</strong> {{ session.nom_session }}<br>
+        <strong>Mission :</strong> {{ session.mission.name }}<br>
+        <strong>Date :</strong> {{ session.date_completion|date:"d/m/Y H:i" }}
+    </div>
+    <div class="section mb-4">
+        <h2>Résumé Exécutif</h2>
+        <p>
+            L'analyse IA a détecté <strong>{{ stats.total_anomalies_detectees }}</strong> anomalies sur <strong>{{ stats.total_employes_analyses }}</strong> lignes de paie analysées.<br>
+            Taux d'anomalie : <strong>{{ stats.taux_detection_moyen }}%</strong>.<br>
+            Anomalies critiques : <strong>{{ stats.total_salaires_anormaux }}</strong> salaires anormaux, <strong>{{ stats.total_employes_fantomes }}</strong> employés fantômes, <strong>{{ stats.total_rib_dupliques }}</strong> RIB dupliqués.
+        </p>
+    </div>
+    <div class="section mb-4">
+        <h2>Statistiques</h2>
+        <table class="stats-table">
+            <tr><th>Lignes analysées</th><td>{{ stats.total_employes_analyses }}</td></tr>
+            <tr><th>Anomalies détectées</th><td>{{ stats.total_anomalies_detectees }}</td></tr>
+            <tr><th>Salaires anormaux</th><td>{{ stats.total_salaires_anormaux }}</td></tr>
+            <tr><th>Employés fantômes</th><td>{{ stats.total_employes_fantomes }}</td></tr>
+            <tr><th>RIB dupliqués</th><td>{{ stats.total_rib_dupliques }}</td></tr>
+            <tr><th>Taux de détection IA</th><td>{{ stats.taux_detection_moyen }}%</td></tr>
+        </table>
+    </div>
+    <div class="section mb-4">
+        <h2>Recommandations Prioritaires</h2>
+        {% for card in rapport.recommandations %}
+        <div class="card">
+            <h3>{{ card.titre }}</h3>
+            <p class="mb-2">{{ card.description }}</p>
+            <p class="mb-2"><strong>Priorité :</strong> <span class="priority-{{ card.priorite|lower }}">{{ card.priorite }}</span></p>
+            <p class="mb-2"><strong>Employés concernés :</strong> {{ card.nb_employes }}</p>
+            <p class="mb-2"><strong>Délai recommandé :</strong> {{ card.delai }}</p>
+            <p class="mb-2"><strong>Impact estimé :</strong> {{ card.impact }}</p>
+        </div>
+        {% empty %}
+        <p>Aucune recommandation prioritaire.</p>
+        {% endfor %}
+    </div>
+    <div class="section mb-4">
+        <h2>Plan d'Action</h2>
+        {% if rapport.plan_action %}
+            {% for phase in rapport.plan_action %}
+                <div class="card">
+                    <h4>{{ phase.nom }}</h4>
+                    <p><strong>Délai :</strong> {{ phase.delai }}</p>
+                    <ul>
+                        {% for action in phase.actions %}
+                        <li>{{ action }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>Aucun plan d'action généré.</p>
+        {% endif %}
+    </div>
+    <div class="section mb-4">
+        <h2>Impact Financier Estimé</h2>
+        <p>{{ rapport.impact_financier }}</p>
+    </div>
+</body>
+</html> 

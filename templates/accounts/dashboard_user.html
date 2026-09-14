@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Dashboard Auditeur - AuditIA{% endblock %}
+{% block title %}Tableau de bord Auditeur - AuditIA{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-4">
@@ -10,7 +10,7 @@
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb breadcrumb-modern">
                     <li class="breadcrumb-item"><i class="bi bi-house-door me-1"></i>Accueil</li>
-                    <li class="breadcrumb-item active">Dashboard Auditeur</li>
+                    <li class="breadcrumb-item active">Tableau de bord Auditeur</li>
                 </ol>
             </nav>
             <div class="d-flex justify-content-between align-items-center">
@@ -23,7 +23,13 @@
                     {% endif %}
                 </div>
                 <div class="d-flex gap-2">
-                    <button class="btn btn-outline-primary btn-modern" onclick="location.reload()">
+                    <a href="{% url 'accounts:user_profile' %}" class="btn btn-outline-secondary btn-modern">
+                        <i class="bi bi-person me-2"></i>Mon profil
+                    </a>
+                    <a href="{% url 'accounts:user_settings' %}" class="btn btn-outline-info btn-modern">
+                        <i class="bi bi-gear me-2"></i>Paramètres
+                    </a>
+                    <button id="refreshUserStatsBtn" class="btn btn-outline-primary btn-modern" onclick="refreshUserStats()">
                         <i class="bi bi-arrow-clockwise me-2"></i>Actualiser
                     </button>
                     <button class="btn btn-primary-modern" onclick="showNotification('Démarrage d\'une nouvelle analyse...', 'info')">
@@ -84,7 +90,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <div class="text-muted small fw-semibold mb-1">FICHIERS TRAITÉS</div>
-                        <div class="h2 fw-bold text-dark mb-0">12</div>
+                        <div class="h2 fw-bold text-dark mb-0" id="fichiers_traite_count">{{ fichiers_traite_count }}</div>
                         <div class="small text-success mt-1">
                             <i class="bi bi-arrow-up me-1"></i>+3 cette semaine
                         </div>
@@ -101,7 +107,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <div class="text-muted small fw-semibold mb-1">ANOMALIES TROUVÉES</div>
-                        <div class="h2 fw-bold text-dark mb-0">45</div>
+                        <div class="h2 fw-bold text-dark mb-0" id="anomalies_count">{{ anomalies_count }}</div>
                         <div class="small text-danger mt-1">
                             <i class="bi bi-exclamation-triangle me-1"></i>+8 aujourd'hui
                         </div>
@@ -118,7 +124,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <div class="text-muted small fw-semibold mb-1">TAUX DE PRÉCISION</div>
-                        <div class="h2 fw-bold text-dark mb-0">91.8%</div>
+                        <div class="h2 fw-bold text-dark mb-0" id="taux_precision">{{ taux_precision }}%</div>
                         <div class="small text-success mt-1">
                             <i class="bi bi-graph-up me-1"></i>Très bon
                         </div>
@@ -135,7 +141,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <div class="text-muted small fw-semibold mb-1">RAPPORTS GÉNÉRÉS</div>
-                        <div class="h2 fw-bold text-dark mb-0">8</div>
+                        <div class="h2 fw-bold text-dark mb-0" id="rapports_count">{{ rapports_count }}</div>
                         <div class="small text-success mt-1">
                             <i class="bi bi-file-earmark-pdf me-1"></i>+2 cette semaine
                         </div>
@@ -160,70 +166,67 @@
                 <div class="card-body p-4">
                     <div class="row g-4">
                         <div class="col-md-6">
-                            <div class="d-flex p-4 rounded-3 border border-2 border-primary border-opacity-25 h-100" style="background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); background-opacity: 0.05;">
+                            <div class="d-flex p-4 rounded-3 h-100 block-card block-subtle-file-upload position-relative">
                                 <div class="me-3">
-                                    <div class="p-3 rounded-3" style="background: var(--primary-color);">
+                                    <div class="p-3 rounded-3 icon-file-upload">
                                         <i class="bi bi-upload fs-3 text-white"></i>
                                     </div>
                                 </div>
-                                < ! Mettre les liens de redirection apres developement des modules --->
                                 <div class="flex-grow-1">
                                     <h6 class="fw-bold mb-2">Chargement de Fichiers</h6>
                                     <p class="text-muted small mb-3">Importez vos fichiers de paie, grilles salariales et conventions collectives</p>
-                                    <button class="btn btn-primary btn-modern btn-sm" onclick="showNotification('Module en développement', 'info')">
-                                        <i class="bi bi-plus-circle me-1"></i>Importer
-                                    </button>
+                                    <a href="{% url 'uploads:upload_list' %}" class="btn btn-file-upload btn-sm">
+                                        <i class="bi bi-plus-circle me-1"></i>Gérer les fichiers
+                                    </a>
                                 </div>
                             </div>
                         </div>
 
                         <div class="col-md-6">
-                            <div class="d-flex p-4 rounded-3 border border-2 border-success border-opacity-25 h-100" style="background: linear-gradient(135deg, var(--success-color), #059669); background-opacity: 0.05;">
+                            <div class="d-flex p-4 rounded-3 h-100 block-card block-subtle-reconciliation position-relative">
                                 <div class="me-3">
-                                    <div class="p-3 rounded-3" style="background: var(--success-color);">
+                                    <div class="p-3 rounded-3 icon-reconciliation">
                                         <i class="bi bi-arrow-left-right fs-3 text-white"></i>
                                     </div>
                                 </div>
                                 <div class="flex-grow-1">
                                     <h6 class="fw-bold mb-2">Rapprochement</h6>
                                     <p class="text-muted small mb-3">Comparez les employés payés vs à payer et validez les règles</p>
-                                    <button class="btn btn-success btn-modern btn-sm" onclick="showNotification('Module en développement', 'info')">
-                                        <i class="bi bi-play-circle me-1"></i>Lancer
-                                    </button>
+                                    <a href="{% url 'reconciliation:analysis_dashboard' %}" class="btn btn-reconciliation btn-sm">
+                                        <i class="bi bi-play-circle me-1"></i>Tableau de bord
+                                    </a>
                                 </div>
                             </div>
                         </div>
 
                         <div class="col-md-6">
-                            <div class="d-flex p-4 rounded-3 border border-2 border-warning border-opacity-25 h-100" style="background: linear-gradient(135deg, var(--warning-color), #d97706); background-opacity: 0.05;">
+                            <div class="d-flex p-4 rounded-3 h-100 block-card block-subtle-ai-detection position-relative">
                                 <div class="me-3">
-                                    <div class="p-3 rounded-3" style="background: var(--warning-color);">
+                                    <div class="p-3 rounded-3 icon-ai-detection">
                                         <i class="bi bi-search fs-3 text-white"></i>
                                     </div>
                                 </div>
                                 <div class="flex-grow-1">
                                     <h6 class="fw-bold mb-2">Détection IA</h6>
                                     <p class="text-muted small mb-3">Isolation Forest pour identifier automatiquement les anomalies</p>
-                                    <button class="btn btn-warning btn-modern btn-sm" onclick="showNotification('Analyse IA en cours...', 'warning')">
-                                        <i class="bi bi-cpu me-1"></i>Analyser
-                                    </button>
+                                    <a href="{% url 'auditengine:dashboard' %}" class="btn btn-ai-detection btn-sm">
+                                        <i class="bi bi-cpu me-1"></i>Tableau de bord
+                                    </a>
                                 </div>
                             </div>
                         </div>
 
                         <div class="col-md-6">
-                            <div class="d-flex p-4 rounded-3 border border-2 border-info border-opacity-25 h-100" style="background: linear-gradient(135deg, var(--info-color), #2563eb); background-opacity: 0.05;">
+                            <div class="d-flex p-4 rounded-3 h-100 block-card block-subtle-mlp-classification position-relative">
                                 <div class="me-3">
-                                    <div class="p-3 rounded-3" style="background: var(--info-color);">
+                                    <div class="p-3 rounded-3 icon-mlp-classification">
                                         <i class="bi bi-tags fs-3 text-white"></i>
                                     </div>
                                 </div>
                                 <div class="flex-grow-1">
                                     <h6 class="fw-bold mb-2">Classification MLP</h6>
                                     <p class="text-muted small mb-3">Classification intelligente des anomalies détectées</p>
-                                    <button class="btn btn-info btn-modern btn-sm" onclick="showNotification('Classification en cours...', 'info')">
-                                        <i class="bi bi-diagram-3 me-1"></i>Classifier
-                                    </button>
+                                    <a href="{% url 'recommendations:dashboard' %}" class="btn btn-mlp-classification btn-sm">Tableau de bord</a>
                                 </div>
                             </div>
                         </div>
@@ -238,6 +241,12 @@
                     <p class="text-muted small mb-0">Vos dernières actions dans la mission</p>
                 </div>
                 <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div></div>
+                        <a href="{% url 'accounts:user_logs_personal' %}" class="btn btn-outline-primary btn-modern btn-sm">
+                            <i class="bi bi-clock-history me-2"></i>Voir tous mes logs
+                        </a>
+                    </div>
                     {% if my_recent_logs %}
                         <div class="timeline">
                             {% for log in my_recent_logs %}
@@ -280,18 +289,18 @@
                 </div>
                 <div class="card-body p-4">
                     <div class="d-grid gap-3">
-                        <button class="btn btn-primary-modern" onclick="showNotification('Module en développement', 'info')">
+                        <a href="{% url 'uploads:upload_file' %}" class="btn btn-file-upload">
                             <i class="bi bi-upload me-2"></i>Nouveau fichier de paie
-                        </button>
-                        <button class="btn btn-outline-success btn-modern" onclick="showNotification('Analyse complète démarrée', 'success')">
-                            <i class="bi bi-play-circle me-2"></i>Analyse complète
-                        </button>
-                        <button class="btn btn-outline-warning btn-modern" onclick="showNotification('Module en développement', 'info')">
+                        </a>
+                        <a href="{% url 'auditengine:create_session' %}" class="btn btn-ai-detection">
+                            <i class="bi bi-play-circle me-2"></i>Nouvelle analyse IA
+                        </a>
+                        <a href="{% url 'auditengine:dashboard' %}" class="btn btn-ai-detection">
                             <i class="bi bi-eye me-2"></i>Voir les anomalies
-                        </button>
-                        <button class="btn btn-outline-info btn-modern" onclick="showNotification('Génération du rapport...', 'info')">
-                            <i class="bi bi-file-earmark-pdf me-2"></i>Générer rapport
-                        </button>
+                        </a>
+                        <a href="{% url 'recommendations:list' %}" class="btn btn-mlp-classification">
+                            <i class="bi bi-file-earmark-pdf me-2"></i>Recommandations
+                        </a>
                     </div>
                 </div>
             </div>
@@ -309,7 +318,7 @@
                             <span class="small text-muted">12/20</span>
                         </div>
                         <div class="progress" style="height: 8px; border-radius: 4px;">
-                            <div class="progress-bar" style="width: 60%; background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); border-radius: 4px;"></div>
+                            <div class="progress-bar" style="width: 60%; background: linear-gradient(135deg, #7c3aed, #6d28d9); border-radius: 4px;"></div>
                         </div>
                     </div>
 
@@ -319,7 +328,7 @@
                             <span class="small text-muted">35/45</span>
                         </div>
                         <div class="progress" style="height: 8px; border-radius: 4px;">
-                            <div class="progress-bar bg-success" style="width: 78%; border-radius: 4px;"></div>
+                            <div class="progress-bar" style="width: 78%; background: linear-gradient(135deg, #0891b2, #0e7490); border-radius: 4px;"></div>
                         </div>
                     </div>
 
@@ -329,7 +338,7 @@
                             <span class="small text-muted">75%</span>
                         </div>
                         <div class="progress" style="height: 8px; border-radius: 4px;">
-                            <div class="progress-bar bg-info" style="width: 75%; border-radius: 4px;"></div>
+                            <div class="progress-bar" style="width: 75%; background: linear-gradient(135deg, #be185d, #9d174d); border-radius: 4px;"></div>
                         </div>
                     </div>
                 </div>
@@ -370,4 +379,20 @@
         </div>
     </div>
 </div>
+
+<script>
+function refreshUserStats() {
+    fetch('/accounts/api/dashboard_user_stats/')
+        .then(response => response.json())
+        .then(stats => {
+            document.getElementById('fichiers_traite_count').textContent = stats.fichiers_traite_count;
+            document.getElementById('anomalies_count').textContent = stats.anomalies_count;
+            document.getElementById('taux_precision').textContent = stats.taux_precision + '%';
+        })
+        .catch(() => {
+            showNotification('Erreur lors du rafraîchissement des statistiques', 'danger');
+        });
+}
+document.addEventListener('DOMContentLoaded', refreshUserStats);
+</script>
 {% endblock %}

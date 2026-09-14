@@ -1,25 +1,65 @@
 <!-- recommendations/templates/recommendations/recommandation_create.html -->
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Créer Recommandation</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-    <div class="container mt-4">
-        <h1>{% if is_edit %}Modifier{% else %}Créer{% endif %} Recommandation</h1>
+{% extends 'base.html' %}
 
-        <form method="post">
-            {% csrf_token %}
-            {{ form.as_p }}
+{% block title %}{% if is_edit %}Modifier{% else %}Créer{% endif %} Recommandation{% endblock %}
 
-            <div class="mt-3">
-                <button type="submit" class="btn btn-primary">
-                    {% if is_edit %}Modifier{% else %}Créer{% endif %}
-                </button>
-                <a href="{% url 'recommendations:list' %}" class="btn btn-secondary">Annuler</a>
-            </div>
-        </form>
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- En-tête avec bouton retour -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-lightbulb me-2"></i>
+                {% if is_edit %}Modifier{% else %}Créer{% endif %} Recommandation
+            </h1>
+            <p class="text-muted mb-0">{% if is_edit %}Modifiez{% else %}Créez{% endif %} une nouvelle recommandation d'audit</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Retour
+            </a>
+        </div>
     </div>
-</body>
-</html>
+
+    <!-- Formulaire -->
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="row">
+                    {% for field in form %}
+                    <div class="col-md-{% if field.name in 'titre,description' %}12{% else %}6{% endif %} mb-3">
+                        <label for="{{ field.id_for_label }}" class="form-label fw-medium">
+                            {{ field.label }}
+                            {% if field.field.required %}
+                                <span class="text-danger">*</span>
+                            {% endif %}
+                        </label>
+                        {{ field }}
+                        {% if field.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ field.errors.0 }}
+                            </div>
+                        {% endif %}
+                        {% if field.help_text %}
+                            <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle me-2"></i>Annuler
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle me-2"></i>
+                        {% if is_edit %}Modifier{% else %}Créer{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,298 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Journaux d'Audit - Sécurité{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="fas fa-shield-alt text-danger me-2"></i>
+                Journaux d'Audit
+            </h1>
+            <p class="text-muted mb-0">Traçabilité complète des actions utilisateur</p>
+        </div>
+        <div>
+            <a href="{% url 'auditengine:security_dashboard' %}" class="btn btn-outline-primary">
+                <i class="fas fa-chart-line me-2"></i>Tableau de bord Sécurité
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">{{ total_logs|floatformat:0 }}</h4>
+                            <small>Total actions</small>
+                        </div>
+                        <i class="fas fa-list fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">{{ suspicious_count|floatformat:0 }}</h4>
+                            <small>Actions suspectes</small>
+                        </div>
+                        <i class="fas fa-exclamation-triangle fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">{{ error_count|floatformat:0 }}</h4>
+                            <small>Erreurs</small>
+                        </div>
+                        <i class="fas fa-bug fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">{{ page_obj.paginator.num_pages|floatformat:0 }}</h4>
+                            <small>Pages</small>
+                        </div>
+                        <i class="fas fa-file-alt fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-filter me-2"></i>Filtres
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-2">
+                    <label for="user" class="form-label">Utilisateur</label>
+                    <input type="text" class="form-control" id="user" name="user" 
+                           value="{{ filters.user }}" placeholder="Nom utilisateur">
+                </div>
+                <div class="col-md-2">
+                    <label for="action" class="form-label">Action</label>
+                    <select class="form-select" id="action" name="action">
+                        <option value="">Toutes</option>
+                        {% for value, label in action_choices %}
+                        <option value="{{ value }}" {% if value == filters.action %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="severity" class="form-label">Sévérité</label>
+                    <select class="form-select" id="severity" name="severity">
+                        <option value="">Toutes</option>
+                        {% for value, label in severity_choices %}
+                        <option value="{{ value }}" {% if value == filters.severity %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="date_from" class="form-label">Date début</label>
+                    <input type="date" class="form-control" id="date_from" name="date_from" 
+                           value="{{ filters.date_from }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="date_to" class="form-label">Date fin</label>
+                    <input type="date" class="form-control" id="date_to" name="date_to" 
+                           value="{{ filters.date_to }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="suspicious" name="suspicious" 
+                               {% if filters.suspicious %}checked{% endif %}>
+                        <label class="form-check-label" for="suspicious">
+                            Suspectes seulement
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="search" 
+                               value="{{ filters.search }}" placeholder="Rechercher...">
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fas fa-search me-1"></i>Rechercher
+                        </button>
+                        <a href="{% url 'auditengine:audit_logs' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i>Effacer
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Liste des logs -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Journaux d'Audit</h5>
+        </div>
+        <div class="card-body">
+            {% if page_obj %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Horodatage</th>
+                            <th>Utilisateur</th>
+                            <th>Action</th>
+                            <th>Fonctionnalité</th>
+                            <th>IP</th>
+                            <th>Sévérité</th>
+                            <th>Suspect</th>
+                            <th>Détails</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in page_obj %}
+                        <tr class="{% if log.is_suspicious %}table-warning{% elif log.severity == 'critical' %}table-danger{% elif log.severity == 'error' %}table-danger{% elif log.severity == 'warning' %}table-warning{% endif %}">
+                            <td>
+                                <small>{{ log.timestamp|date:"d/m/Y H:i:s" }}</small>
+                            </td>
+                            <td>
+                                <strong>{{ log.user.username }}</strong>
+                                {% if log.user.is_staff %}
+                                <span class="badge bg-primary">Admin</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ log.get_action_display }}</span>
+                            </td>
+                            <td>{{ log.feature }}</td>
+                            <td>
+                                <code>{{ log.ip_address|default:"-" }}</code>
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if log.severity == 'critical' %}danger{% elif log.severity == 'error' %}danger{% elif log.severity == 'warning' %}warning{% else %}info{% endif %}">
+                                    {{ log.get_severity_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if log.is_suspicious %}
+                                <i class="fas fa-exclamation-triangle text-warning"></i>
+                                {% else %}
+                                <i class="fas fa-check text-success"></i>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-info" 
+                                        onclick="showLogDetails({{ log.id }})">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+            <nav aria-label="Pagination des logs">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}&{{ request.GET.urlencode }}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Aucun log trouvé</h5>
+                <p class="text-muted">Aucune action ne correspond aux critères de recherche.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal détails log -->
+<div class="modal fade" id="logDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Détails du Log</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="logDetailsContent">
+                <!-- Contenu dynamique -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showLogDetails(logId) {
+    // Ici on pourrait faire un appel AJAX pour récupérer les détails
+    // Pour l'instant, on affiche un message
+    document.getElementById('logDetailsContent').innerHTML = `
+        <div class="text-center">
+            <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+            <p>Chargement des détails...</p>
+        </div>
+    `;
+    
+    const modal = new bootstrap.Modal(document.getElementById('logDetailsModal'));
+    modal.show();
+    
+    // Simulation d'un appel AJAX
+    setTimeout(() => {
+        document.getElementById('logDetailsContent').innerHTML = `
+            <div class="alert alert-info">
+                <strong>Fonctionnalité à implémenter</strong><br>
+                Les détails complets du log seront affichés ici via AJAX.
+            </div>
+        `;
+    }, 1000);
+}
+</script>
+{% endblock %}
+

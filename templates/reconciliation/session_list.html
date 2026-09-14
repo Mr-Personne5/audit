@@ -12,6 +12,9 @@
                 <p class="mb-0">Gestion des sessions de rapprochement RH/Paie</p>
             </div>
             <div class="col-md-6 text-end">
+                <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary me-2">
+                    <i class="bi bi-arrow-left"></i> Retour
+                </a>
                 <a href="{% url 'reconciliation:create_session' %}" class="btn btn-light btn-lg">
                     <i class="bi bi-plus-circle"></i> Nouvelle session
                 </a>
@@ -93,9 +96,7 @@
                 <div class="col-md-2">
                     <label class="form-label">&nbsp;</label>
                     <div>
-                        <a href="{% url 'reconciliation:analysis_dashboard' %}" class="btn btn-info">
-                            <i class="bi bi-graph-up"></i> Analyses
-                        </a>
+                        <a href="{% url 'reconciliation:analysis_dashboard' %}" class="btn btn-info">Tableau de bord</a>
                     </div>
                 </div>
             </form>
@@ -332,14 +333,27 @@ function processSession(sessionId) {
     const modal = new bootstrap.Modal(document.getElementById('processingModal'));
     modal.show();
 
+    // Récupérer le token CSRF
+    const csrfToken = getCookie('csrftoken');
+    if (!csrfToken) {
+        modal.hide();
+        showNotification('Erreur: Token CSRF manquant', 'danger');
+        return;
+    }
+
     fetch(`/reconciliation/sessions/${sessionId}/process/`, {
         method: 'POST',
         headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         modal.hide();
         if (data.success) {
@@ -355,6 +369,7 @@ function processSession(sessionId) {
     })
     .catch(error => {
         modal.hide();
+        console.error('Erreur de traitement:', error);
         showNotification('Erreur de traitement: ' + error.message, 'danger');
     });
 }
@@ -399,3 +414,4 @@ function getCookie(name) {
 }
 </script>
 {% endblock %}
+

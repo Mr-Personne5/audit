@@ -38,10 +38,18 @@
       </h1>
       <p class="text-muted mt-1">Upload et gestion de vos fichiers d'audit</p>
     </div>
-    <a href="{% url 'uploads:upload_file' %}" class="btn btn-primary">
-      <i class="bi bi-plus-circle me-2" aria-hidden="true"></i>
-      Nouveau fichier
-    </a>
+    <div class="d-flex gap-2">
+      <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2" aria-hidden="true"></i>Retour
+      </a>
+      <a href="{% url 'uploads:bulk_approve' %}" class="btn btn-outline-success">
+        <i class="bi bi-check2-all me-2" aria-hidden="true"></i>Approbation en lot
+      </a>
+      <a href="{% url 'uploads:upload_file' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2" aria-hidden="true"></i>
+        Nouveau fichier
+      </a>
+    </div>
   </div>
 
   <!-- Statistiques rapides -->

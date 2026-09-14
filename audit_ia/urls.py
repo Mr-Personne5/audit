@@ -30,7 +30,7 @@ urlpatterns = [
     path('recommendations/', include('recommendations.urls')),
     #path('reporting/', include('reporting.urls')),
 
-    # Redirection de la racine vers le dashboard
+    # Redirection de la racine vers le tableau de bord
     path('', lambda request: redirect('accounts:dashboard')),
 ]
 

@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tableau de bord Avancé - AuditIA{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-advanced">
+    <div class="container-fluid px-4">
+        <!-- Header avec contrôles -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb breadcrumb-modern">
+                        <li class="breadcrumb-item"><i class="bi bi-house-door me-1"></i>Accueil</li>
+                        <li class="breadcrumb-item active">Tableau de bord Avancé</li>
+                    </ol>
+                </nav>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="h3 fw-bold text-dark mb-1">Tableau de bord Avancé 📊</h1>
+                        <p class="text-muted mb-0">Métriques en temps réel et analyses détaillées</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <select class="form-select time-filter" style="width: auto;">
+                            <option value="today">Aujourd'hui</option>
+                            <option value="week">Cette semaine</option>
+                            <option value="month">Ce mois</option>
+                        </select>
+                        <button id="refresh-metrics-btn" class="btn btn-outline-primary btn-modern">
+                            <i class="bi bi-arrow-clockwise me-2"></i>Actualiser
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alertes intelligentes -->
+        <div class="row mb-4" id="alerts-container">
+            <!-- Les alertes seront injectées ici par JavaScript -->
+        </div>
+
+        <!-- Métriques principales -->
+        <div class="row mb-4">
+            <div class="col-md-2">
+                <div class="modern-card stat-card">
+                    <div class="card-body text-center">
+                        <div class="bg-primary bg-opacity-10 rounded-circle p-3 mx-auto mb-3" style="width: 60px; height: 60px;">
+                            <i class="bi bi-exclamation-triangle fs-3 text-primary"></i>
+                        </div>
+                        <h3 class="card-title text-primary mb-1" id="total-anomalies">0</h3>
+                        <p class="card-subtitle text-muted small mb-2">Anomalies détectées</p>
+                        <div class="small" id="anomalies-trend">
+                            <span class="text-success"><i class="bi bi-arrow-up"></i> 0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="modern-card stat-card">
+                    <div class="card-body text-center">
+                        <div class="bg-success bg-opacity-10 rounded-circle p-3 mx-auto mb-3" style="width: 60px; height: 60px;">
+                            <i class="bi bi-search fs-3 text-success"></i>
+                        </div>
+                        <h3 class="card-title text-success mb-1" id="detection-rate">0</h3>
+                        <p class="card-subtitle text-muted small mb-2">Taux de détection</p>
+                        <div class="small" id="detection-trend">
+                            <span class="text-success"><i class="bi bi-arrow-up"></i> 0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="modern-card stat-card">
+                    <div class="card-body text-center">
+                        <div class="bg-info bg-opacity-10 rounded-circle p-3 mx-auto mb-3" style="width: 60px; height: 60px;">
+                            <i class="bi bi-target fs-3 text-info"></i>
+                        </div>
+                        <h3 class="card-title text-info mb-1" id="accuracy-rate">0</h3>
+                        <p class="card-subtitle text-muted small mb-2">Précision</p>
+                        <div class="small">
+                            <span class="text-info">Basé sur IA</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="modern-card stat-card">
+                    <div class="card-body text-center">
+                        <div class="bg-warning bg-opacity-10 rounded-circle p-3 mx-auto mb-3" style="width: 60px; height: 60px;">
+                            <i class="bi bi-briefcase fs-3 text-warning"></i>
+                        </div>
+                        <h3 class="card-title text-warning mb-1" id="active-missions">0</h3>
+                        <p class="card-subtitle text-muted small mb-2">Missions actives</p>
+                        <div class="small">
+                            <span class="text-warning">En cours</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="modern-card stat-card">
+                    <div class="card-body text-center">
+                        <div class="bg-danger bg-opacity-10 rounded-circle p-3 mx-auto mb-3" style="width: 60px; height: 60px;">
+                            <i class="bi bi-clock fs-3 text-danger"></i>
+                        </div>
+                        <h3 class="card-title text-danger mb-1" id="pending-approvals">0</h3>
+                        <p class="card-subtitle text-muted small mb-2">En attente</p>
+                        <div class="small">
+                            <span class="text-danger">À traiter</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="modern-card stat-card">
+                    <div class="card-body text-center">
+                        <div class="bg-secondary bg-opacity-10 rounded-circle p-3 mx-auto mb-3" style="width: 60px; height: 60px;">
+                            <i class="bi bi-activity fs-3 text-secondary"></i>
+                        </div>
+                        <h3 class="card-title text-secondary mb-1" id="today-actions">0</h3>
+                        <p class="card-subtitle text-muted small mb-2">Actions aujourd'hui</p>
+                        <div class="small">
+                            <span class="text-secondary">Activité</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graphiques et analyses -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="modern-card">
+                    <div class="card-header bg-white border-0 p-4">
+                        <h5 class="fw-bold mb-1">Évolution des anomalies</h5>
+                        <p class="text-muted small mb-0">Tendances sur les 30 derniers jours</p>
+                    </div>
+                    <div class="card-body p-4">
+                        <canvas id="anomaliesChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="modern-card">
+                    <div class="card-header bg-white border-0 p-4">
+                        <h5 class="fw-bold mb-1">Répartition par type</h5>
+                        <p class="text-muted small mb-0">Distribution des anomalies</p>
+                    </div>
+                    <div class="card-body p-4">
+                        <canvas id="anomaliesPieChart" width="200" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statut des missions et actions rapides -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="modern-card">
+                    <div class="card-header bg-white border-0 p-4">
+                        <h5 class="fw-bold mb-1">Statut des missions</h5>
+                        <p class="text-muted small mb-0">Progression en temps réel</p>
+                    </div>
+                    <div class="card-body p-4">
+                        <div id="mission-status-container">
+                            <!-- Le statut des missions sera injecté ici par JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="modern-card">
+                    <div class="card-header bg-white border-0 p-4">
+                        <h5 class="fw-bold mb-1">Actions rapides</h5>
+                        <p class="text-muted small mb-0">Accès direct aux fonctionnalités</p>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="d-grid gap-3">
+                            <a href="{% url 'uploads:upload_file' %}" class="btn btn-primary btn-modern">
+                                <i class="bi bi-upload me-2"></i>Importer un fichier
+                            </a>
+                            <a href="{% url 'auditengine:create_session' %}" class="btn btn-warning btn-modern">
+                                <i class="bi bi-cpu me-2"></i>Lancer une analyse IA
+                            </a>
+                            <a href="{% url 'reconciliation:create_session' %}" class="btn btn-info btn-modern">
+                                <i class="bi bi-arrow-left-right me-2"></i>Rapprochement
+                            </a>
+                            <a href="{% url 'accounts:mission_create' %}" class="btn btn-success btn-modern">
+                                <i class="bi bi-plus-circle me-2"></i>Créer une mission
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="{% static 'js/dashboard-metrics.js' %}"></script>
+<script>
+// Initialisation des graphiques
+document.addEventListener('DOMContentLoaded', function() {
+    // Graphique linéaire des anomalies
+    const anomaliesCtx = document.getElementById('anomaliesChart').getContext('2d');
+    const anomaliesChart = new Chart(anomaliesCtx, {
+        type: 'line',
+        data: {
+            labels: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30'],
+            datasets: [{
+                label: 'Anomalies détectées',
+                data: [12, 19, 15, 25, 22, 30, 28, 35, 32, 40, 38, 45, 42, 50, 48, 55, 52, 60, 58, 65, 62, 70, 68, 75, 72, 80, 78, 85, 82, 90],
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+
+    // Graphique circulaire des types d'anomalies
+    const pieCtx = document.getElementById('anomaliesPieChart').getContext('2d');
+    const pieChart = new Chart(pieCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Salaires anormaux', 'Employés fantômes', 'RIB dupliqués', 'Autres'],
+            datasets: [{
+                data: [45, 25, 20, 10],
+                backgroundColor: [
+                    '#6366f1',
+                    '#059669',
+                    '#ea580c',
+                    '#be185d'
+                ],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 20
+                    }
+                }
+            }
+        }
+    });
+
+    // Stocker les graphiques pour les mettre à jour plus tard
+    window.anomaliesChart = anomaliesChart;
+    window.pieChart = pieChart;
+});
+</script>
+{% endblock %} 

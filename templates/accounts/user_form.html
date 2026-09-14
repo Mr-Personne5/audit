@@ -9,7 +9,7 @@
         <div class="col-12">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb breadcrumb-modern">
-                    <li class="breadcrumb-item"><a href="{% url 'accounts:dashboard' %}" class="text-decoration-none">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'accounts:dashboard' %}" class="text-decoration-none">Tableau de bord</a></li>
                     <li class="breadcrumb-item"><a href="{% url 'accounts:user_list' %}" class="text-decoration-none">Utilisateurs</a></li>
                     <li class="breadcrumb-item active">{{ title }}</li>
                 </ol>
@@ -50,6 +50,13 @@
                 <div class="card-body p-4">
                     <form method="post" class="needs-validation" novalidate>
                         {% csrf_token %}
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {% for error in form.non_field_errors %}
+                                    <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
 
                         <!-- Informations personnelles -->
                         <div class="row mb-4">

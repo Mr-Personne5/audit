@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}AuditIA - Audit de paie assisté par IA{% endblock %}</title>
 
     <!-- Bootstrap 5 CSS -->
@@ -13,7 +14,7 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- ✅ Notre CSS personnalisé -->
-    <link href="{% static 'css/auditia.css' %}" rel="stylesheet">
+    <link href="{% static 'css/auditia.css' %}?v=2.0" rel="stylesheet">
 
     {% block extra_head %}{% endblock %}
     {% block extra_css %}{% endblock %}
@@ -37,15 +38,16 @@
     <script>
         // Le JavaScript reste identique
         document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(function() {
-                const alerts = document.querySelectorAll('.alert:not(.alert-permanent)');
-                alerts.forEach(function(alert) {
-                    if (typeof bootstrap !== 'undefined' && bootstrap.Alert) {
-                        const bsAlert = new bootstrap.Alert(alert);
-                        bsAlert.close();
-                    }
-                });
-            }, 5000);
+            // Suppression de la fermeture automatique des alertes
+            // setTimeout(function() {
+            //     const alerts = document.querySelectorAll('.alert:not(.alert-permanent)');
+            //     alerts.forEach(function(alert) {
+            //         if (typeof bootstrap !== 'undefined' && bootstrap.Alert) {
+            //             const bsAlert = new bootstrap.Alert(alert);
+            //             bsAlert.close();
+            //         }
+            //     });
+            // }, 5000);
 
             const animatedElements = document.querySelectorAll('.animate-fade-in');
             animatedElements.forEach((el, index) => {
@@ -64,12 +66,13 @@
                 `;
                 alertContainer.appendChild(alert);
 
-                setTimeout(() => {
-                    if (alert.parentNode) {
-                        const bsAlert = new bootstrap.Alert(alert);
-                        bsAlert.close();
-                    }
-                }, 5000);
+                // Suppression de la fermeture automatique ici aussi
+                // setTimeout(() => {
+                //     if (alert.parentNode) {
+                //         const bsAlert = new bootstrap.Alert(alert);
+                //         bsAlert.close();
+                //     }
+                // }, 5000);
             }
         }
     </script>

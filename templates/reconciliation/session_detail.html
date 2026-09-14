@@ -517,9 +517,33 @@ document.addEventListener('DOMContentLoaded', function() {
     {% endif %}
 });
 
+// Fonction pour récupérer les cookies
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
 function processSession(sessionId) {
     const modal = new bootstrap.Modal(document.getElementById('processingModal'));
     modal.show();
+
+    // Récupérer le token CSRF
+    const csrfToken = getCookie('csrftoken');
+    if (!csrfToken) {
+        modal.hide();
+        showNotification('Erreur: Token CSRF manquant', 'danger');
+        return;
+    }
 
     // Polling pour suivre le progrès
     const pollInterval = setInterval(function() {
@@ -553,11 +577,16 @@ function processSession(sessionId) {
     fetch(`/reconciliation/sessions/${sessionId}/process/`, {
         method: 'POST',
         headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (!data.success) {
             clearInterval(pollInterval);
@@ -568,6 +597,7 @@ function processSession(sessionId) {
     .catch(error => {
         clearInterval(pollInterval);
         modal.hide();
+        console.error('Erreur de traitement:', error);
         showNotification('Erreur de traitement: ' + error.message, 'danger');
     });
 }
@@ -611,3 +641,4 @@ function getCookie(name) {
 }
 </script>
 {% endblock %}
+

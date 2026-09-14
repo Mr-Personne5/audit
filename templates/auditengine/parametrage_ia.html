@@ -92,14 +92,14 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    {{ form.nb_anomalies_max_dashboard.label_tag }}
-                                    {{ form.nb_anomalies_max_dashboard }}
-                                    {% if form.nb_anomalies_max_dashboard.errors %}
+                                    {{ form.nb_anomalies_max_tableau_de_bord.label_tag }}
+                                    {{ form.nb_anomalies_max_tableau_de_bord }}
+                                    {% if form.nb_anomalies_max_tableau_de_bord.errors %}
                                         <div class="invalid-feedback d-block">
-                                            {{ form.nb_anomalies_max_dashboard.errors.0 }}
+                                            {{ form.nb_anomalies_max_tableau_de_bord.errors.0 }}
                                         </div>
                                     {% endif %}
-                                    <div class="form-text">{{ form.nb_anomalies_max_dashboard.help_text }}</div>
+                                    <div class="form-text">{{ form.nb_anomalies_max_tableau_de_bord.help_text }}</div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -113,7 +113,7 @@
 
                         <div class="d-flex justify-content-between">
                             <a href="{% url 'auditengine:dashboard' %}" class="btn btn-outline-secondary">
-                                <i class="bi bi-arrow-left"></i> Retour au dashboard
+                                <i class="bi bi-arrow-left"></i> Retour au tableau de bord
                             </a>
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-check-circle"></i> Sauvegarder les paramètres

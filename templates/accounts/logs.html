@@ -9,7 +9,7 @@
         <div class="col-12">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb breadcrumb-modern">
-                    <li class="breadcrumb-item"><a href="{% url 'accounts:dashboard' %}" class="text-decoration-none">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'accounts:dashboard' %}" class="text-decoration-none">Tableau de bord</a></li>
                     <li class="breadcrumb-item active">Logs d'Activité</li>
                 </ol>
             </nav>
@@ -275,102 +275,6 @@
                                 </button>
                             </td>
                         </tr>
-
-                        <!-- Modal pour les détails du log -->
-                        <div class="modal fade" id="logDetailModal{{ log.id }}" tabindex="-1">
-                            <div class="modal-dialog modal-xl">
-                                <div class="modal-content modern-card">
-                                    <div class="modal-header border-0" style="background: linear-gradient(135deg, var(--info-color), #2563eb);">
-                                        <h5 class="modal-title text-white fw-bold">Détails du Log #{{ log.id }}</h5>
-                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body p-4">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <h6 class="fw-bold mb-3">Informations de base</h6>
-                                                <div class="mb-2"><strong>Horodatage :</strong> {{ log.timestamp|date:"d/m/Y H:i:s" }}</div>
-                                                <div class="mb-2"><strong>Utilisateur :</strong>
-                                                    {% if log.user %}
-                                                        {{ log.user.get_full_name }} ({{ log.user.username }})
-                                                    {% else %}
-                                                        Système
-                                                    {% endif %}
-                                                </div>
-                                                {% if log.user %}
-                                                    <div class="mb-2"><strong>Rôle :</strong> {{ log.user.get_role_display }}</div>
-                                                {% endif %}
-                                                <div class="mb-2"><strong>Action :</strong> {{ log.action|capfirst }}</div>
-                                                <div class="mb-2"><strong>Module :</strong> {{ log.feature }}</div>
-                                                <div class="mb-2"><strong>Statut :</strong>
-                                                    <span class="badge bg-{% if log.status == 'success' %}success{% elif log.status == 'failed' %}danger{% else %}warning{% endif %}">
-                                                        {{ log.status|capfirst }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <h6 class="fw-bold mb-3">Informations techniques</h6>
-                                                <div class="mb-2"><strong>Adresse IP :</strong>
-                                                    {% if log.ip_address %}
-                                                        <code>{{ log.ip_address }}</code>
-                                                    {% else %}
-                                                        <span class="text-muted">Non disponible</span>
-                                                    {% endif %}
-                                                </div>
-                                                <div class="mb-2"><strong>User Agent :</strong></div>
-                                                {% if log.user_agent %}
-                                                    <div class="p-2 bg-light rounded small" style="max-height: 100px; overflow-y: auto;">
-                                                        {{ log.user_agent }}
-                                                    </div>
-                                                {% else %}
-                                                    <span class="text-muted">Non disponible</span>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-
-                                        {% if log.target or log.resource_id %}
-                                            <hr>
-                                            <h6 class="fw-bold mb-3">Cible de l'action</h6>
-                                            {% if log.target %}
-                                                <div class="mb-2"><strong>Cible :</strong> {{ log.target }}</div>
-                                            {% endif %}
-                                            {% if log.resource_id %}
-                                                <div class="mb-2"><strong>ID Ressource :</strong> {{ log.resource_id }}</div>
-                                            {% endif %}
-                                        {% endif %}
-
-                                        {% if log.old_value or log.new_value %}
-                                            <hr>
-                                            <h6 class="fw-bold mb-3">Valeurs modifiées</h6>
-                                            {% if log.old_value %}
-                                                <div class="mb-3">
-                                                    <strong>Ancienne valeur :</strong>
-                                                    <pre class="bg-light p-3 rounded small mt-2" style="max-height: 150px; overflow-y: auto;">{{ log.old_value }}</pre>
-                                                </div>
-                                            {% endif %}
-                                            {% if log.new_value %}
-                                                <div class="mb-3">
-                                                    <strong>Nouvelle valeur :</strong>
-                                                    <pre class="bg-light p-3 rounded small mt-2" style="max-height: 150px; overflow-y: auto;">{{ log.new_value }}</pre>
-                                                </div>
-                                            {% endif %}
-                                        {% endif %}
-
-                                        <hr>
-                                        <h6 class="fw-bold mb-3">Export JSON</h6>
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <small class="text-muted">Format JSON complet pour l'intégration</small>
-                                            <button class="btn btn-outline-primary btn-sm" onclick="copyToClipboard('json{{ log.id }}')">
-                                                <i class="bi bi-clipboard me-1"></i>Copier
-                                            </button>
-                                        </div>
-                                        <pre id="json{{ log.id }}" class="bg-dark text-light p-3 rounded small" style="max-height: 200px; overflow-y: auto;">{{ log.to_json|pprint }}</pre>
-                                    </div>
-                                    <div class="modal-footer border-0">
-                                        <button type="button" class="btn btn-secondary btn-modern" data-bs-dismiss="modal">Fermer</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -431,6 +335,104 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Génération des modals en dehors du tableau -->
+{% for log in page_obj %}
+<div class="modal fade" id="logDetailModal{{ log.id }}" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content modern-card">
+            <div class="modal-header border-0" style="background: linear-gradient(135deg, var(--info-color), #2563eb);">
+                <h5 class="modal-title text-white fw-bold">Détails du Log #{{ log.id }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold mb-3">Informations de base</h6>
+                        <div class="mb-2"><strong>Horodatage :</strong> {{ log.timestamp|date:"d/m/Y H:i:s" }}</div>
+                        <div class="mb-2"><strong>Utilisateur :</strong>
+                            {% if log.user %}
+                                {{ log.user.get_full_name }} ({{ log.user.username }})
+                            {% else %}
+                                Système
+                            {% endif %}
+                        </div>
+                        {% if log.user %}
+                            <div class="mb-2"><strong>Rôle :</strong> {{ log.user.get_role_display }}</div>
+                        {% endif %}
+                        <div class="mb-2"><strong>Action :</strong> {{ log.action|capfirst }}</div>
+                        <div class="mb-2"><strong>Module :</strong> {{ log.feature }}</div>
+                        <div class="mb-2"><strong>Statut :</strong>
+                            <span class="badge bg-{% if log.status == 'success' %}success{% elif log.status == 'failed' %}danger{% else %}warning{% endif %}">
+                                {{ log.status|capfirst }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold mb-3">Informations techniques</h6>
+                        <div class="mb-2"><strong>Adresse IP :</strong>
+                            {% if log.ip_address %}
+                                <code>{{ log.ip_address }}</code>
+                            {% else %}
+                                <span class="text-muted">Non disponible</span>
+                            {% endif %}
+                        </div>
+                        <div class="mb-2"><strong>User Agent :</strong></div>
+                        {% if log.user_agent %}
+                            <div class="p-2 bg-light rounded small" style="max-height: 100px; overflow-y: auto;">
+                                {{ log.user_agent }}
+                            </div>
+                        {% else %}
+                            <span class="text-muted">Non disponible</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if log.target or log.resource_id %}
+                    <hr>
+                    <h6 class="fw-bold mb-3">Cible de l'action</h6>
+                    {% if log.target %}
+                        <div class="mb-2"><strong>Cible :</strong> {{ log.target }}</div>
+                    {% endif %}
+                    {% if log.resource_id %}
+                        <div class="mb-2"><strong>ID Ressource :</strong> {{ log.resource_id }}</div>
+                    {% endif %}
+                {% endif %}
+
+                {% if log.old_value or log.new_value %}
+                    <hr>
+                    <h6 class="fw-bold mb-3">Valeurs modifiées</h6>
+                    {% if log.old_value %}
+                        <div class="mb-3">
+                            <strong>Ancienne valeur :</strong>
+                            <pre class="bg-light p-3 rounded small mt-2" style="max-height: 150px; overflow-y: auto;">{{ log.old_value }}</pre>
+                        </div>
+                    {% endif %}
+                    {% if log.new_value %}
+                        <div class="mb-3">
+                            <strong>Nouvelle valeur :</strong>
+                            <pre class="bg-light p-3 rounded small mt-2" style="max-height: 150px; overflow-y: auto;">{{ log.new_value }}</pre>
+                        </div>
+                    {% endif %}
+                {% endif %}
+
+                <hr>
+                <h6 class="fw-bold mb-3">Export JSON</h6>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-muted">Format JSON complet pour l'intégration</small>
+                    <button class="btn btn-outline-primary btn-sm" onclick="copyToClipboard('json{{ log.id }}')">
+                        <i class="bi bi-clipboard me-1"></i>Copier
+                    </button>
+                </div>
+                <pre id="json{{ log.id }}" class="bg-dark text-light p-3 rounded small" style="max-height: 200px; overflow-y: auto;">{{ log.to_json|pprint }}</pre>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary btn-modern" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
 
 <script>
     let autoRefreshInterval = null;

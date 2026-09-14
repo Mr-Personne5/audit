@@ -1,3 +1,4 @@
+{% load custom_filters %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -12,7 +13,19 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
 
     <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script>
+        // Test de chargement de Chart.js
+        window.addEventListener('load', function() {
+            if (typeof Chart !== 'undefined') {
+                console.log('✅ Chart.js chargé avec succès');
+                document.getElementById('chart-debug').innerHTML = '<small class="text-success">✅ Chart.js chargé</small>';
+            } else {
+                console.error('❌ Chart.js non chargé');
+                document.getElementById('chart-debug').innerHTML = '<small class="text-danger">❌ Chart.js non chargé</small>';
+            }
+        });
+    </script>
 
     <style>
         .anomalie-header {
@@ -116,15 +129,16 @@
     </style>
 </head>
 <body class="bg-light">
+    {% csrf_token %}
     <!-- Header -->
     <div class="anomalie-header">
         <div class="container">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb mb-3">
-                    <li class="breadcrumb-item"><a href="#" class="text-white-50"><i class="fas fa-home"></i> Accueil</a></li>
-                    <li class="breadcrumb-item"><a href="#" class="text-white-50">Audit Engine</a></li>
-                    <li class="breadcrumb-item"><a href="#" class="text-white-50">Session #12345</a></li>
-                    <li class="breadcrumb-item active text-white" aria-current="page">Anomalie #A78901</li>
+                    <li class="breadcrumb-item"><a href="{% url 'auditengine:session_list' %}" class="text-white-50"><i class="fas fa-home"></i> Accueil</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'auditengine:session_list' %}" class="text-white-50">Audit Engine</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'auditengine:session_detail' resultat.session.pk %}" class="text-white-50">Session {{ resultat.session.nom_session }}</a></li>
+                    <li class="breadcrumb-item active text-white" aria-current="page">Résultat #{{ resultat.pk }}</li>
                 </ol>
             </nav>
 
@@ -132,16 +146,21 @@
                 <div class="col-md-8">
                     <h1 class="h2 mb-2">
                         <i class="fas fa-exclamation-triangle me-2"></i>
-                        Anomalie #A78901
+                        {% if resultat.est_anomalie %}Anomalie{% else %}Résultat{% endif %} #{{ resultat.pk }}
                     </h1>
                     <p class="mb-0 opacity-75">
-                        <i class="fas fa-user me-2"></i>Martin Dubois (Matricule: EMP001234)
-                        <span class="ms-3"><i class="fas fa-calendar me-2"></i>Détectée le 15/12/2024 à 14:32</span>
+                        <i class="fas fa-user me-2"></i>{{ resultat.nom }} {{ resultat.prenom }}
+                        {% if resultat.matricule %}(Matricule: {{ resultat.matricule }}){% endif %}
+                        <span class="ms-3"><i class="fas fa-calendar me-2"></i>Détecté le {{ resultat.session.date_completion|date:"d/m/Y à H:i" }}</span>
                     </p>
                 </div>
                 <div class="col-md-4 text-end">
-                    <span class="badge anomalie-badge risk-high">
-                        <i class="fas fa-fire me-1"></i>RISQUE ÉLEVÉ
+                    <span class="badge anomalie-badge 
+                        {% if resultat.niveau_risque == 'critique' %}risk-high
+                        {% elif resultat.niveau_risque == 'eleve' %}risk-high
+                        {% elif resultat.niveau_risque == 'moyen' %}risk-medium
+                        {% else %}risk-low{% endif %}">
+                        <i class="fas fa-fire me-1"></i>{{ resultat.get_niveau_risque_display|upper }}
                     </span>
                 </div>
             </div>
@@ -155,39 +174,101 @@
                 <div class="col-md-8">
                     <h3 class="h4 mb-3">
                         <i class="fas fa-info-circle text-primary me-2"></i>
-                        Résumé de l'anomalie
+                        Résumé du résultat
                     </h3>
                     <div class="row">
                         <div class="col-sm-6 mb-3">
                             <strong>Type d'anomalie:</strong><br>
-                            <span class="badge bg-warning text-dark">Écart salarial suspect</span>
+                            <span class="badge 
+                                {% if resultat.type_anomalie == 'salaire_anormal' %}bg-warning text-dark
+                                {% elif resultat.type_anomalie == 'ghost_employee' %}bg-danger
+                                {% elif resultat.type_anomalie == 'heures_excessives' %}bg-info
+                                {% elif resultat.type_anomalie == 'prime_anormale' %}bg-primary
+                                {% elif resultat.type_anomalie == 'duplicate_rib' %}bg-secondary
+                                {% else %}bg-success{% endif %}">
+                                {{ resultat.get_type_anomalie_display }}
+                            </span>
                         </div>
                         <div class="col-sm-6 mb-3">
                             <strong>Statut:</strong><br>
-                            <span class="badge bg-danger">Non traitée</span>
+                            {% if resultat.valide_par_humain %}
+                                <span class="badge bg-success">Validé</span>
+                            {% elif resultat.est_anomalie %}
+                                <span class="badge bg-warning">Anomalie détectée</span>
+                            {% else %}
+                                <span class="badge bg-info">Normal</span>
+                            {% endif %}
                         </div>
+                        {% if resultat.salaire_brut %}
                         <div class="col-sm-6 mb-3">
-                            <strong>Salaire attendu:</strong><br>
-                            <span class="fw-bold">3,500.00 €</span>
+                            <strong>Salaire brut:</strong><br>
+                            <span class="fw-bold">{{ resultat.salaire_brut|floatformat:0 }} €</span>
                         </div>
+                        {% endif %}
+                        {% if resultat.montant_total %}
                         <div class="col-sm-6 mb-3">
-                            <strong>Salaire payé:</strong><br>
-                            <span class="fw-bold text-danger">4,850.00 €</span>
+                            <strong>Montant total:</strong><br>
+                            <span class="fw-bold">{{ resultat.montant_total|floatformat:0 }} €</span>
                         </div>
-                        <div class="col-12">
-                            <strong>Écart détecté:</strong><br>
-                            <span class="text-danger fw-bold">+1,350.00 € (+38.6%)</span>
+                        {% endif %}
+                        {% if resultat.heures_travaillees %}
+                        <div class="col-sm-6 mb-3">
+                            <strong>Heures travaillées:</strong><br>
+                            <span class="fw-bold">{{ resultat.heures_travaillees }}h</span>
                         </div>
+                        {% endif %}
+                        {% if resultat.montant_primes %}
+                        <div class="col-sm-6 mb-3">
+                            <strong>Montant primes:</strong><br>
+                            <span class="fw-bold">{{ resultat.montant_primes|floatformat:0 }} €</span>
+                        </div>
+                        {% endif %}
+                        {% if resultat.est_anomalie %}
+                        <div class="col-sm-6 mb-3">
+                            <strong>Score d'anomalie IF:</strong><br>
+                            <span class="text-danger fw-bold">{{ resultat.score_anomalie_if|floatformat:3 }}</span>
+                        </div>
+                        {% endif %}
+                        {% if resultat.score_classification_mlp %}
+                        <div class="col-sm-6 mb-3">
+                            <strong>Score MLP:</strong><br>
+                            <span class="text-warning fw-bold">{{ resultat.score_classification_mlp|floatformat:3 }}</span>
+                        </div>
+                        {% endif %}
+                        {% if resultat.est_fausse_alerte %}
+                        <div class="col-sm-6 mb-3">
+                            <strong>Fausse alerte:</strong><br>
+                            <span class="badge bg-warning text-dark">
+                                <i class="fas fa-exclamation-triangle me-1"></i>Marquée comme fausse alerte
+                            </span>
+                        </div>
+                        {% endif %}
+                        {% if resultat.valide_par %}
+                        <div class="col-sm-6 mb-3">
+                            <strong>Validé par:</strong><br>
+                            <span class="text-success fw-bold">{{ resultat.valide_par.get_full_name|default:resultat.valide_par.username }}</span>
+                            {% if resultat.date_validation %}
+                            <br><small class="text-muted">{{ resultat.date_validation|date:"d/m/Y H:i" }}</small>
+                            {% endif %}
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="col-md-4">
                     <h5>Données employé</h5>
                     <table class="table table-sm">
-                        <tr><td><strong>Nom:</strong></td><td>Martin Dubois</td></tr>
-                        <tr><td><strong>Poste:</strong></td><td>Développeur Senior</td></tr>
-                        <tr><td><strong>Département:</strong></td><td>Informatique</td></tr>
-                        <tr><td><strong>Date embauche:</strong></td><td>15/03/2021</td></tr>
-                        <tr><td><strong>Statut:</strong></td><td>CDI Temps plein</td></tr>
+                        <tr><td><strong>Nom:</strong></td><td>{{ resultat.nom }} {{ resultat.prenom }}</td></tr>
+                        {% if resultat.matricule %}
+                        <tr><td><strong>Matricule:</strong></td><td>{{ resultat.matricule }}</td></tr>
+                        {% endif %}
+                        {% if resultat.poste %}
+                        <tr><td><strong>Poste:</strong></td><td>{{ resultat.poste }}</td></tr>
+                        {% endif %}
+                        {% if resultat.rib %}
+                        <tr><td><strong>RIB:</strong></td><td>{{ resultat.rib }}</td></tr>
+                        {% endif %}
+                        <tr><td><strong>Ligne fichier:</strong></td><td>{{ resultat.ligne_fichier }}</td></tr>
+                        <tr><td><strong>Session:</strong></td><td>{{ resultat.session.nom_session }}</td></tr>
                     </table>
                 </div>
             </div>
@@ -201,19 +282,35 @@
                         <i class="fas fa-brain text-info me-2"></i>
                         Scores des modèles IA
                     </h4>
-                    <div class="row">
+                    <div class="row g-3">
                         <div class="col-6">
-                            <div class="score-card p-3 rounded">
-                                <h6 class="text-muted mb-1">Isolation Forest</h6>
-                                <div class="h3 text-danger mb-0">-0.72</div>
-                                <small class="text-muted">Anomalie détectée</small>
+                            <div class="score-card p-4 rounded">
+                                <h6 class="text-muted mb-2 fw-bold">Isolation Forest</h6>
+                                <div class="h2 text-danger mb-2">
+                                    {% if resultat.score_anomalie_if is not None %}
+                                        {% widthratio resultat.score_anomalie_if 1 100 %}%
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </div>
+                                <div class="small text-muted">
+                                    Anomalie détectée
+                                </div>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="score-card p-3 rounded">
-                                <h6 class="text-muted mb-1">Classification MLP</h6>
-                                <div class="h3 text-warning mb-0">0.89</div>
-                                <small class="text-muted">Confiance élevée</small>
+                            <div class="score-card p-4 rounded">
+                                <h6 class="text-muted mb-2 fw-bold">Classification MLP</h6>
+                                <div class="h2 text-warning mb-2">
+                                    {% if resultat.score_classification_mlp is not None %}
+                                        {% widthratio resultat.score_classification_mlp 1 100 %}%
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </div>
+                                <div class="small text-muted">
+                                    Confiance élevée
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -226,7 +323,45 @@
                         Visualisation des scores
                     </h4>
                     <div class="chart-container">
-                        <canvas id="scoresChart"></canvas>
+                        <canvas id="scoresChart" width="400" height="300"></canvas>
+                        <div id="chart-fallback" class="d-none">
+                            <div class="alert alert-info text-center">
+                                <i class="fas fa-chart-line fa-3x mb-3"></i>
+                                <h6>Visualisation des scores</h6>
+                                <p class="mb-0">Graphique en cours de chargement...</p>
+                            </div>
+                        </div>
+                        <div id="chart-debug" class="mt-2">
+                            <small class="text-muted">Debug: Canvas initialisé</small>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="mb-2">
+                                    <small class="text-muted fw-bold">Score IF</small>
+                                </div>
+                                <div class="h6 mb-0">
+                                    {% widthratio resultat.score_anomalie_if 1 100 %}%
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="mb-2">
+                                    <small class="text-muted fw-bold">Score MLP</small>
+                                </div>
+                                <div class="h6 mb-0">
+                                    {% widthratio resultat.score_classification_mlp 1 100 %}%
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="mb-2">
+                                    <small class="text-muted fw-bold">Fiabilité</small>
+                                </div>
+                                <div class="h6 mb-0">
+                                    <span id="fiabilite-score">-</span>%
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -239,38 +374,57 @@
                 Explications des modèles IA
             </h4>
 
-            <div class="row">
+            <div class="row g-4">
                 <div class="col-md-6">
-                    <div class="explanation-card p-3 rounded mb-3">
-                        <h6 class="fw-bold mb-2">
-                            <i class="fas fa-search me-1"></i>
-                            Isolation Forest (Détection)
-                        </h6>
-                        <p class="mb-2">
-                            L'employé présente un écart salarial de +38.6% par rapport à la moyenne des employés
-                            de son profil (poste, ancienneté, département).
-                        </p>
+                    <div class="explanation-card p-4 rounded">
+                        <div class="mb-3">
+                            <h6 class="fw-bold mb-0">
+                                <i class="fas fa-search me-2"></i>
+                                Isolation Forest (Détection)
+                            </h6>
+                        </div>
+                        <div class="mb-3">
+                            <p class="mb-0">
+                                {% if resultat.explication_if %}
+                                    {{ resultat.explication_if }}
+                                {% else %}
+                                    Analyse automatique par le modèle Isolation Forest.
+                                {% endif %}
+                            </p>
+                        </div>
                         <ul class="list-unstyled mb-0">
-                            <li><i class="fas fa-arrow-right text-danger me-2"></i>Salaire 1.4x supérieur à la médiane</li>
-                            <li><i class="fas fa-arrow-right text-danger me-2"></i>Aucune prime exceptionnelle justifiée</li>
-                            <li><i class="fas fa-arrow-right text-warning me-2"></i>Profil atypique détecté</li>
+                            <li class="mb-2"><i class="fas fa-arrow-right text-danger me-2"></i>Score d'anomalie: {{ resultat.score_anomalie_if|floatformat:3 }}</li>
+                            <li class="mb-2"><i class="fas fa-arrow-right text-info me-2"></i>Anomalie détectée: {% if resultat.est_anomalie %}Oui{% else %}Non{% endif %}</li>
+                            <li class="mb-2"><i class="fas fa-arrow-right text-warning me-2"></i>Niveau de risque: {{ resultat.get_niveau_risque_display }}</li>
+                            {% if resultat.est_fausse_alerte %}
+                            <li class="mb-2"><i class="fas fa-arrow-right text-warning me-2"></i>Fausse alerte: Oui</li>
+                            {% endif %}
                         </ul>
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <div class="explanation-card p-3 rounded mb-3">
-                        <h6 class="fw-bold mb-2">
-                            <i class="fas fa-tags me-1"></i>
-                            Classification MLP (Typologie)
-                        </h6>
-                        <p class="mb-2">
-                            Le modèle classe cette anomalie comme un "Écart salarial suspect"
-                            avec une confiance de 89%.
-                        </p>
+                    <div class="explanation-card p-4 rounded">
+                        <div class="mb-3">
+                            <h6 class="fw-bold mb-0">
+                                <i class="fas fa-tags me-2"></i>
+                                Classification MLP (Typologie)
+                            </h6>
+                        </div>
+                        <div class="mb-3">
+                            <p class="mb-0">
+                                {% if resultat.explication_mlp %}
+                                    {{ resultat.explication_mlp }}
+                                {% else %}
+                                    Classification automatique par le modèle MLP.
+                                {% endif %}
+                            </p>
+                        </div>
                         <ul class="list-unstyled mb-0">
-                            <li><i class="fas fa-percentage text-info me-2"></i>89% - Écart salarial</li>
-                            <li><i class="fas fa-percentage text-secondary me-2"></i>8% - Erreur saisie</li>
-                            <li><i class="fas fa-percentage text-secondary me-2"></i>3% - Prime non déclarée</li>
+                            <li class="mb-2"><i class="fas fa-percentage text-info me-2"></i>Score MLP: {{ resultat.score_classification_mlp|floatformat:3 }}</li>
+                            <li class="mb-2"><i class="fas fa-tag text-primary me-2"></i>Type: {{ resultat.get_type_anomalie_display }}</li>
+                            {% if resultat.recommandation_auto %}
+                            <li class="mb-2"><i class="fas fa-lightbulb text-warning me-2"></i>Recommandation: {{ resultat.recommandation_auto|truncatechars:50 }}</li>
+                            {% endif %}
                         </ul>
                     </div>
                 </div>
@@ -283,21 +437,70 @@
                 <i class="fas fa-robot text-primary me-2"></i>
                 Recommandations automatiques
             </h4>
+            {% if resultat.recommandation_auto %}
             <div class="alert alert-warning" role="alert">
                 <h6 class="alert-heading">
                     <i class="fas fa-exclamation-triangle me-2"></i>
-                    Action recommandée: Vérification urgente
+                    Recommandation IA
                 </h6>
                 <p class="mb-2">
-                    Cet écart salarial important nécessite une vérification immédiate.
-                    Voici les actions suggérées par l'IA :
+                    {{ resultat.recommandation_auto }}
                 </p>
-                <ul class="mb-0">
-                    <li>Vérifier la grille salariale et la classification de l'employé</li>
-                    <li>Contrôler les heures supplémentaires et primes déclarées</li>
-                    <li>Valider avec le manager direct et les RH</li>
-                    <li>Examiner l'historique des modifications de salaire</li>
-                </ul>
+                {% if resultat.commentaire_utilisateur %}
+                <hr>
+                <h6 class="alert-heading">
+                    <i class="fas fa-user me-2"></i>
+                    Commentaire utilisateur
+                </h6>
+                <p class="mb-0">
+                    {{ resultat.commentaire_utilisateur }}
+                </p>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="alert alert-info" role="alert">
+                <h6 class="alert-heading">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Aucune recommandation automatique
+                </h6>
+                <p class="mb-0">
+                    Aucune recommandation automatique n'a été générée pour ce résultat.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Critères de détection -->
+        <div class="info-section p-4 mb-4">
+            <h4 class="h5 mb-3">
+                <i class="fas fa-cogs text-secondary me-2"></i>
+                Critères de détection
+            </h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="text-muted">Seuils appliqués</h6>
+                    <ul class="list-unstyled">
+                        {% if resultat.type_anomalie == 'salaire_anormal' %}
+                            <li><i class="fas fa-check text-success me-2"></i>Salaire > 2 écarts-types de la moyenne</li>
+                        {% elif resultat.type_anomalie == 'ghost_employee' %}
+                            <li><i class="fas fa-check text-success me-2"></i>Nom/prénom ≤ 2 caractères ou invalide</li>
+                        {% elif resultat.type_anomalie == 'heures_excessives' %}
+                            <li><i class="fas fa-check text-success me-2"></i>Heures > 250h/mois</li>
+                        {% elif resultat.type_anomalie == 'prime_anormale' %}
+                            <li><i class="fas fa-check text-success me-2"></i>Prime > 50% du salaire brut</li>
+                        {% elif resultat.type_anomalie == 'duplicate_rib' %}
+                            <li><i class="fas fa-check text-success me-2"></i>RIB apparaît ≥ 2 fois</li>
+                        {% endif %}
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="text-muted">Scores de confiance</h6>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-brain text-info me-2"></i>IF: {{ resultat.score_anomalie_if|floatformat:3 }}</li>
+                        <li><i class="fas fa-network-wired text-warning me-2"></i>MLP: {{ resultat.score_classification_mlp|floatformat:3 }}</li>
+                        <li><i class="fas fa-shield-alt text-success me-2"></i>Seuil minimum: 0.5</li>
+                    </ul>
+                </div>
             </div>
         </div>
 
@@ -317,39 +520,47 @@
                         <div class="card-body">
                             <h6 class="card-title mb-1">
                                 Détection automatique
-                                <small class="text-muted">15/12/2024 14:32</small>
+                                <small class="text-muted">{{ resultat.session.date_completion|date:"d/m/Y H:i" }}</small>
                             </h6>
                             <p class="card-text mb-0">
-                                Anomalie détectée par le système IA lors de l'analyse de la session #12345.
-                                Score IF: -0.72, Classification: Écart salarial (89%)
+                                {% if resultat.est_anomalie %}Anomalie{% else %}Résultat{% endif %} détecté par le système IA lors de l'analyse de la session {{ resultat.session.nom_session }}.
+                                Score IF: {{ resultat.score_anomalie_if|floatformat:3 }}, Type: {{ resultat.get_type_anomalie_display }}
                             </p>
                         </div>
                     </div>
                 </div>
 
+                {% for correction in corrections %}
                 <div class="timeline-item">
                     <div class="timeline-icon bg-info">
-                        <i class="fas fa-eye"></i>
+                        <i class="fas fa-edit"></i>
                     </div>
                     <div class="card">
                         <div class="card-body">
                             <h6 class="card-title mb-1">
-                                Consultation par Marie Durand
-                                <small class="text-muted">15/12/2024 15:45</small>
+                                Correction par {{ correction.utilisateur.get_full_name|default:correction.utilisateur.username }}
+                                <small class="text-muted">{{ correction.date_correction|date:"d/m/Y H:i" }}</small>
                             </h6>
                             <p class="card-text mb-0">
-                                L'anomalie a été consultée par Marie Durand (Auditeur Senior).
-                                Statut: En cours d'investigation.
+                                Type: {{ correction.get_type_correction_display }}, 
+                                Confiance: {{ correction.confiance_utilisateur }}/10
+                                {% if correction.justification %}<br>Justification: {{ correction.justification }}{% endif %}
                             </p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
                         </div>
                     </div>
                 </div>
             </div>
 
+            {% if not corrections %}
             <div class="text-center text-muted mt-3">
                 <i class="fas fa-clock me-2"></i>
                 Aucune correction n'a encore été apportée à cette anomalie
             </div>
+            {% endif %}
         </div>
 
         <!-- Actions disponibles -->
@@ -360,27 +571,38 @@
             </h4>
 
             <div class="action-buttons">
-                <button type="button" class="btn btn-success" onclick="window.location.href='corriger_anomalie.html'">
-                    <i class="fas fa-check-circle me-2"></i>
-                    Corriger l'anomalie
+                {% if can_correct %}
+                <a href="{% url 'auditengine:corriger_anomalie' resultat.pk %}" class="btn btn-warning">
+                    <i class="fas fa-edit me-2"></i>
+                    Corriger/Modifier
+                </a>
+                {% endif %}
+                
+                {% if not resultat.valide_par_humain %}
+                <button type="button" class="btn btn-success" onclick="validerResultat({{ resultat.pk }})">
+                    <i class="fas fa-check me-2"></i>
+                    Valider
                 </button>
+                {% else %}
+                <span class="btn btn-outline-success" title="Déjà validé">
+                    <i class="fas fa-check-lg me-2"></i>
+                    Validé
+                </span>
+                {% endif %}
 
-                <button type="button" class="btn btn-warning" onclick="markAsFalseAlert()">
-                    <i class="fas fa-times-circle me-2"></i>
-                    Marquer comme fausse alerte
-                </button>
-
-                <button type="button" class="btn btn-info" onclick="assignToUser()">
-                    <i class="fas fa-user-plus me-2"></i>
-                    Assigner à un utilisateur
-                </button>
-
-                <button type="button" class="btn btn-secondary" onclick="exportDetails()">
-                    <i class="fas fa-download me-2"></i>
-                    Exporter les détails
-                </button>
-
-                <button type="button" class="btn btn-outline-primary" onclick="addComment()">
+                {% if resultat.est_fausse_alerte %}
+                <span class="btn btn-outline-warning" title="Marquée comme fausse alerte">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Fausse alerte
+                </span>
+                {% endif %}
+                
+                <a href="{% url 'auditengine:session_detail' resultat.session.pk %}" class="btn btn-info">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Retour à la session
+                </a>
+                
+                <button type="button" class="btn btn-secondary" onclick="addComment()">
                     <i class="fas fa-comment me-2"></i>
                     Ajouter un commentaire
                 </button>
@@ -411,46 +633,167 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // Graphique des scores IA
-        const ctx = document.getElementById('scoresChart').getContext('2d');
-        const scoresChart = new Chart(ctx, {
-            type: 'radar',
-            data: {
-                labels: ['Score IF', 'Confiance MLP', 'Niveau Risque', 'Écart Salarial', 'Fiabilité'],
-                datasets: [{
-                    label: 'Scores de l\'anomalie',
-                    data: [28, 89, 85, 95, 72], // Scores normalisés sur 100
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    borderWidth: 2,
-                    pointBackgroundColor: 'rgba(255, 99, 132, 1)',
-                    pointBorderColor: '#fff',
-                    pointHoverBackgroundColor: '#fff',
-                    pointHoverBorderColor: 'rgba(255, 99, 132, 1)'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    r: {
-                        angleLines: {
-                            display: true
+        // Graphique des scores IA - Version simplifiée et robuste
+        window.addEventListener('load', function() {
+            console.log('Page chargée, initialisation du graphique...');
+            
+            // Attendre un peu que tout soit prêt
+            setTimeout(function() {
+                initChart();
+            }, 100);
+        });
+        
+        function initChart() {
+            console.log('Initialisation du graphique...');
+            
+            // Vérifier que Chart.js est chargé
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js non chargé');
+                showFallback();
+                return;
+            }
+            
+            console.log('Chart.js disponible');
+            
+            // Récupérer le canvas
+            const canvas = document.getElementById('scoresChart');
+            if (!canvas) {
+                console.error('Canvas scoresChart non trouvé');
+                return;
+            }
+            
+            console.log('Canvas trouvé:', canvas);
+            
+            // Données hardcodées pour test
+            const scoreIF = 85.0;
+            const scoreMLP = 78.0;
+            const scoreRisque = 80;
+            const fiabilite = Math.round((scoreIF + scoreMLP) / 2);
+            const validation = 0;
+            
+            console.log('Données du graphique:', [scoreIF, scoreMLP, scoreRisque, fiabilite, validation]);
+            
+            try {
+                // Créer le graphique avec des options simplifiées
+                const ctx = canvas.getContext('2d');
+                const scoresChart = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: ['Score IF', 'Confiance MLP', 'Niveau Risque', 'Fiabilité', 'Validation'],
+                        datasets: [{
+                            label: 'Scores du résultat',
+                            data: [scoreIF, scoreMLP, scoreRisque, fiabilite, validation],
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 2,
+                            pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: 'rgba(255, 99, 132, 1)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
                         },
-                        suggestedMin: 0,
-                        suggestedMax: 100,
-                        ticks: {
-                            stepSize: 20
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    stepSize: 20
+                                }
+                            }
                         }
                     }
+                });
+                
+                console.log('Graphique créé avec succès:', scoresChart);
+                
+                // Mettre à jour l'affichage du score de fiabilité
+                const fiabiliteElement = document.getElementById('fiabilite-score');
+                if (fiabiliteElement) {
+                    fiabiliteElement.textContent = fiabilite;
+                    console.log('Score de fiabilité mis à jour:', fiabilite);
                 }
+                
+                // Mettre à jour le debug
+                const debugElement = document.getElementById('chart-debug');
+                if (debugElement) {
+                    debugElement.innerHTML = '<small class="text-muted">Graphique radar des scores IA</small>';
+                }
+                
+            } catch (error) {
+                console.error('Erreur lors de la création du graphique:', error);
+                showFallback();
             }
-        });
+        }
+        
+        function showFallback() {
+            const canvas = document.getElementById('scoresChart');
+            const fallback = document.getElementById('chart-fallback');
+            const debugElement = document.getElementById('chart-debug');
+            
+            if (canvas) canvas.style.display = 'none';
+            if (fallback) fallback.classList.remove('d-none');
+            if (debugElement) {
+                debugElement.innerHTML = '<small class="text-danger">❌ Erreur: Graphique non disponible</small>';
+            }
+        }
+
+        // Fonction pour valider un résultat
+        function validerResultat(resultatId) {
+            if (confirm('Êtes-vous sûr de vouloir marquer ce résultat comme validé ?')) {
+                // Récupérer le token CSRF
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                                 document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+                
+                fetch(`/auditengine/resultats/${resultatId}/valider/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Afficher une notification de succès
+                        showNotification('✅ Résultat validé avec succès !', 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showNotification('❌ Erreur lors de la validation: ' + (data.error || 'Erreur inconnue'), 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    showNotification('❌ Erreur lors de la validation', 'danger');
+                });
+            }
+        }
+
+        // Fonction pour afficher des notifications
+        function showNotification(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            
+            // Auto-dismiss après 5 secondes
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
 
         // Fonctions d'actions
         function markAsFalseAlert() {

@@ -1,0 +1,447 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Supervision des Missions - AuditIA{% endblock %}
+
+{% block extra_css %}
+<style>
+.mission-card {
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.mission-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    border-color: var(--primary-color);
+}
+
+.mission-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px 15px 0 0;
+}
+
+.mission-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    opacity: 0.9;
+}
+
+.stat-detail {
+    font-size: 0.7rem;
+    opacity: 0.8;
+    margin-top: 0.25rem;
+    display: block;
+}
+
+.category-tabs {
+    border-bottom: 2px solid #e9ecef;
+    margin-bottom: 1.5rem;
+}
+
+.category-tab {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    background: none;
+    color: #6c757d;
+    font-weight: 500;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.category-tab.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.category-tab:hover {
+    color: var(--primary-color);
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.item-card {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 1rem;
+    transition: all 0.3s ease;
+}
+
+.item-card:hover {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-pending { background: #fff3cd; color: #856404; }
+.status-processing { background: #cce5ff; color: #004085; }
+.status-completed { background: #d4edda; color: #155724; }
+.status-error { background: #f8d7da; color: #721c24; }
+
+.progress-ring {
+    width: 60px;
+    height: 60px;
+    position: relative;
+}
+
+.progress-ring svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.progress-ring circle {
+    fill: none;
+    stroke-width: 4;
+}
+
+.progress-ring .bg {
+    stroke: #e9ecef;
+}
+
+.progress-ring .progress {
+    stroke: var(--primary-color);
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.5s ease;
+}
+
+.search-filters {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.filter-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.quick-actions {
+    position: sticky;
+    top: 1rem;
+    z-index: 100;
+}
+
+.floating-action {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 1000;
+}
+
+.floating-action .btn {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb breadcrumb-modern">
+                    <li class="breadcrumb-item"><i class="bi bi-house-door me-1"></i>Accueil</li>
+                    <li class="breadcrumb-item"><a href="{% url 'accounts:dashboard' %}">Tableau de bord</a></li>
+                    <li class="breadcrumb-item active">Supervision des Missions</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 fw-bold text-dark mb-1">Supervision des Missions 🔍</h1>
+                    <p class="text-muted mb-0">Vue d'ensemble complète de toutes les activités par mission</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary btn-modern" onclick="refreshAllData()">
+                        <i class="bi bi-arrow-clockwise me-2"></i>Actualiser
+                    </button>
+                    <button class="btn btn-primary btn-modern" onclick="exportData()">
+                        <i class="bi bi-download me-2"></i>Exporter
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres de recherche -->
+    <div class="search-filters">
+        <div class="filter-group">
+            <div class="filter-item">
+                <label class="form-label mb-0">Mission:</label>
+                <select id="mission-filter" class="form-select form-select-sm" style="width: 200px;">
+                    <option value="">Toutes les missions</option>
+                    {% for mission in missions %}
+                    <option value="{{ mission.id }}">{{ mission.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-item">
+                <label class="form-label mb-0">Statut:</label>
+                <select id="status-filter" class="form-select form-select-sm" style="width: 150px;">
+                    <option value="">Tous les statuts</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Terminée</option>
+                    <option value="pending">En attente</option>
+                </select>
+            </div>
+            <div class="filter-item">
+                <label class="form-label mb-0">Période:</label>
+                <select id="period-filter" class="form-select form-select-sm" style="width: 150px;">
+                    <option value="all">Toute période</option>
+                    <option value="today">Aujourd'hui</option>
+                    <option value="week">Cette semaine</option>
+                    <option value="month">Ce mois</option>
+                </select>
+            </div>
+            <div class="filter-item">
+                <label class="form-label mb-0">Recherche:</label>
+                <input type="text" id="search-input" class="form-control form-control-sm" placeholder="Rechercher..." style="width: 200px;">
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques globales -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white border-0 p-4">
+                    <h5 class="fw-bold mb-1">Statistiques globales</h5>
+                    <p class="text-muted small mb-0">Vue d'ensemble de toutes les missions actives</p>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row text-center" id="global-stats">
+                        <div class="col-md-2">
+                            <div class="stat-item">
+                                <div class="stat-number text-primary" id="total-missions">0</div>
+                                <div class="stat-label">Missions actives</div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="stat-item">
+                                <div class="stat-number text-success" id="total-files">0</div>
+                                <div class="stat-label">Fichiers importés</div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="stat-item">
+                                <div class="stat-number text-warning" id="total-analyses">0</div>
+                                <div class="stat-label">Analyses effectuées</div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="stat-item">
+                                <div class="stat-number text-info" id="total-reconciliations">0</div>
+                                <div class="stat-label">Rapprochements</div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="stat-item">
+                                <div class="stat-number text-danger" id="total-anomalies">0</div>
+                                <div class="stat-label">Anomalies détectées</div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="stat-item">
+                                <div class="stat-number text-secondary" id="average-progress">0%</div>
+                                <div class="stat-label">Progression moyenne</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vue d'ensemble des missions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="fw-bold mb-0">Vue d'ensemble des missions</h4>
+                <div class="text-muted">
+                    <span id="filtered-count">0</span> mission(s) affichée(s)
+                </div>
+            </div>
+            <div class="row" id="missions-overview">
+                {% for mission in missions %}
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="mission-card card h-100" data-mission-id="{{ mission.id }}">
+                        <div class="mission-header p-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5 class="mb-1">{{ mission.name }}</h5>
+                                    <p class="mb-0 opacity-75">{{ mission.client|default:"Client non spécifié" }}</p>
+                                </div>
+                                <span class="badge bg-{% if mission.is_active %}success{% else %}secondary{% endif %}">
+                                    {% if mission.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </div>
+                            
+                            <div class="mission-stats">
+                                <div class="stat-item">
+                                    <div class="stat-number" id="files-{{ mission.id }}">0</div>
+                                    <div class="stat-label">Fichiers</div>
+                                    <small class="stat-detail" id="files-detail-{{ mission.id }}">0 traités</small>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-number" id="analyses-{{ mission.id }}">0</div>
+                                    <div class="stat-label">Analyses</div>
+                                    <small class="stat-detail" id="analyses-detail-{{ mission.id }}">0 terminées</small>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-number" id="reconciliations-{{ mission.id }}">0</div>
+                                    <div class="stat-label">Rapprochements</div>
+                                    <small class="stat-detail" id="reconciliations-detail-{{ mission.id }}">0 terminés</small>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-number" id="anomalies-{{ mission.id }}">0</div>
+                                    <div class="stat-label">Anomalies</div>
+                                    <small class="stat-detail" id="anomalies-detail-{{ mission.id }}">détectées</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <small class="text-muted">
+                                    <i class="bi bi-calendar me-1"></i>
+                                    {{ mission.start_date|date:"d/m/Y" }}
+                                    {% if mission.end_date %}
+                                    - {{ mission.end_date|date:"d/m/Y" }}
+                                    {% endif %}
+                                </small>
+                                <div class="progress-ring">
+                                    <svg>
+                                        <circle class="bg" cx="30" cy="30" r="26"></circle>
+                                        <circle class="progress" cx="30" cy="30" r="26" 
+                                                stroke-dasharray="0 163.36281798666926" 
+                                                id="progress-{{ mission.id }}"></circle>
+                                    </svg>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-primary btn-sm" onclick="viewMissionDetails({{ mission.id }})">
+                                    <i class="bi bi-eye me-1"></i>Voir détails
+                                </button>
+                                <button class="btn btn-outline-success btn-sm" onclick="exportMissionData({{ mission.id }})">
+                                    <i class="bi bi-download me-1"></i>Exporter
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Détails d'une mission sélectionnée -->
+    <div class="row" id="mission-details" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white border-0 p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="fw-bold mb-1" id="selected-mission-name">Nom de la mission</h4>
+                            <p class="text-muted mb-0" id="selected-mission-client">Client</p>
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="closeMissionDetails()">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card-body p-0">
+                    <!-- Onglets des catégories -->
+                    <div class="category-tabs px-4">
+                        <button class="category-tab active" data-category="files">
+                            <i class="bi bi-file-earmark-text me-2"></i>Fichiers importés
+                        </button>
+                        <button class="category-tab" data-category="analyses">
+                            <i class="bi bi-cpu me-2"></i>Analyses IA
+                        </button>
+                        <button class="category-tab" data-category="reconciliations">
+                            <i class="bi bi-arrow-left-right me-2"></i>Rapprochements
+                        </button>
+                        <button class="category-tab" data-category="recommendations">
+                            <i class="bi bi-lightbulb me-2"></i>Recommandations
+                        </button>
+                        <button class="category-tab" data-category="logs">
+                            <i class="bi bi-journal-text me-2"></i>Logs d'activité
+                        </button>
+                    </div>
+                    
+                    <!-- Contenu des catégories -->
+                    <div class="p-4">
+                        <div id="category-content">
+                            <!-- Le contenu sera chargé dynamiquement -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bouton d'action flottant -->
+<div class="floating-action">
+    <button class="btn btn-primary" onclick="createNewMission()" title="Créer une nouvelle mission">
+        <i class="bi bi-plus-lg"></i>
+    </button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/mission-supervision.js' %}"></script>
+{% endblock %} 

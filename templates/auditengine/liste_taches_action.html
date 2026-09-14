@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tâches d'Action - Session {{ session.nom_session }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="fas fa-tasks text-primary me-2"></i>
+                Tâches d'Action
+            </h1>
+            <p class="text-muted mb-0">Session: {{ session.nom_session }}</p>
+        </div>
+        <div>
+            <a href="{% url 'auditengine:session_detail' session.id %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Retour à la session
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label for="statut" class="form-label">Statut</label>
+                    <select name="statut" id="statut" class="form-select">
+                        <option value="">Tous</option>
+                        {% for value, label in statut_choices %}
+                        <option value="{{ value }}" {% if value == request.GET.statut %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="priorite" class="form-label">Priorité</label>
+                    <select name="priorite" id="priorite" class="form-select">
+                        <option value="">Toutes</option>
+                        {% for value, label in priorite_choices %}
+                        <option value="{{ value }}" {% if value == request.GET.priorite %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="fas fa-filter me-1"></i>Filtrer
+                    </button>
+                    <a href="{% url 'auditengine:liste_taches_action' session.id %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-times me-1"></i>Effacer
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">{{ taches.count }}</h4>
+                            <small>Total tâches</small>
+                        </div>
+                        <i class="fas fa-tasks fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">{{ taches_en_cours|length }}</h4>
+                            <small>En cours</small>
+                        </div>
+                        <i class="fas fa-clock fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">{{ taches_terminees|length }}</h4>
+                            <small>Terminées</small>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">{{ taches_critiques|length }}</h4>
+                            <small>Critiques</small>
+                        </div>
+                        <i class="fas fa-exclamation-triangle fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des tâches -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Liste des Tâches</h5>
+        </div>
+        <div class="card-body">
+            {% if taches %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Titre</th>
+                            <th>Type</th>
+                            <th>Priorité</th>
+                            <th>Statut</th>
+                            <th>Responsable</th>
+                            <th>Délai</th>
+                            <th>Progression</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tache in taches %}
+                        <tr>
+                            <td>
+                                <strong>{{ tache.titre }}</strong>
+                                <br>
+                                <small class="text-muted">{{ tache.description|truncatechars:50 }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ tache.get_type_anomalie_display }}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if tache.priorite == 'critique' %}danger{% elif tache.priorite == 'elevee' %}warning{% elif tache.priorite == 'moyenne' %}info{% else %}success{% endif %}">
+                                    {{ tache.get_priorite_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if tache.statut == 'terminee' %}success{% elif tache.statut == 'en_cours' %}warning{% elif tache.statut == 'annulee' %}secondary{% else %}primary{% endif %}">
+                                    {{ tache.get_statut_display }}
+                                </span>
+                            </td>
+                            <td>{{ tache.responsable }}</td>
+                            <td>{{ tache.delai }}</td>
+                            <td>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar bg-{% if tache.statut == 'terminee' %}success{% elif tache.statut == 'en_cours' %}warning{% else %}primary{% endif %}" 
+                                         style="width: {{ tache.get_progression }}%">
+                                        {{ tache.get_progression }}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    {% if tache.statut != 'terminee' %}
+                                    <button class="btn btn-outline-success" onclick="marquerTacheFaite({{ tache.id }})">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    {% endif %}
+                                    <button class="btn btn-outline-primary" onclick="assignerTache({{ tache.id }})">
+                                        <i class="fas fa-user-plus"></i>
+                                    </button>
+                                    <button class="btn btn-outline-info" onclick="voirDetails({{ tache.id }})">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-tasks fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Aucune tâche trouvée</h5>
+                <p class="text-muted">Créez des tâches à partir du plan d'action de la session.</p>
+                <a href="{% url 'auditengine:generate_recommendations' session.id %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Créer des Tâches
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'assignation -->
+<div class="modal fade" id="assignModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Assigner la tâche</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="assignForm">
+                    <div class="mb-3">
+                        <label for="assigne_a" class="form-label">Assigner à</label>
+                        <select class="form-select" id="assigne_a" name="assigne_a">
+                            <option value="">Non assigné</option>
+                            <!-- Options à remplir dynamiquement -->
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="confirmerAssignation()">Assigner</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentTacheId = null;
+
+function marquerTacheFaite(tacheId) {
+    if (confirm('Marquer cette tâche comme terminée ?')) {
+        fetch(`/auditengine/taches/${tacheId}/marquer-faite/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        });
+    }
+}
+
+function assignerTache(tacheId) {
+    currentTacheId = tacheId;
+    // Ici on pourrait charger la liste des utilisateurs disponibles
+    const modal = new bootstrap.Modal(document.getElementById('assignModal'));
+    modal.show();
+}
+
+function confirmerAssignation() {
+    const assigneA = document.getElementById('assigne_a').value;
+    
+    fetch(`/auditengine/taches/${currentTacheId}/assigner/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        },
+        body: JSON.stringify({
+            assigne_a: assigneA
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Erreur: ' + data.error);
+        }
+    });
+}
+
+function voirDetails(tacheId) {
+    // Ici on pourrait afficher les détails de la tâche
+    alert('Fonctionnalité à implémenter');
+}
+</script>
+{% endblock %}
