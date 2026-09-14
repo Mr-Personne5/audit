@@ -1,10 +1,12 @@
 import json
 import logging
+import os
+import shutil
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
@@ -49,7 +51,7 @@ def upload_list(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # Statistiques pour le dashboard
+    # Statistiques pour le tableau de bord
     stats = {
         'total': fichiers.count(),
         'processed': fichiers.filter(status='processed').count(),
@@ -109,20 +111,12 @@ def upload_list(request):
 def upload_file(request):
     """Upload d'un nouveau fichier"""
     if request.method == 'POST':
-        form = FichierImporteForm(request.POST, request.FILES)
+        form = FichierImporteForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             try:
                 with transaction.atomic():
                     fichier = form.save(commit=False)
                     fichier.utilisateur = request.user
-
-                    # Assigner automatiquement la mission de l'utilisateur
-                    if not fichier.mission and request.user.mission:
-                        fichier.mission = request.user.mission
-                    elif not fichier.mission:
-                        messages.error(request, "Vous devez être assigné à une mission pour uploader des fichiers.")
-                        return render(request, 'uploads/upload_form.html', {'form': form})
-
                     fichier.save()
 
                     # Log de l'action
@@ -145,11 +139,51 @@ def upload_file(request):
                         messages.warning(request, f"Fichier uploadé mais erreur d'analyse: {message}")
                         return redirect('uploads:file_detail', pk=fichier.pk)
 
+            except IntegrityError as e:
+                # Gestion de la contrainte d'unicité
+                if 'unique' in str(e).lower():
+                    # Récupérer les infos du formulaire
+                    mission_id = form.cleaned_data['mission'].id
+                    type_fichier = form.cleaned_data['type_fichier']
+                    version = form.cleaned_data.get('version', 1)
+                    nom_fichier = form.cleaned_data.get('nom_fichier', '')
+                    # Stocker temporairement le fichier uploadé
+                    fichier_temp = request.FILES['fichier']
+                    # Sauvegarder le fichier temporairement dans /tmp ou media/tmp
+                    import os, uuid
+                    from django.core.files.storage import default_storage
+                    tmp_dir = 'media/tmp_uploads/'
+                    os.makedirs(tmp_dir, exist_ok=True)
+                    tmp_filename = f"{uuid.uuid4()}_{fichier_temp.name}"
+                    tmp_path = os.path.join(tmp_dir, tmp_filename)
+                    with open(tmp_path, 'wb+') as destination:
+                        for chunk in fichier_temp.chunks():
+                            destination.write(chunk)
+                    # Récupérer la mission pour affichage
+                    from accounts.models import Mission
+                    mission = Mission.objects.get(pk=mission_id)
+                    # Calculer la version suivante
+                    from uploads.models import FichierImporte
+                    max_version = FichierImporte.objects.filter(mission_id=mission_id, type_fichier=type_fichier).order_by('-version').first()
+                    version_suivante = max_version.version + 1 if max_version else 1
+                    # Afficher la page de confirmation
+                    return render(request, 'uploads/confirm_replace.html', {
+                        'mission': mission,
+                        'mission_id': mission_id,
+                        'type_fichier': type_fichier,
+                        'version': version,
+                        'version_suivante': version_suivante,
+                        'nom_fichier': nom_fichier,
+                        'fichier_temp': tmp_path,
+                    })
+                else:
+                    logger.error(f"Erreur lors de l'upload: {str(e)}")
+                    messages.error(request, f"Erreur lors de l'upload: {str(e)}")
             except Exception as e:
                 logger.error(f"Erreur lors de l'upload: {str(e)}")
                 messages.error(request, f"Erreur lors de l'upload: {str(e)}")
     else:
-        form = FichierImporteForm()
+        form = FichierImporteForm(user=request.user)
 
     return render(request, 'uploads/upload_form.html', {'form': form})
 
@@ -178,7 +212,7 @@ def file_detail(request, pk):
         'preview': preview,
         'mappings': mappings,
         'colonnes_manquantes': colonnes_manquantes,
-        'can_approve': request.user.is_admin(),
+        'can_approve': request.user.is_admin() or fichier.utilisateur == request.user,
         'can_edit': fichier.peut_etre_modifie_par(request.user),
     }
 
@@ -220,12 +254,13 @@ def reprocess_file(request, pk):
 
 @login_required
 def approve_file(request, pk):
-    """Approuver/rejeter un fichier (admin seulement)"""
-    if not request.user.is_admin():
-        messages.error(request, "Action réservée aux administrateurs.")
-        return redirect('uploads:file_detail', pk=pk)
-
+    """Approuver/rejeter un fichier (admin ou propriétaire du fichier)"""
     fichier = get_object_or_404(FichierImporte, pk=pk)
+    
+    # Vérifier les permissions : admin ou propriétaire du fichier
+    if not request.user.is_admin() and fichier.utilisateur != request.user:
+        messages.error(request, "Vous n'avez pas la permission d'approuver ce fichier.")
+        return redirect('uploads:file_detail', pk=pk)
 
     if request.method == 'POST':
         form = ApprovalForm(request.POST, instance=fichier)
@@ -375,7 +410,7 @@ def mapping_columns(request, pk):
             mappings = FileProcessor.proposer_mapping_colonnes(fichier)
 
         colonnes_obligatoires = {
-            'paie': ['matricule', 'nom', 'prenom', 'salaire_brut', 'montant_total'],
+            'paie': ['matricule', 'nom', 'prenom', 'salaire_brut'],
             'liste_personnel': ['matricule', 'nom', 'prenom', 'poste'],
             'grille': ['poste', 'niveau', 'salaire_min', 'salaire_max'],
             'convention': ['type_prime', 'montant', 'condition'],
@@ -460,7 +495,7 @@ def export_file_data(request, pk):
             df.to_csv(response, index=False)
 
         elif format_export == 'excel':
-            response = HttpResponse(content_type='application/vnd.malformations-office document.spreadsheet.sheet')
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
             response['Content-Disposition'] = f'attachment; filename="{fichier.nom_fichier}_export.xlsx"'
             df.to_excel(response, index=False)
 
@@ -509,17 +544,19 @@ def file_history(request, pk):
 
 @login_required
 def bulk_approve(request):
-    """Approbation en lot des fichiers (admin seulement)"""
-    if not request.user.is_admin():
-        return JsonResponse({'error': 'Permission refusée'}, status=403)
-
+    """Approbation en lot des fichiers (admin ou propriétaire des fichiers)"""
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
             file_ids = data.get('file_ids', [])
             action = data.get('action', 'approve')  # approve ou reject
 
-            fichiers = FichierImporte.objects.filter(id__in=file_ids)
+            # Filtrer les fichiers selon les permissions
+            if request.user.is_admin():
+                fichiers = FichierImporte.objects.filter(id__in=file_ids)
+            else:
+                # Utilisateur normal ne peut approuver que ses propres fichiers
+                fichiers = FichierImporte.objects.filter(id__in=file_ids, utilisateur=request.user)
 
             updated_count = 0
             for fichier in fichiers:
@@ -553,7 +590,10 @@ def bulk_approve(request):
             return JsonResponse({'success': False, 'error': str(e)})
 
     # GET - Afficher la page de validation en lot
-    fichiers_pending = FichierImporte.objects.filter(status='processed')
+    if request.user.is_admin():
+        fichiers_pending = FichierImporte.objects.filter(status='processed')
+    else:
+        fichiers_pending = FichierImporte.objects.filter(status='processed', utilisateur=request.user)
 
     context = {
         'fichiers_pending': fichiers_pending,
@@ -623,7 +663,6 @@ def cleanup_files(request):
             orphaned_mappings.delete()
 
             # Supprimer les fichiers sans référence en base
-            import os
             from django.conf import settings
 
             media_files = []
@@ -763,3 +802,118 @@ def migrate_files(request):
             messages.error(request, f"Erreur lors de la migration: {str(e)}")
 
     return render(request, 'uploads/migrate.html')
+
+
+def _valider_fichier_temporaire(fichier_temp):
+    """Vérifie que le chemin fourni pointe bien vers un fichier sous media/tmp_uploads/.
+
+    fichier_temp arrive dans un champ de formulaire (POST) donc entièrement
+    contrôlable par le client : sans cette vérification, un utilisateur pouvait
+    faire lire/copier puis supprimer n'importe quel fichier accessible au
+    processus Django (ex: db.sqlite3, settings.py) via replace_file/increment_version.
+    """
+    from django.conf import settings
+    tmp_dir = os.path.realpath(os.path.join(settings.MEDIA_ROOT, 'tmp_uploads'))
+    chemin_reel = os.path.realpath(fichier_temp)
+    if os.path.commonpath([tmp_dir, chemin_reel]) != tmp_dir or not os.path.isfile(chemin_reel):
+        raise ValueError("Chemin de fichier temporaire invalide")
+    return chemin_reel
+
+
+def _valider_acces_mission(request, mission):
+    """Vérifie que l'utilisateur a le droit d'agir sur cette mission (admin ou
+    membre de la mission) — nécessaire car mission_id vient d'un champ POST."""
+    if request.user.is_admin():
+        return True
+    return request.user.mission_id == mission.id
+
+
+@login_required
+def replace_file(request):
+    if request.method == 'POST':
+        mission_id = request.POST['mission_id']
+        type_fichier = request.POST['type_fichier']
+        version = int(request.POST['version'])
+        nom_fichier = request.POST.get('nom_fichier', '')
+
+        from accounts.models import Mission
+        mission = get_object_or_404(Mission, pk=mission_id)
+        if not _valider_acces_mission(request, mission):
+            messages.error(request, "Vous n'avez pas accès à cette mission.")
+            return redirect('uploads:upload_file')
+
+        try:
+            fichier_temp = _valider_fichier_temporaire(request.POST['fichier'])
+        except ValueError:
+            messages.error(request, "Fichier temporaire invalide ou expiré.")
+            return redirect('uploads:upload_file')
+
+        # Supprimer l'ancien fichier
+        FichierImporte.objects.filter(mission_id=mission_id, type_fichier=type_fichier, version=version).delete()
+        # Créer le nouveau fichier
+        with open(fichier_temp, 'rb') as f:
+            from django.core.files.base import ContentFile
+            file_content = ContentFile(f.read(), name=nom_fichier or fichier_temp.split('/')[-1])
+        # Créer l'objet
+        fichier = FichierImporte(
+            mission=mission,
+            type_fichier=type_fichier,
+            version=version,
+            nom_fichier=nom_fichier or fichier_temp.split('/')[-1],
+            utilisateur=request.user
+        )
+        fichier.fichier.save(nom_fichier or fichier_temp.split('/')[-1], file_content, save=True)
+        # Nettoyer le fichier temporaire
+        try:
+            os.remove(fichier_temp)
+        except Exception:
+            pass
+        # Analyse automatique
+        FileProcessor.analyser_fichier(fichier)
+        return redirect('uploads:file_detail', pk=fichier.pk)
+    return redirect('uploads:upload_file')
+
+
+@login_required
+def increment_version(request):
+    if request.method == 'POST':
+        mission_id = request.POST['mission_id']
+        type_fichier = request.POST['type_fichier']
+        nom_fichier = request.POST.get('nom_fichier', '')
+
+        from accounts.models import Mission
+        mission = get_object_or_404(Mission, pk=mission_id)
+        if not _valider_acces_mission(request, mission):
+            messages.error(request, "Vous n'avez pas accès à cette mission.")
+            return redirect('uploads:upload_file')
+
+        try:
+            fichier_temp = _valider_fichier_temporaire(request.POST['fichier'])
+        except ValueError:
+            messages.error(request, "Fichier temporaire invalide ou expiré.")
+            return redirect('uploads:upload_file')
+
+        # Calculer la version suivante
+        max_version = FichierImporte.objects.filter(mission_id=mission_id, type_fichier=type_fichier).order_by('-version').first()
+        version_suivante = max_version.version + 1 if max_version else 1
+        # Créer le nouveau fichier
+        with open(fichier_temp, 'rb') as f:
+            from django.core.files.base import ContentFile
+            file_content = ContentFile(f.read(), name=nom_fichier or fichier_temp.split('/')[-1])
+        fichier = FichierImporte(
+            mission=mission,
+            type_fichier=type_fichier,
+            version=version_suivante,
+            nom_fichier=nom_fichier or fichier_temp.split('/')[-1],
+            utilisateur=request.user
+        )
+        fichier.fichier.save(nom_fichier or fichier_temp.split('/')[-1], file_content, save=True)
+        # Nettoyer le fichier temporaire
+        try:
+            os.remove(fichier_temp)
+        except Exception:
+            pass
+        # Analyse automatique
+        FileProcessor.analyser_fichier(fichier)
+        return redirect('uploads:file_detail', pk=fichier.pk)
+    return redirect('uploads:upload_file')

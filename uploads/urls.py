@@ -60,4 +60,7 @@ urlpatterns = [
 
     # Migration de fichiers (admin)
     path('migrate/', views.migrate_files, name='migrate_files'),
+
+    path('replace_file/', views.replace_file, name='replace_file'),
+    path('increment_version/', views.increment_version, name='increment_version'),
 ]

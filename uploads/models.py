@@ -1,7 +1,17 @@
 import os
+import mimetypes
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.cache import cache
+from django.utils import timezone
+
+# Import optionnel de python-magic (peut ne pas être disponible sur Windows)
+try:
+    import magic
+    MAGIC_AVAILABLE = True
+except ImportError:
+    MAGIC_AVAILABLE = False
 
 
 def validate_file_extension(value):
@@ -17,6 +27,62 @@ def validate_file_size(value):
     limit = 30 * 1024 * 1024  # 30MB
     if value.size > limit:
         raise ValidationError('Le fichier ne peut pas dépasser 30MB.')
+
+
+def validate_file_content(value):
+    """Valide le contenu du fichier en vérifiant le type MIME"""
+    # Types MIME autorisés
+    allowed_mimes = [
+        'text/csv',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/octet-stream'  # Pour certains fichiers Excel
+    ]
+
+    try:
+        # Lire les premiers octets pour détecter le type MIME
+        file_content = value.read(2048)
+        value.seek(0)  # Remettre le curseur au début
+
+        if MAGIC_AVAILABLE:
+            # Utiliser python-magic si disponible
+            detected_mime = magic.from_buffer(file_content, mime=True)
+        else:
+            # Fallback: utiliser mimetypes basé sur l'extension
+            ext = os.path.splitext(value.name)[1].lower()
+            detected_mime, _ = mimetypes.guess_type(value.name)
+            if not detected_mime:
+                # Si mimetypes ne peut pas détecter, on accepte basé sur l'extension
+                if ext in ['.csv', '.xlsx', '.xls']:
+                    detected_mime = 'application/octet-stream'
+
+    except Exception:
+        # La détection elle-même a échoué (pas le contenu) : se rabattre sur l'extension
+        ext = os.path.splitext(value.name)[1].lower()
+        if ext not in ['.csv', '.xlsx', '.xls']:
+            raise ValidationError('Format de fichier non supporté')
+        return
+
+    # Ce contrôle doit rester en dehors du try/except ci-dessus : sinon la
+    # ValidationError qu'il lève est elle-même interceptée par l'except et
+    # remplacée par une simple vérification d'extension, ce qui désactivait
+    # entièrement le contrôle de contenu (un exécutable renommé en .csv passait).
+    if detected_mime not in allowed_mimes:
+        raise ValidationError(f'Type de fichier non autorisé: {detected_mime}')
+
+
+def validate_upload_limit(user):
+    """Valide que l'utilisateur n'a pas dépassé sa limite d'uploads"""
+    cache_key = f'upload_count_{user.id}_{timezone.now().date()}'
+    daily_uploads = cache.get(cache_key, 0)
+    
+    # Limite: 50 uploads par jour par utilisateur (configurable)
+    max_uploads = getattr(settings, 'UPLOAD_LIMIT_DAILY', 50)
+    if daily_uploads >= max_uploads:
+        raise ValidationError(f'Limite quotidienne d\'uploads atteinte ({max_uploads}). Réessayez demain.')
+    
+    # Incrémenter le compteur
+    cache.set(cache_key, daily_uploads + 1, 86400)  # 24 heures
 
 
 def upload_to_mission_folder(instance, filename):
@@ -83,7 +149,7 @@ class FichierImporte(models.Model):
     )
     fichier = models.FileField(
         upload_to=upload_to_mission_folder,
-        validators=[validate_file_extension, validate_file_size],
+        validators=[validate_file_extension, validate_file_size, validate_file_content],
         verbose_name="Fichier"
     )
     nom_fichier = models.CharField(max_length=255, verbose_name="Nom du fichier")
@@ -209,8 +275,10 @@ class FichierImporte(models.Model):
 
     def get_colonnes_manquantes(self):
         """Retourne les colonnes manquantes selon le type de fichier"""
+        from .utils import FileProcessor
+        
         colonnes_obligatoires = {
-            'paie': ['matricule', 'nom', 'prenom', 'salaire_brut', 'montant_total'],
+            'paie': ['matricule', 'nom', 'prenom', 'salaire_brut'],
             'liste_personnel': ['matricule', 'nom', 'prenom', 'poste'],
             'grille': ['poste', 'niveau', 'salaire_min', 'salaire_max'],
             'convention': ['type_prime', 'montant', 'condition'],
@@ -218,9 +286,16 @@ class FichierImporte(models.Model):
         }
 
         obligatoires = colonnes_obligatoires.get(self.type_fichier, [])
-        colonnes_detectees_lower = [col.lower() for col in self.colonnes_detectees]
+        
+        # Utiliser le mapping automatique pour vérifier les colonnes
+        mapping_propose = FileProcessor.proposer_mapping_colonnes(self)
+        
+        colonnes_manquantes = []
+        for col_obligatoire in obligatoires:
+            if col_obligatoire not in mapping_propose:
+                colonnes_manquantes.append(col_obligatoire)
 
-        return [col for col in obligatoires if col not in colonnes_detectees_lower]
+        return colonnes_manquantes
 
 
 class PreviewData(models.Model):

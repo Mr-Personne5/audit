@@ -8,8 +8,12 @@ import os
 class FichierImporteForm(forms.ModelForm):
     class Meta:
         model = FichierImporte
-        fields = ['type_fichier', 'fichier', 'nom_fichier']
+        fields = ['mission', 'type_fichier', 'fichier', 'nom_fichier']
         widgets = {
+            'mission': forms.Select(attrs={
+                'class': 'form-select',
+                'required': True
+            }),
             'type_fichier': forms.Select(attrs={
                 'class': 'form-select',
                 'required': True
@@ -26,10 +30,23 @@ class FichierImporteForm(forms.ModelForm):
             })
         }
         labels = {
+            'mission': 'Mission',
             'type_fichier': 'Type de fichier',
             'fichier': 'Sélectionner le fichier',
             'nom_fichier': 'Nom du fichier'
         }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        from accounts.models import Mission
+        if user and not user.is_admin():
+            if user.mission:
+                self.fields['mission'].queryset = Mission.objects.filter(pk=user.mission.pk)
+            else:
+                self.fields['mission'].queryset = Mission.objects.none()
+        else:
+            self.fields['mission'].queryset = Mission.objects.all()
 
     def clean_fichier(self):
         fichier = self.cleaned_data.get('fichier')
