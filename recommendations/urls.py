@@ -33,4 +33,6 @@ urlpatterns = [
 
     # API - ✅ CORRIGER le nom
     path('api/stats/', views.api_stats_recommendations, name='api_stats'),
+
+    path('api/dashboard_stats/', views.dashboard_recommendations_stats_api, name='dashboard_recommendations_stats_api'),
 ]

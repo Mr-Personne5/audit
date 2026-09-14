@@ -175,6 +175,26 @@ def list_recommandations(request):
                 Q(code_recommandation__icontains=recherche)
             )
 
+        if form.cleaned_data['date_creation_debut']:
+            recommandations = recommandations.filter(
+                date_creation__date__gte=form.cleaned_data['date_creation_debut']
+            )
+
+        if form.cleaned_data['date_creation_fin']:
+            recommandations = recommandations.filter(
+                date_creation__date__lte=form.cleaned_data['date_creation_fin']
+            )
+
+        if form.cleaned_data['date_echeance_debut']:
+            recommandations = recommandations.filter(
+                date_echeance__gte=form.cleaned_data['date_echeance_debut']
+            )
+
+        if form.cleaned_data['date_echeance_fin']:
+            recommandations = recommandations.filter(
+                date_echeance__lte=form.cleaned_data['date_echeance_fin']
+            )
+
     # Tri
     sort_by = request.GET.get('sort', '-date_creation')
     valid_sorts = [
@@ -930,3 +950,28 @@ def api_stats_recommendations(request):
         'echeances_proches': echeances_proches,
         'timestamp': timezone.now().isoformat()
     })
+
+@login_required
+def dashboard_recommendations_stats_api(request):
+    mission = request.user.mission
+    if not mission:
+        return JsonResponse({'error': 'Mission non définie'}, status=400)
+
+    recommandations = Recommandation.objects.filter(mission=mission)
+    if not request.user.is_admin():
+        recommandations = recommandations.filter(
+            Q(cree_par=request.user) |
+            Q(assigne_a=request.user) |
+            Q(statut__in=['approved', 'assigned', 'in_progress', 'completed'])
+        )
+
+    stats = {
+        'total': recommandations.count(),
+        'en_cours': recommandations.filter(statut__in=['assigned', 'in_progress']).count(),
+        'terminees': recommandations.filter(statut='completed').count(),
+        'en_retard': recommandations.filter(
+            date_echeance__lt=timezone.now().date(),
+            statut__in=['assigned', 'in_progress']
+        ).count(),
+    }
+    return JsonResponse(stats)

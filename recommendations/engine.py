@@ -2,7 +2,7 @@
 
 import logging
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from django.utils import timezone
 from django.db.models import Count, Q  # ✅ AJOUTER Q
 from collections import defaultdict
@@ -577,9 +577,9 @@ class KPICalculator:
 
         from calendar import monthrange
 
-        date_debut = datetime.date(annee, mois, 1)
+        date_debut = date(annee, mois, 1)
         _, dernier_jour = monthrange(annee, mois)
-        date_fin = datetime.date(annee, mois, dernier_jour)
+        date_fin = date(annee, mois, dernier_jour)
 
         kpi = self.calculer_kpis_periode(date_debut, date_fin)
 
@@ -602,10 +602,9 @@ class NotificationManager:
         """Notifie la création d'une nouvelle recommandation"""
         from .models import NotificationRecommandation
 
-        # Notifier les administrateurs
+        # Notifier les administrateurs (globalement) et les utilisateurs de la mission concernée
         destinataires = User.objects.filter(
-            Q(is_admin=True) | Q(role='user'),  # ✅ Adapter selon votre modèle
-            mission=recommandation.mission
+            Q(mission=recommandation.mission) | Q(role='admin')
         )
 
         for user in destinataires:
