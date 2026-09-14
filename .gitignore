@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+media/
+*.log
+
+# Modèles IA générés dynamiquement (les modèles par défaut model_iforest.pkl /
+# model_mlp.pkl restent versionnés car nécessaires au premier démarrage)
+ml_models/retrained_*.pkl
+ml_models/mission_*.pkl
+
+# Environnement
+.env
+.venv/
+venv/
+
+# Éditeurs
+.idea/
+.vscode/
