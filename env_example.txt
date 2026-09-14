@@ -1,0 +1,29 @@
+# Configuration de production pour Audit IA
+# Copiez ce fichier vers .env et remplissez les valeurs
+
+# Sécurité critique
+SECRET_KEY=votre_cle_secrete_tres_longue_et_complexe_ici
+DEBUG=False
+ALLOWED_HOSTS=votre-domaine.com,www.votre-domaine.com
+
+# Base de données PostgreSQL
+DB_NAME=audit_ia
+DB_USER=audit_user
+DB_PASSWORD=votre_mot_de_passe_db
+DB_HOST=localhost
+DB_PORT=5432
+
+# Cache Redis
+REDIS_URL=redis://127.0.0.1:6379/1
+
+# Email
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_HOST_USER=votre_email@gmail.com
+EMAIL_HOST_PASSWORD=votre_mot_de_passe_app
+DEFAULT_FROM_EMAIL=noreply@votre-domaine.com
+
+# Limites de sécurité
+RATE_LIMIT_REQUESTS=60
+RATE_LIMIT_WINDOW=60
+UPLOAD_LIMIT_DAILY=20 

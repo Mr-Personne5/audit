@@ -1,0 +1,25 @@
+# Dépendances pour les améliorations de sécurité
+
+# Validation des fichiers (optionnel - peut ne pas fonctionner sur Windows)
+# python-magic==0.4.27
+
+# Cache Redis
+redis==5.0.1
+
+# Base de données PostgreSQL
+psycopg2-binary==2.9.9
+
+# Variables d'environnement
+python-dotenv==1.0.0
+
+# Hachage des mots de passe renforcé
+argon2-cffi==23.1.0
+
+# Validation des emails
+email-validator==2.1.0
+
+# Protection contre les attaques
+django-ratelimit==4.1.0
+
+# Alternative pour la validation MIME sur Windows
+python-magic-bin==0.4.14; sys_platform == 'win32' 
