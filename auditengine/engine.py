@@ -402,17 +402,35 @@ class AuditEngine:
             # Prédiction des anomalies (-1 = anomalie, 1 = normal)
             predictions = self.model_if.predict(self.features_if)
 
-            # Scores d'anomalie (plus proche de 0 = plus anormal)
+            # Scores bruts (decision_function) : négatif = anomalie, positif = normal,
+            # 0 = exactement la frontière apprise à l'entraînement (équivalent à
+            # predict() == -1 pour un score < 0).
             scores = self.model_if.decision_function(self.features_if)
 
-            # Normaliser les scores (0-1, plus proche de 1 = plus anormal)
-            scores_normalized = 1 - ((scores - scores.min()) / (scores.max() - scores.min() + 1e-8))
+            # Normalisation en 0-1 ANCRÉE sur cette frontière (sigmoïde centrée en
+            # 0), et non un min-max relatif au lot analysé. Un min-max par lot n'a
+            # pas de sens absolu : sur un lot avec un unique outlier extrême, tout
+            # le reste s'écrase près de 0 ; sur un lot sans réel outlier, les scores
+            # s'étalent quand même sur 0-1. Testé sur plusieurs sessions réelles, un
+            # même seuil de 0.75 donnait ainsi 0.3% d'anomalies sur l'une et 97.7%
+            # sur l'autre — un seuil fixe n'y a donc aucune signification stable.
+            # Avec l'ancrage sigmoïde, seuil=0.5 reproduit exactement predict()==-1
+            # (la frontière native du modèle) et le taux d'anomalies décroît de
+            # façon monotone et prévisible à mesure que le seuil augmente.
+            echelle = max(float(scores.std()), 1e-6)
+            scores_normalized = 1 / (1 + np.exp(scores / echelle))
+
+            # Le seuil admin (self.config.seuil_isolation_forest) pilote réellement
+            # la décision, appliqué à ce score ancré. Avant ce correctif, ce curseur
+            # était stocké et affiché mais jamais appliqué : la décision venait
+            # uniquement de predict(), dont le seuil réel est la 'contamination'
+            # figée dans le .pkl à l'entraînement — modifier le curseur ne changeait
+            # donc rien.
+            seuil = self.config.seuil_isolation_forest
 
             resultats = []
             for i, (prediction, score) in enumerate(zip(predictions, scores_normalized)):
-                # CORRECTION: Seulement utiliser la prédiction du modèle, pas le seuil
-                # Le seuil sera utilisé plus tard dans la logique combinée
-                est_anomalie = (prediction == -1)
+                est_anomalie = bool(score >= seuil)
 
                 # Explication simple
                 explication = self._generer_explication_if(i, score, est_anomalie)
@@ -433,7 +451,21 @@ class AuditEngine:
             raise Exception(f"Erreur Isolation Forest: {str(e)}")
 
     def _executer_mlp_classifier(self, scores_if: List[Dict]) -> List[Dict]:
-        """Exécute la classification MLP sur les anomalies détectées"""
+        """Exécute la classification MLP sur toutes les lignes.
+
+        Le MLP est la seule source du type d'anomalie : il a été entraîné avec
+        'aucune' comme classe à part entière, il sait donc déjà dire "rien
+        d'anormal" sans aide extérieure. Auparavant, dès qu'Isolation Forest
+        votait "normal", la ligne était reclassée de force en 'aucune' quoi que
+        le MLP ait prédit (veto binaire) — et dans les cas ambigus où IF
+        détectait une anomalie sans que le MLP soit confiant, le type était
+        décidé par des règles écrites en dur plutôt que par le réseau de
+        neurones. Ces deux mécanismes écrasaient silencieusement des
+        classifications correctes du MLP et plafonnaient le rappel du système
+        au taux de contamination figé dans le .pkl d'IF (~1%). Le score continu
+        d'IF reste utilisé, mais uniquement comme signal complémentaire pour le
+        niveau de risque (voir _calculer_niveau_risque), plus comme filtre dur.
+        """
         self._log("Exécution MLP Classifier...")
 
         try:
@@ -449,42 +481,17 @@ class AuditEngine:
                 # Score de confiance = probabilité max
                 max_proba = float(np.max(proba_array))
 
-                # Type d'anomalie prédit
+                # Type d'anomalie prédit par le MLP
                 type_anomalie = str(pred)
 
-                # CORRECTION: Logique améliorée pour la détection d'anomalies
-                # 1. Si Isolation Forest détecte une anomalie ET MLP est confiant
-                if (score_if_data['est_anomalie'] and 
-                    max_proba >= self.config.score_minimum_classification):
-                    # Garder le type d'anomalie prédit par MLP
-                    pass
-                # 2. Si Isolation Forest détecte une anomalie mais MLP pas très confiant
-                elif score_if_data['est_anomalie'] and max_proba < self.config.score_minimum_classification:
-                    # Anomalie détectée mais type incertain - utiliser le type prédit même si pas très confiant
-                    # mais seulement si le score est raisonnable (> 0.3)
-                    if max_proba > 0.3:
-                        # Garder le type prédit mais avec un score plus faible
-                        pass
-                    else:
-                        # Pas assez confiant, utiliser une classification basée sur les données
-                        # Analyser les features pour déterminer le type le plus probable
-                        row = self.features_mlp.iloc[i]
-                        if 'salaire_brut' in row and row['salaire_brut'] > 5000:
-                            type_anomalie = 'salaire_anormal'
-                        elif not row.get('nom', '') or not row.get('prenom', ''):
-                            type_anomalie = 'ghost_employee'
-                        elif row.get('montant_primes', 0) > 1000:
-                            type_anomalie = 'prime_anormale'
-                        elif row.get('heures_travaillees', 0) > 200:
-                            type_anomalie = 'heures_excessives'
-                        else:
-                            type_anomalie = 'salaire_anormal'  # Par défaut
-                        max_proba = score_if_data['score_anomalie']
-                # 3. Si Isolation Forest ne détecte pas d'anomalie
-                else:
-                    # Pas d'anomalie détectée
-                    type_anomalie = 'aucune'
-                    max_proba = 0.0
+                # Le MLP prédit un type précis mais sans confiance suffisante :
+                # on le signale comme anomalie non classifiée plutôt que de
+                # trancher avec des règles écrites en dur ou de perdre la
+                # détection. score_minimum_classification reste ainsi un vrai
+                # levier de configuration, appliqué à la spécificité du type
+                # plutôt qu'à l'existence de l'anomalie elle-même.
+                if type_anomalie != 'aucune' and max_proba < self.config.score_minimum_classification:
+                    type_anomalie = 'anomalie_non_classifiee'
 
                 # Niveau de risque basé sur le score combiné
                 niveau_risque = self._calculer_niveau_risque(
@@ -641,12 +648,12 @@ class AuditEngine:
         ):
             row = self.df_data.iloc[i]
 
-            # CORRECTION: Logique améliorée pour déterminer si c'est une anomalie
-            # Une anomalie est détectée si :
-            # 1. Isolation Forest détecte une anomalie ET
-            # 2. Le type n'est pas 'aucune'
-            est_anomalie_finale = (score_if['est_anomalie'] and 
-                                 pred_mlp['type_anomalie'] != 'aucune')
+            # Le MLP est la source de vérité pour l'existence d'une anomalie
+            # (il inclut 'aucune' comme classe à part entière). IF n'agit plus
+            # comme un filtre dur (voir _executer_mlp_classifier) — il reste
+            # utilisé pour le niveau de risque et comme signal de cohérence
+            # dans le choix de la recommandation ci-dessous.
+            est_anomalie_finale = pred_mlp['type_anomalie'] != 'aucune'
 
             # Correction de la logique de recommandation
             if score_if['est_anomalie'] and pred_mlp['type_anomalie'] == 'aucune':
@@ -671,6 +678,7 @@ class AuditEngine:
                 est_anomalie=est_anomalie_finale,
                 score_anomalie_if=score_if['score_anomalie'],
                 type_anomalie=pred_mlp['type_anomalie'],
+                type_anomalie_predit_ia=pred_mlp['type_anomalie'],
                 score_classification_mlp=pred_mlp['score_classification'],
                 niveau_risque=pred_mlp['niveau_risque'],
                 explication_if=score_if['explication'],
@@ -685,17 +693,14 @@ class AuditEngine:
         self._log(f"Sauvegardé {len(resultats_a_creer)} résultats")
 
     def _calculer_statistiques(self):
-        """Calcule et sauvegarde les statistiques globales"""
-        resultats = ResultatAudit.objects.filter(session=self.session)
+        """Calcule et sauvegarde les statistiques globales.
 
-        self.session.nb_anomalies_detectees = resultats.filter(est_anomalie=True).count()
-        self.session.nb_salaires_anormaux = resultats.filter(type_anomalie='salaire_anormal').count()
-        self.session.nb_employes_fantomes = resultats.filter(type_anomalie='ghost_employee').count()
-        self.session.nb_primes_anormales = resultats.filter(type_anomalie='prime_anormale').count()
-        self.session.nb_heures_excessives = resultats.filter(type_anomalie='heures_excessives').count()
-        self.session.nb_rib_dupliques = resultats.filter(type_anomalie='duplicate_rib').count()
-        self.session.nb_aucune_anomalie = resultats.filter(type_anomalie='aucune').count()
-
+        Délègue à SessionAudit.recalculer_compteurs(), qui est aussi appelée
+        automatiquement (via signal post_save sur ResultatAudit) après chaque
+        correction individuelle, pour que ces compteurs ne se désynchronisent
+        plus des résultats réels.
+        """
+        self.session.recalculer_compteurs()
         self._log(f"Statistiques: {self.session.get_taux_anomalies()}% d'anomalies détectées")
 
     def _to_decimal(self, valeur) -> Optional[Decimal]:
@@ -993,6 +998,11 @@ class AuditEngine:
 
         def _evaluer_isolation_forest(self, model, sessions_test) -> Dict[str, Any]:
             """Évalue un modèle Isolation Forest"""
+            # Utiliser le seuil admin réellement appliqué en production (voir
+            # AuditEngine._executer_isolation_forest), pas une valeur figée en
+            # dur qui divergerait silencieusement de la config.
+            seuil = ParametrageIA.get_config().seuil_isolation_forest
+
             total_predictions = 0
             correct_predictions = 0
             false_positives = 0
@@ -1008,8 +1018,8 @@ class AuditEngine:
                     # Vérité terrain (après correction utilisateur)
                     vraie_anomalie = resultat.est_anomalie and not resultat.est_fausse_alerte
 
-                    # Prédiction du modèle
-                    prediction_anomalie = resultat.score_anomalie_if >= 0.75  # Seuil par défaut
+                    # Prédiction du modèle, au seuil réellement appliqué en production
+                    prediction_anomalie = resultat.score_anomalie_if >= seuil
 
                     if vraie_anomalie == prediction_anomalie:
                         correct_predictions += 1
@@ -1047,13 +1057,19 @@ class AuditEngine:
                 resultats_valides = session.resultats.filter(valide_par_humain=True)
 
                 for resultat in resultats_valides:
-                    # Vérité terrain (après correction)
+                    # Vérité terrain (type_anomalie évolue avec les corrections
+                    # humaines de l'auditeur)
                     vrai_type = resultat.type_anomalie
                     if resultat.est_fausse_alerte:
                         vrai_type = 'aucune'
 
-                    # Prédiction du modèle
-                    pred_type = resultat.type_anomalie
+                    # Prédiction brute du modèle, figée à l'analyse
+                    # (type_anomalie_predit_ia n'est jamais modifiée par les
+                    # corrections utilisateur) — comparer contre type_anomalie
+                    # aurait été tautologique dès qu'une correction est appliquée,
+                    # puisque les deux champs seraient alors identiques par
+                    # construction.
+                    pred_type = resultat.type_anomalie_predit_ia
 
                     y_true.append(vrai_type)
                     y_pred.append(pred_type)

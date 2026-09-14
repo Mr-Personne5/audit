@@ -163,6 +163,29 @@ class SessionAudit(models.Model):
             return 0
         return round((self.nb_anomalies_detectees / self.nb_lignes_analysees) * 100, 2)
 
+    def recalculer_compteurs(self):
+        """Recalcule les compteurs dénormalisés à partir des ResultatAudit réels.
+
+        Ces compteurs ne sont qu'un cache d'affichage pour les dashboards ; les
+        ResultatAudit liés font foi. Appelé après le traitement IA complet
+        (AuditEngine._calculer_statistiques) et automatiquement par le signal
+        post_save sur ResultatAudit à chaque correction/validation, pour éviter
+        la désynchronisation qui nécessitait auparavant des scripts de
+        réparation manuels ad hoc.
+        """
+        resultats = self.resultats.all()
+        self.nb_anomalies_detectees = resultats.filter(est_anomalie=True).count()
+        self.nb_salaires_anormaux = resultats.filter(type_anomalie='salaire_anormal').count()
+        self.nb_employes_fantomes = resultats.filter(type_anomalie='ghost_employee').count()
+        self.nb_primes_anormales = resultats.filter(type_anomalie='prime_anormale').count()
+        self.nb_heures_excessives = resultats.filter(type_anomalie='heures_excessives').count()
+        self.nb_rib_dupliques = resultats.filter(type_anomalie='duplicate_rib').count()
+        self.nb_aucune_anomalie = resultats.filter(type_anomalie='aucune').count()
+        self.save(update_fields=[
+            'nb_anomalies_detectees', 'nb_salaires_anormaux', 'nb_employes_fantomes',
+            'nb_primes_anormales', 'nb_heures_excessives', 'nb_rib_dupliques', 'nb_aucune_anomalie',
+        ])
+
 
 class ResultatAudit(models.Model):
     """Résultat individuel de détection d'anomalie"""
@@ -217,6 +240,17 @@ class ResultatAudit(models.Model):
         max_length=25,
         choices=TYPE_ANOMALIE_CHOICES,
         default='aucune'
+    )
+    type_anomalie_predit_ia = models.CharField(
+        max_length=25,
+        choices=TYPE_ANOMALIE_CHOICES,
+        default='aucune',
+        editable=False,
+        help_text=(
+            "Prédiction brute du MLP au moment de l'analyse, figée définitivement. "
+            "Sert de référence pour évaluer le modèle indépendamment des corrections "
+            "humaines appliquées ensuite à 'type_anomalie'."
+        )
     )
     score_classification_mlp = models.FloatField(
         null=True,
