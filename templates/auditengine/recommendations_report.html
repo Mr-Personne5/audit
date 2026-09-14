@@ -1,1201 +1,369 @@
+{% extends 'auditengine/base_auditengine.html' %}
+{% load static %}
 {% load custom_filters %}
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AuditIA - Rapport de Recommandations</title>
 
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+{% block title %}Rapport de recommandations - {{ session.nom_session }}{% endblock %}
 
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+{% block content %}
+<div class="container-fluid px-4 py-4">
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <nav aria-label="breadcrumb" class="mb-2">
+        <ol class="breadcrumb mb-0 small">
+            <li class="breadcrumb-item"><a href="{% url 'auditengine:session_list' %}">Détection IA</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'auditengine:session_detail' session.pk %}">{{ session.nom_session }}</a></li>
+            <li class="breadcrumb-item active">Recommandations</li>
+        </ol>
+    </nav>
 
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- CSRF Token -->
-    <meta name="csrf-token" content="{{ csrf_token }}">
-
-    <style>
-        :root {
-            --primary-color: #2563eb;
-            --secondary-color: #64748b;
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --danger-color: #ef4444;
-            --info-color: #3b82f6;
-            --light-bg: #f8fafc;
-            --dark-text: #1e293b;
-            --border-color: #e2e8f0;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--light-bg);
-            color: var(--dark-text);
-            line-height: 1.6;
-        }
-
-        /* OPTIMISATION: Indicateur de chargement */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255, 255, 255, 0.9);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            transition: opacity 0.3s ease;
-        }
-
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid var(--primary-color);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .loading-text {
-            margin-top: 1rem;
-            color: var(--secondary-color);
-            font-weight: 500;
-        }
-
-        /* OPTIMISATION: Skeleton loading */
-        .skeleton {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: loading 1.5s infinite;
-            border-radius: 4px;
-        }
-
-        @keyframes loading {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-
-        .navbar {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #1d4ed8 100%);
-            box-shadow: 0 2px 10px rgba(37, 99, 235, 0.15);
-        }
-
-        .navbar-brand {
-            font-weight: 700;
-            font-size: 1.4rem;
-        }
-
-        .main-content {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-        }
-
-        .page-header {
-            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-            border-radius: 12px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .stats-card {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            height: 100%;
-        }
-
-        .stats-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .stats-number {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-
-        .stats-label {
-            color: var(--secondary-color);
-            font-size: 0.9rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .chart-container {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-        }
-
-        .chart-wrapper {
-            position: relative;
-            height: 400px;
-        }
-
-        .recommendation-card {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            margin-bottom: 1rem;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .recommendation-card:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .priority-badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .priority-high {
-            background-color: rgba(239, 68, 68, 0.1);
-            color: var(--danger-color);
-        }
-
-        .priority-medium {
-            background-color: rgba(245, 158, 11, 0.1);
-            color: var(--warning-color);
-        }
-
-        .priority-low {
-            background-color: rgba(16, 185, 129, 0.1);
-            color: var(--success-color);
-        }
-
-        .action-item {
-            background: white;
-            border-radius: 8px;
-            padding: 1rem;
-            border-left: 4px solid var(--primary-color);
-            margin-bottom: 1rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #1d4ed8 100%);
-            border: none;
-            border-radius: 8px;
-            padding: 0.75rem 1.5rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary:hover {
-            background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-        }
-
-        .btn-outline-primary {
-            border: 2px solid var(--primary-color);
-            color: var(--primary-color);
-            border-radius: 8px;
-            padding: 0.75rem 1.5rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            transition: all 0.3s ease;
-        }
-
-        .btn-outline-primary:hover {
-            background: var(--primary-color);
-            color: white;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-        }
-
-        .section-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--dark-text);
-            margin-bottom: 1.5rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid var(--primary-color);
-            display: inline-block;
-        }
-
-        .anomaly-summary {
-            background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            border: 1px solid #fbbf24;
-        }
-
-        .impact-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 0.5rem;
-        }
-
-        .impact-high { background-color: var(--danger-color); }
-        .impact-medium { background-color: var(--warning-color); }
-        .impact-low { background-color: var(--success-color); }
-
-        .progress-custom {
-            height: 8px;
-            border-radius: 4px;
-            background-color: #e2e8f0;
-        }
-
-        .progress-bar-custom {
-            border-radius: 4px;
-            transition: width 0.6s ease;
-        }
-
-        /* OPTIMISATION: États vides et skeletons */
-        .empty-state {
-            text-align: center;
-            padding: 3rem 1rem;
-            color: var(--secondary-color);
-        }
-
-        .empty-state i {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-            opacity: 0.5;
-        }
-
-        .empty-state h4 {
-            margin-bottom: 0.5rem;
-            color: var(--dark-text);
-        }
-
-        .empty-state p {
-            margin-bottom: 1.5rem;
-        }
-
-        /* OPTIMISATION: Tooltips et infobulles */
-        .info-tooltip {
-            position: relative;
-            cursor: help;
-        }
-
-        .info-tooltip:hover::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 0.5rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            white-space: nowrap;
-            z-index: 1000;
-        }
-
-        /* OPTIMISATION: Hiérarchie visuelle améliorée */
-        .section-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1.5rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid var(--border-color);
-        }
-
-        .section-header h3 {
-            margin: 0;
-            color: var(--dark-text);
-            font-weight: 600;
-        }
-
-        .section-header .badge {
-            font-size: 0.8rem;
-        }
-
-        /* OPTIMISATION: Cards avec hover states */
-        .enhanced-card {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .enhanced-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        }
-
-        .enhanced-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 4px;
-            height: 100%;
-            background: var(--primary-color);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .enhanced-card:hover::before {
-            opacity: 1;
-        }
-
-        /* OPTIMISATION: Légendes cliquables */
-        .legend-item {
-            display: inline-flex;
-            align-items: center;
-            margin-right: 1rem;
-            margin-bottom: 0.5rem;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .legend-item:hover {
-            background: rgba(37, 99, 235, 0.1);
-        }
-
-        .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 0.5rem;
-        }
-
-        /* OPTIMISATION: Responsive improvements */
-        @media (max-width: 768px) {
-            .main-content {
-                padding-top: 1rem;
-                padding-bottom: 1rem;
-            }
-
-            .page-header {
-                padding: 1rem;
-            }
-
-            .stats-card {
-                margin-bottom: 1rem;
-            }
-
-            .chart-wrapper {
-                height: 300px;
-            }
-
-            .section-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 0.5rem;
-            }
-
-            .legend-item {
-                margin-right: 0.5rem;
-                font-size: 0.9rem;
-            }
-
-            .enhanced-card {
-                padding: 1rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    <!-- OPTIMISATION: Indicateur de chargement -->
-    <div id="loading-overlay" class="loading-overlay">
-        <div class="text-center">
-            <div class="loading-spinner"></div>
-            <div class="loading-text">Génération du rapport en cours...</div>
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Rapport de recommandations</h1>
+            <p class="text-secondary mb-0">
+                Session {{ session.nom_session }}
+                {% if session.date_completion %} · Généré le {{ session.date_completion|date:"d/m/Y H:i" }}{% endif %}
+                {% if recos.resume.mission %} · Mission {{ recos.resume.mission }}{% endif %}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary" id="btn-print"><i class="bi bi-printer me-2"></i>Imprimer</button>
+            <button class="btn btn-primary" id="btn-export-pdf"><i class="bi bi-download me-2"></i>Exporter PDF</button>
         </div>
     </div>
 
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center" href="{% url 'auditengine:dashboard' %}">
-                <i class="fas fa-robot me-2"></i>
-                AuditIA
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'auditengine:dashboard' %}"><i class="fas fa-tachometer-alt me-1"></i> Tableau de bord</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'auditengine:session_list' %}"><i class="fas fa-list me-1"></i> Sessions</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="#"><i class="fas fa-chart-line me-1"></i> Recommandations</a>
-                    </li>
-                </ul>
-                <ul class="navbar-nav">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user me-1"></i> Admin
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{% url 'auditengine:parametrage_ia' %}"><i class="fas fa-cog me-2"></i> Paramètres</a></li>
-                            <li><a class="dropdown-item" href="/accounts/logout/"><i class="fas fa-sign-out-alt me-2"></i> Déconnexion</a></li>
-                        </ul>
-                    </li>
-                </ul>
+    <div class="alert alert-warning mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <p class="mb-2">
+                    L'analyse IA a détecté <strong>{{ recos.resume.total_anomalies }}</strong> anomalies sur
+                    <strong>{{ recos.resume.total_lignes }}</strong> lignes de paie analysées,
+                    soit un taux d'anomalie de <strong>{{ recos.resume.taux_anomalies }}%</strong>.
+                </p>
+                <p class="mb-0">
+                    <strong>Actions prioritaires :</strong>
+                    {{ rapport.resume.risques_critiques|default:0 }} anomalie(s) critique(s) nécessitent une attention immédiate.
+                </p>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="h2 mb-1" style="color:var(--amber-soft-text);">{{ recos.resume.taux_anomalies }}%</div>
+                <div class="text-secondary small">Taux d'anomalie</div>
             </div>
         </div>
-    </nav>
+    </div>
 
-    <!-- Main Content -->
-    <div class="container-fluid main-content">
-        <!-- Page Header -->
-        <div class="page-header">
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <h1 class="h2 mb-2">
-                        <i class="fas fa-chart-line text-primary me-2"></i>
-                        Rapport de Recommandations IA
-                    </h1>
-                    <p class="text-muted mb-0">
-                        <i class="fas fa-calendar me-1"></i>
-                        Session: {{ session.nom_session }}
-                        {% if session.date_completion %} - Généré le {{ session.date_completion|date:"d/m/Y H:i" }}{% endif %}
-                    </p>
-                    <p class="text-muted mb-0">
-                        <i class="fas fa-building me-1"></i>
-                        Mission: {{ recos.resume.mission|default:"-" }}
-                    </p>
-                </div>
-                <div class="col-md-4 text-end">
-                    <button class="btn btn-outline-primary me-2" id="btn-print">
-                        <i class="fas fa-print me-1"></i> Imprimer
-                    </button>
-                    <button class="btn btn-primary" id="btn-export-pdf">
-                        <i class="fas fa-download me-1"></i> Exporter PDF
-                    </button>
-                </div>
-            </div>
+    <!-- KPI row -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Lignes analysées</div>
+                <div class="num fs-3 fw-semibold mt-2">{{ recos.resume.total_lignes|floatformat:0 }}</div>
+            </div></div>
         </div>
-
-        <!-- Executive Summary -->
-        <div class="anomaly-summary">
-            <h3 class="h4 mb-3">
-                <i class="fas fa-exclamation-triangle text-warning me-2"></i>
-                Résumé Exécutif
-            </h3>
-            <div class="row">
-                <div class="col-md-8">
-                    <p class="mb-2">
-                        L'analyse IA a détecté <strong>{{ recos.resume.total_anomalies }}</strong> anomalies sur
-                        <strong>{{ recos.resume.total_lignes }}</strong> lignes de paie analysées,
-                        soit un taux d'anomalie de <strong>{{ recos.resume.taux_anomalies }}%</strong>.
-                    </p>
-                    <p class="mb-0">
-                        <strong>Actions prioritaires:</strong>
-                        {{ rapport.resume.risques_critiques|default:0 }} anomalie(s) critique(s) nécessitent une attention immédiate.
-                    </p>
-                </div>
-                <div class="col-md-4">
-                    <div class="text-center">
-                        <div class="h2 text-warning mb-1">{{ recos.resume.taux_anomalies }}%</div>
-                        <div class="text-muted">Taux d'anomalie</div>
-                    </div>
-                </div>
-            </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Anomalies détectées</div>
+                <div class="num fs-3 fw-semibold mt-2" style="color:var(--red-soft-text);">{{ recos.resume.total_anomalies|floatformat:0 }}</div>
+            </div></div>
         </div>
-
-        <!-- Statistics Cards -->
-        <div class="row mb-4">
-            <div class="col-lg-3 col-md-6 mb-3">
-                <div class="stats-card">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <div class="stats-number text-primary">{{ recos.resume.total_lignes|floatformat:0 }}</div>
-                            <div class="stats-label">Lignes Analysées</div>
-                        </div>
-                        <div class="text-primary">
-                            <i class="fas fa-file-alt fa-2x"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-3 col-md-6 mb-3">
-                <div class="stats-card">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <div class="stats-number text-danger">{{ recos.resume.total_anomalies|floatformat:0 }}</div>
-                            <div class="stats-label">
-                                Anomalies Détectées
-                                <i class="fas fa-info-circle info-tooltip ms-1" data-tooltip="Nombre total d'anomalies identifiées par l'IA"></i>
-                            </div>
-                        </div>
-                        <div class="text-danger">
-                            <i class="fas fa-exclamation-triangle fa-2x"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-3 col-md-6 mb-3">
-                <div class="stats-card">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <div class="stats-number text-warning">{{ recos.resume.taux_anomalies }}%</div>
-                            <div class="stats-label">
-                                Taux d'Anomalie
-                                <i class="fas fa-info-circle info-tooltip ms-1" data-tooltip="Pourcentage d'anomalies par rapport au total analysé"></i>
-                            </div>
-                        </div>
-                        <div class="text-warning">
-                            <i class="fas fa-percentage fa-2x"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-3 col-md-6 mb-3">
-                <div class="stats-card">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <div class="stats-number text-success">{{ recos.resume.taux_conformite }}%</div>
-                            <div class="stats-label">
-                                Taux de Conformité
-                                <i class="fas fa-info-circle info-tooltip ms-1" data-tooltip="Pourcentage de données conformes"></i>
-                            </div>
-                        </div>
-                        <div class="text-success">
-                            <i class="fas fa-check-circle fa-2x"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Taux d'anomalie</div>
+                <div class="num fs-3 fw-semibold mt-2" style="color:var(--amber-soft-text);">{{ recos.resume.taux_anomalies }}%</div>
+            </div></div>
         </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Taux de conformité</div>
+                <div class="num fs-3 fw-semibold mt-2" style="color:var(--green-soft-text);">{{ recos.resume.taux_conformite }}%</div>
+            </div></div>
+        </div>
+    </div>
 
-        <!-- Charts Row -->
-        <div class="row mb-4">
-            <div class="col-lg-6">
-                <div class="enhanced-card">
-                    <div class="section-header">
-                        <h3>
-                            <i class="fas fa-chart-pie me-2"></i>
-                            Répartition par Type d'Anomalie
-                        </h3>
-                        <span class="badge bg-primary">{{ recos.repartition_types|length }} types</span>
-                    </div>
-                    
+    <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="h6 fw-bold mb-0">Répartition par type d'anomalie</h2>
+                    <span class="badge bg-secondary">{{ recos.repartition_types|length }} types</span>
+                </div>
+                <div class="card-body">
                     {% if recos.repartition_types %}
-                        <div class="chart-wrapper">
-                            <canvas id="anomalyTypeChart"></canvas>
-                        </div>
-                        
-                        <!-- Légende cliquable -->
-                        <div class="mt-3">
-                            <h6 class="mb-2">Légende :</h6>
-                            <div class="legend-container">
-                                {% for type in recos.repartition_types %}
-                                <div class="legend-item" onclick="filterByType('{{ type.code }}')">
-                                    <div class="legend-color" style="background-color: {{ type.color|default:'#3b82f6' }};"></div>
-                                    <span>{{ type.label }} ({{ type.count }})</span>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </div>
+                        <div style="height:280px;"><canvas id="anomalyTypeChart"></canvas></div>
+                        <ul class="list-unstyled mt-3 mb-0 small">
+                            {% for type in recos.repartition_types %}
+                            <li class="d-flex justify-content-between py-1 {% if not forloop.last %}border-bottom{% endif %}">
+                                <span>{{ type.label }}</span>
+                                <span class="fw-semibold">{{ type.count }} ({{ type.percent }}%)</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
                     {% else %}
-                        <div class="empty-state">
-                            <i class="fas fa-chart-pie"></i>
-                            <h4>Aucune anomalie détectée</h4>
-                            <p>Aucun type d'anomalie n'a été identifié dans cette session.</p>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="col-lg-6">
-                <div class="enhanced-card">
-                    <div class="section-header">
-                        <h3>
-                            <i class="fas fa-chart-bar me-2"></i>
-                            Répartition par Niveau de Risque
-                        </h3>
-                        <span class="badge bg-warning">{{ recos.repartition_risques|length }} niveaux</span>
+                    <div class="text-center text-secondary py-4">
+                        <i class="bi bi-pie-chart fs-1"></i>
+                        <p class="mb-0 mt-2">Aucun type d'anomalie identifié dans cette session.</p>
                     </div>
-                    
-                    {% if recos.repartition_risques %}
-                        <div class="chart-wrapper">
-                            <canvas id="riskLevelChart"></canvas>
-                        </div>
-                        
-                        <!-- Légende cliquable -->
-                        <div class="mt-3">
-                            <h6 class="mb-2">Légende :</h6>
-                            <div class="legend-container">
-                                {% for risque in recos.repartition_risques %}
-                                <div class="legend-item" onclick="filterByRisk('{{ risque.code }}')">
-                                    <div class="legend-color" style="background-color: 
-                                        {% if risque.code == 'critique' %}#ef4444
-                                        {% elif risque.code == 'eleve' %}#f59e0b
-                                        {% elif risque.code == 'moyen' %}#3b82f6
-                                        {% else %}#10b981{% endif %};"></div>
-                                    <span>{{ risque.label }} ({{ risque.count }})</span>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    {% else %}
-                        <div class="empty-state">
-                            <i class="fas fa-chart-bar"></i>
-                            <h4>Aucun risque identifié</h4>
-                            <p>Aucun niveau de risque n'a été détecté dans cette session.</p>
-                        </div>
                     {% endif %}
                 </div>
             </div>
         </div>
-
-        <!-- Recommendations Section -->
-        <div class="row">
-            <div class="col-lg-8">
-                <div class="enhanced-card">
-                    <div class="section-header">
-                        <h3>
-                            <i class="fas fa-lightbulb me-2"></i>
-                            Recommandations Prioritaires
-                        </h3>
-                        <span class="badge bg-info">{{ recos.recommandations_prioritaires|length }} recommandations</span>
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="h6 fw-bold mb-0">Répartition par niveau de risque</h2>
+                    <span class="badge bg-secondary">{{ recos.repartition_risques|length }} niveaux</span>
+                </div>
+                <div class="card-body">
+                    {% if recos.repartition_risques %}
+                        <div style="height:280px;"><canvas id="riskLevelChart"></canvas></div>
+                        <ul class="list-unstyled mt-3 mb-0 small">
+                            {% for risque in recos.repartition_risques %}
+                            <li class="d-flex justify-content-between py-1 {% if not forloop.last %}border-bottom{% endif %}">
+                                <span>{{ risque.label }}</span>
+                                <span class="fw-semibold">{{ risque.count }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                    <div class="text-center text-secondary py-4">
+                        <i class="bi bi-bar-chart fs-1"></i>
+                        <p class="mb-0 mt-2">Aucun niveau de risque détecté dans cette session.</p>
                     </div>
-                    
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="h6 fw-bold mb-0">Recommandations prioritaires</h2>
+                    <span class="badge bg-secondary">{{ recos.recommandations_prioritaires|length }}</span>
+                </div>
+                <div class="card-body">
                     {% if recos.recommandations_prioritaires %}
                         {% for item in recos.recommandations_prioritaires %}
-                        <div class="recommendation-card mb-3">
-                            <div class="d-flex justify-content-between align-items-start mb-3">
-                                <h5 class="mb-0">
-                                    <i class="fas fa-arrow-right text-primary me-2"></i>
-                                    {{ item.titre }}
-                                </h5>
-                                {% with p=item.priorite|lower %}
-                                    <span class="priority-badge {% if 'urgent' in p %}priority-high{% elif 'elev' in p %}priority-medium{% else %}priority-low{% endif %}">
-                                        <i class="fas fa-exclamation-circle me-1"></i>
-                                        {{ item.priorite|title }}
-                                    </span>
-                                {% endwith %}
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="mb-0">{{ item.titre }}</h6>
+                                    {% with p=item.priorite|lower %}
+                                        <span class="badge bg-{% if 'urgent' in p %}danger{% elif 'elev' in p %}warning{% else %}secondary{% endif %}">
+                                            {{ item.priorite|title }}
+                                        </span>
+                                    {% endwith %}
+                                </div>
+                                {% if item.details %}<p class="text-secondary small mb-2">{{ item.details }}</p>{% endif %}
+                                {% if item.action %}
+                                <div class="small"><strong>Action requise :</strong> {{ item.action }}</div>
+                                {% endif %}
                             </div>
-                            {% if item.details %}
-                            <p class="text-muted mb-2">
-                                <i class="fas fa-info-circle me-1"></i>
-                                {{ item.details }}
-                            </p>
-                            {% endif %}
-                            {% if item.action %}
-                            <div class="action-highlight">
-                                <strong><i class="fas fa-tasks me-1"></i>Action requise:</strong> 
-                                <span class="text-primary">{{ item.action }}</span>
-                            </div>
-                            {% endif %}
                         </div>
                         {% endfor %}
                     {% else %}
-                        <div class="empty-state">
-                            <i class="fas fa-lightbulb"></i>
-                            <h4>Aucune recommandation prioritaire</h4>
-                            <p>Toutes les données analysées semblent conformes aux normes.</p>
-                            <button class="btn btn-outline-primary" onclick="window.location.reload()">
-                                <i class="fas fa-refresh me-1"></i>Actualiser
-                            </button>
-                        </div>
+                    <div class="text-center text-secondary py-4">
+                        <i class="bi bi-lightbulb fs-1"></i>
+                        <p class="mb-0 mt-2">Aucune recommandation prioritaire — les données analysées semblent conformes.</p>
+                    </div>
                     {% endif %}
                 </div>
             </div>
+        </div>
 
-            <div class="col-lg-4">
-                <div class="enhanced-card">
-                    <div class="section-header">
-                        <h3>
-                            <i class="fas fa-clipboard-list me-2"></i>
-                            Plan d'Action
-                        </h3>
-                        <span class="badge bg-success">{{ recos.plan_action|length }} actions</span>
-                    </div>
-
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="h6 fw-bold mb-0">Plan d'action</h2>
+                    <span class="badge bg-secondary">{{ recos.plan_action|length }}</span>
+                </div>
+                <div class="card-body">
                     {% if recos.plan_action %}
                         {% for p in recos.plan_action %}
-                        <div class="action-item mb-3">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <h6 class="mb-0">
-                                    <i class="fas fa-check-circle text-success me-1"></i>
-                                    {{ p.type }}
-                                </h6>
+                        <div class="mb-3 {% if not forloop.last %}pb-3 border-bottom{% endif %}">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <h6 class="mb-0 small fw-semibold">{{ p.type }}</h6>
                                 {% with dl=p.delai|default:''|lower %}
-                                <span class="badge {% if dl|slice:':3' == 'imm' %}bg-danger{% elif dl|slice:':5' == 'court' %}bg-warning{% else %}bg-success{% endif %}">
-                                    <i class="fas fa-clock me-1"></i>{{ p.delai }}
+                                <span class="badge {% if dl|slice:':3' == 'imm' %}bg-danger{% elif dl|slice:':5' == 'court' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                    {{ p.delai }}
                                 </span>
                                 {% endwith %}
                             </div>
-                            <div class="progress-custom mb-2">
-                                {% with dl=p.delai|default:''|lower %}
-                                <div class="progress-bar-custom {% if dl|slice:':3' == 'imm' %}bg-danger{% elif dl|slice:':5' == 'court' %}bg-warning{% else %}bg-success{% endif %}"
-                                     style="width: {{ p.count|default:0|floatformat:0 }}%"></div>
-                                {% endwith %}
-                            </div>
-                            <ul class="list-unstyled mb-0">
-                                <li><i class="fas fa-circle impact-high"></i> Cas détectés: {{ p.count }}</li>
-                                <li><i class="fas fa-circle impact-medium"></i> Responsable: {{ p.responsable }}</li>
-                                <li><i class="fas fa-circle impact-low"></i> Action: {{ p.action }}</li>
+                            <ul class="list-unstyled mb-0 small text-secondary">
+                                <li>Cas détectés : {{ p.count }}</li>
+                                <li>Responsable : {{ p.responsable }}</li>
+                                <li>Action : {{ p.action }}</li>
                             </ul>
                         </div>
                         {% endfor %}
                     {% else %}
-                        <div class="empty-state">
-                            <i class="fas fa-clipboard-list"></i>
-                            <h4>Aucun plan d'action</h4>
-                            <p>Aucune action corrective n'est nécessaire pour le moment.</p>
-                        </div>
+                    <div class="text-center text-secondary py-4">
+                        <i class="bi bi-clipboard-check fs-1"></i>
+                        <p class="mb-0 mt-2">Aucune action corrective nécessaire.</p>
+                    </div>
                     {% endif %}
                 </div>
             </div>
         </div>
+    </div>
 
-                <!-- Impact Financier Réel -->
-                <div class="stats-card mt-4">
-                    <h6 class="text-center mb-3">
-                        <i class="fas fa-euro-sign me-2"></i>
-                        Impact Financier Réel
-                    </h6>
-                    <div class="text-center">
-                        <div class="h3 text-danger mb-2">{{ recos.impact_financier.total|floatformat:0 }} €</div>
-                        <div class="text-muted">Montant total estimé</div>
-                    </div>
-                    <hr>
-                    <div class="row text-center">
-                        {% for type_code, impact in recos.impact_financier.par_type.items|slice:':3' %}
-                        <div class="col-4">
-                            <div class="h6 {% if forloop.counter0 == 0 %}text-danger{% elif forloop.counter0 == 1 %}text-warning{% else %}text-info{% endif %}">
-                                {{ impact.montant|floatformat:0 }} €
-                            </div>
-                            <div class="small text-muted">{{ impact.label }}</div>
-                            <div class="small text-muted">({{ impact.count }} cas)</div>
-                        </div>
-                        {% endfor %}
-                    </div>
+    {% if recos.impact_financier.total %}
+    <div class="card mb-4">
+        <div class="card-header"><h2 class="h6 fw-bold mb-0">Impact financier estimé</h2></div>
+        <div class="card-body">
+            <div class="text-center mb-3">
+                <div class="h3 mb-1" style="color:var(--red-soft-text);">{{ recos.impact_financier.total|floatformat:0 }} €</div>
+                <div class="text-secondary small">Montant total estimé</div>
+            </div>
+            <div class="row text-center">
+                {% for type_code, impact in recos.impact_financier.par_type.items|slice:':3' %}
+                <div class="col-4">
+                    <div class="h6 mb-0">{{ impact.montant|floatformat:0 }} €</div>
+                    <div class="small text-secondary">{{ impact.label }}</div>
+                    <div class="small text-secondary">({{ impact.count }} cas)</div>
                 </div>
-
-                <!-- Exemples Cliquables -->
-                <div class="stats-card mt-4">
-                    <h6 class="text-center mb-3">
-                        <i class="fas fa-eye me-2"></i>
-                        Exemples d'Anomalies
-                    </h6>
-                    <div class="row">
-                        {% for type_code, exemples in recos.exemples.items %}
-                        <div class="col-md-6 mb-3">
-                            <div class="card border-0 shadow-sm">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0">{{ recos.impact_financier.par_type|get_item:type_code|get_item:'label' }}</h6>
-                                </div>
-                                <div class="card-body p-2">
-                                    {% for exemple in exemples %}
-                                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
-                                        <div>
-                                            <strong>{{ exemple.nom }}</strong>
-                                            <br>
-                                            <small class="text-muted">
-                                                {% if exemple.salaire_brut %}
-                                                    Salaire: {{ exemple.salaire_brut|floatformat:0 }} €
-                                                {% endif %}
-                                                {% if exemple.montant_primes %}
-                                                    | Primes: {{ exemple.montant_primes|floatformat:0 }} €
-                                                {% endif %}
-                                            </small>
-                                        </div>
-                                        <div class="text-end">
-                                            <span class="badge bg-{% if exemple.niveau_risque == 'critique' %}danger{% elif exemple.niveau_risque == 'eleve' %}warning{% elif exemple.niveau_risque == 'moyen' %}info{% else %}success{% endif %}">
-                                                {{ exemple.niveau_risque|title }}
-                                            </span>
-                                            <br>
-                                            <a href="{{ exemple.url }}" class="btn btn-sm btn-outline-primary mt-1">
-                                                <i class="fas fa-external-link-alt"></i> Voir
-                                            </a>
-                                        </div>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <!-- Actions Buttons -->
-                <div class="d-grid gap-2 mt-4">
-                    <button class="btn btn-primary" onclick="creerTachesAction()">
-                        <i class="fas fa-tasks me-2"></i>
-                        Créer Toutes les Tâches
-                    </button>
-                    <a href="{% url 'auditengine:liste_taches_action' session.id %}" class="btn btn-outline-primary">
-                        <i class="fas fa-list me-2"></i>
-                        Voir les Tâches
-                    </a>
-                    <button class="btn btn-outline-secondary">
-                        <i class="fas fa-envelope me-2"></i>
-                        Envoyer Rapport par Email
-                    </button>
-                </div>
+                {% endfor %}
             </div>
         </div>
     </div>
+    {% endif %}
 
-    <!-- Bootstrap 5 JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% if recos.exemples %}
+    <div class="card mb-4">
+        <div class="card-header"><h2 class="h6 fw-bold mb-0">Exemples d'anomalies</h2></div>
+        <div class="card-body">
+            <div class="row">
+                {% for type_code, exemples in recos.exemples.items %}
+                <div class="col-md-6 mb-3">
+                    <div class="card">
+                        <div class="card-header py-2">
+                            <h6 class="mb-0 small fw-semibold">{{ recos.impact_financier.par_type|get_item:type_code|get_item:'label' }}</h6>
+                        </div>
+                        <div class="card-body p-2">
+                            {% for exemple in exemples %}
+                            <div class="d-flex justify-content-between align-items-center p-2 {% if not forloop.last %}border-bottom{% endif %}">
+                                <div>
+                                    <strong class="small">{{ exemple.nom }}</strong>
+                                    <div class="text-secondary small">
+                                        {% if exemple.salaire_brut %}Salaire: {{ exemple.salaire_brut|floatformat:0 }} €{% endif %}
+                                        {% if exemple.montant_primes %} · Primes: {{ exemple.montant_primes|floatformat:0 }} €{% endif %}
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-{% if exemple.niveau_risque == 'critique' %}danger{% elif exemple.niveau_risque == 'eleve' %}warning{% elif exemple.niveau_risque == 'moyen' %}info{% else %}success{% endif %}">
+                                        {{ exemple.niveau_risque|title }}
+                                    </span>
+                                    <br>
+                                    <a href="{{ exemple.url }}" class="btn btn-sm btn-outline-secondary mt-1">Voir</a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
-    <!-- Charts Initialization -->
-    <script>
-        // Anomaly Type Chart (données réelles)
-        const ctx1 = document.getElementById('anomalyTypeChart').getContext('2d');
-        const typeLabels = [
-            {% for t in recos.repartition_types %}'{{ t.label }}'{% if not forloop.last %}, {% endif %}{% endfor %}
-        ];
-        const typeValues = [
-            {% for t in recos.repartition_types %}{{ t.count }}{% if not forloop.last %}, {% endif %}{% endfor %}
-        ];
-        const anomalyTypeChart = new Chart(ctx1, {
+    <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-primary" id="btn-creer-taches">
+            <i class="bi bi-list-check me-2"></i>Créer toutes les tâches
+        </button>
+        <a href="{% url 'auditengine:liste_taches_action' session.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-list-ul me-2"></i>Voir les tâches
+        </a>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const typeLabels = [{% for t in recos.repartition_types %}'{{ t.label }}'{% if not forloop.last %}, {% endif %}{% endfor %}];
+    const typeValues = [{% for t in recos.repartition_types %}{{ t.count }}{% if not forloop.last %}, {% endif %}{% endfor %}];
+    const typeCanvas = document.getElementById('anomalyTypeChart');
+    if (typeCanvas && typeValues.length) {
+        new Chart(typeCanvas.getContext('2d'), {
             type: 'doughnut',
             data: {
                 labels: typeLabels,
-                datasets: [{
-                    data: typeValues,
-                    backgroundColor: [
-                        '#ef4444',
-                        '#f59e0b',
-                        '#3b82f6',
-                        '#10b981',
-                        '#6b7280'
-                    ],
-                    borderWidth: 2,
-                    borderColor: '#ffffff'
-                }]
+                datasets: [{ data: typeValues, backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#6b7280'], borderWidth: 2, borderColor: '#ffffff' }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            padding: 20,
-                            usePointStyle: true
-                        }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = Math.round((context.parsed * 100) / total);
-                                return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
-                            }
-                        }
-                    }
-                }
+                plugins: { legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true } } }
             }
         });
+    }
 
-        // Risk Level Chart (données réelles)
-        const ctx2 = document.getElementById('riskLevelChart').getContext('2d');
-        const riskLabels = [
-            {% for r in recos.repartition_risques %}'{{ r.label }}'{% if not forloop.last %}, {% endif %}{% endfor %}
-        ];
-        const riskValues = [
-            {% for r in recos.repartition_risques %}{{ r.count }}{% if not forloop.last %}, {% endif %}{% endfor %}
-        ];
-        const riskLevelChart = new Chart(ctx2, {
+    const riskLabels = [{% for r in recos.repartition_risques %}'{{ r.label }}'{% if not forloop.last %}, {% endif %}{% endfor %}];
+    const riskValues = [{% for r in recos.repartition_risques %}{{ r.count }}{% if not forloop.last %}, {% endif %}{% endfor %}];
+    const riskCanvas = document.getElementById('riskLevelChart');
+    if (riskCanvas && riskValues.length) {
+        new Chart(riskCanvas.getContext('2d'), {
             type: 'bar',
             data: {
                 labels: riskLabels,
-                datasets: [{
-                    label: 'Nombre d\'anomalies',
-                    data: riskValues,
-                    backgroundColor: [
-                        '#ef4444',
-                        '#f97316',
-                        '#f59e0b',
-                        '#10b981'
-                    ],
-                    borderColor: [
-                        '#dc2626',
-                        '#ea580c',
-                        '#d97706',
-                        '#059669'
-                    ],
-                    borderWidth: 1
-                }]
+                datasets: [{ label: 'Anomalies', data: riskValues, backgroundColor: ['#ef4444', '#f97316', '#f59e0b', '#10b981'], borderRadius: 4 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1
-                        }
-                    }
-                }
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } }
             }
         });
+    }
 
-        // Animate progress bars on load
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                const progressBars = document.querySelectorAll('.progress-bar-custom');
-                progressBars.forEach(bar => {
-                    const width = Math.random() * 50; // Random progress for demo
-                    bar.style.width = width + '%';
-                });
-            }, 500);
-        });
-
-        // Add click handlers for recommendation actions
-        document.querySelectorAll('.recommendation-card .btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const action = this.textContent.trim();
-                console.log('Action clicked:', action);
-                // Here you would typically make an AJAX call to handle the action
-            });
-        });
-    </script>
-
-    <!-- Modale de détails recommandation -->
-    <div class="modal fade" id="detailsModal" tabindex="-1" aria-labelledby="detailsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="detailsModalLabel">Détail de la recommandation</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
-                </div>
-                <div class="modal-body" id="detailsModalBody">
-                    <!-- Contenu dynamique -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {% block extra_js %}
-    <script>
-    // OPTIMISATION: Gestion du chargement
-    document.addEventListener('DOMContentLoaded', function() {
-        // Masquer l'indicateur de chargement après 500ms
-        setTimeout(function() {
-            const loadingOverlay = document.getElementById('loading-overlay');
-            if (loadingOverlay) {
-                loadingOverlay.style.opacity = '0';
-                setTimeout(() => loadingOverlay.style.display = 'none', 300);
-            }
-        }, 500);
-
-        // Impression
-        const btnPrint = document.getElementById('btn-print');
-        if (btnPrint) {
-            btnPrint.addEventListener('click', function() {
-                window.print();
-            });
-        }
-
-        // Export PDF
-        var exportPdfUrl = "{% url 'auditengine:export_recommendations_pdf' session.pk %}";
-        const btnExportPdf = document.getElementById('btn-export-pdf');
-        if (btnExportPdf) {
-            btnExportPdf.addEventListener('click', function() {
-                // OPTIMISATION: Afficher un indicateur de chargement pour l'export
-                btnExportPdf.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Génération...';
-                btnExportPdf.disabled = true;
-                
-                window.open(exportPdfUrl, '_blank');
-                
-                // Restaurer le bouton après 3 secondes
-                setTimeout(() => {
-                    btnExportPdf.innerHTML = '<i class="fas fa-file-pdf me-2"></i>Exporter PDF';
-                    btnExportPdf.disabled = false;
-                }, 3000);
-            });
-        }
-
-        // Voir détails (pour chaque card)
-        [1,2,3,4].forEach(function(idx) {
-            var btn = document.getElementById('btn-view-detail-' + idx);
-            if (btn) {
-                btn.addEventListener('click', function() {
-                    var card = btn.closest('.recommendation-card');
-                    var content = card ? card.innerHTML : '';
-                    document.getElementById('detailsModalBody').innerHTML = content;
-                    var modal = new bootstrap.Modal(document.getElementById('detailsModal'));
-                    modal.show();
-                });
-            }
-        });
-
-        // OPTIMISATION: Lazy loading des graphiques
-        const observerOptions = {
-            root: null,
-            rootMargin: '50px',
-            threshold: 0.1
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const chart = entry.target;
-                    if (chart.dataset.loaded !== 'true') {
-                        chart.dataset.loaded = 'true';
-                        // Initialiser le graphique ici si nécessaire
-                    }
-                }
-            });
-        }, observerOptions);
-
-        // Observer les conteneurs de graphiques
-        document.querySelectorAll('.chart-container').forEach(chart => {
-            observer.observe(chart);
-        });
-
-        // OPTIMISATION: Initialisation des tooltips
-        initializeTooltips();
+    document.getElementById('btn-print').addEventListener('click', function() {
+        window.print();
     });
 
-    // OPTIMISATION: Fonctions pour les légendes cliquables
-    function filterByType(typeCode) {
-        console.log('Filtrer par type:', typeCode);
-        // Ici on pourrait filtrer les données ou naviguer vers une vue filtrée
-        showNotification(`Filtrage par type: ${typeCode}`, 'info');
-    }
-
-    function filterByRisk(riskCode) {
-        console.log('Filtrer par risque:', riskCode);
-        // Ici on pourrait filtrer les données ou naviguer vers une vue filtrée
-        showNotification(`Filtrage par risque: ${riskCode}`, 'warning');
-    }
-
-    // OPTIMISATION: Système de notifications
-    function showNotification(message, type = 'info') {
-        const notification = document.createElement('div');
-        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
-        notification.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        
-        document.body.appendChild(notification);
-        
-        // Auto-dismiss après 3 secondes
+    const exportPdfUrl = "{% url 'auditengine:export_recommendations_pdf' session.pk %}";
+    const btnExportPdf = document.getElementById('btn-export-pdf');
+    btnExportPdf.addEventListener('click', function() {
+        btnExportPdf.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Génération…';
+        btnExportPdf.disabled = true;
+        window.open(exportPdfUrl, '_blank');
         setTimeout(() => {
-            if (notification.parentNode) {
-                notification.remove();
-            }
+            btnExportPdf.innerHTML = '<i class="bi bi-download me-2"></i>Exporter PDF';
+            btnExportPdf.disabled = false;
         }, 3000);
-    }
-
-    // OPTIMISATION: Initialisation des tooltips
-    function initializeTooltips() {
-        const tooltips = document.querySelectorAll('.info-tooltip');
-        tooltips.forEach(tooltip => {
-            tooltip.addEventListener('mouseenter', function() {
-                const tooltipText = this.getAttribute('data-tooltip');
-                if (tooltipText) {
-                    this.setAttribute('title', tooltipText);
-                }
-            });
-        });
-    }
-
-    // OPTIMISATION: Amélioration de l'accessibilité
-    document.addEventListener('keydown', function(e) {
-        // Navigation au clavier pour les légendes
-        if (e.key === 'Enter' || e.key === ' ') {
-            const activeElement = document.activeElement;
-            if (activeElement.classList.contains('legend-item')) {
-                e.preventDefault();
-                activeElement.click();
-            }
-        }
     });
 
-    // Fonction pour créer les tâches d'action
-    function creerTachesAction() {
-        const sessionId = {{ session.id }};
-        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-        
-        // OPTIMISATION: Afficher un indicateur de chargement
-        const btn = event.target;
+    document.getElementById('btn-creer-taches').addEventListener('click', function() {
+        const btn = this;
         const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Création en cours...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Création en cours…';
         btn.disabled = true;
-        
-        fetch(`/auditengine/sessions/${sessionId}/creer-taches/`, {
+
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                           document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+
+        fetch(`/auditengine/sessions/{{ session.id }}/creer-taches/`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken,
-            },
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert(`✅ ${data.message}`);
-                // Rediriger vers la liste des tâches
-                window.location.href = `/auditengine/sessions/${sessionId}/taches/`;
+                window.location.href = `/auditengine/sessions/{{ session.id }}/taches/`;
             } else {
-                alert(`❌ Erreur: ${data.error}`);
-                // Restaurer le bouton en cas d'erreur
+                alert('Erreur: ' + data.error);
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
         })
-        .catch(error => {
-            console.error('Erreur:', error);
-            alert('❌ Erreur lors de la création des tâches');
-            // Restaurer le bouton en cas d'erreur
+        .catch(() => {
+            alert('Erreur lors de la création des tâches');
             btn.innerHTML = originalText;
             btn.disabled = false;
         });
-    }
-    </script>
-    {% endblock %}
-</body>
-</html>
+    });
+});
+</script>
+{% endblock %}

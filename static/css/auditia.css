@@ -1,17 +1,56 @@
 /* static/css/auditia.css */
 :root {
-    --primary-color: #2563eb;
-    --primary-dark: #1d4ed8;
-    --secondary-color: #64748b;
-    --success-color: #10b981;
-    --warning-color: #f59e0b;
-    --danger-color: #ef4444;
-    --info-color: #3b82f6;
-    --light-bg: #f8fafc;
-    --dark-text: #1e293b;
-    --border-color: #e2e8f0;
-    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    /* Anciens tokens - repointés vers la nouvelle palette (refonte) pour que
+       les écrans pas encore migrés en héritent automatiquement. */
+    --primary-color: #4f46e5;
+    --primary-dark: #4338ca;
+    --secondary-color: #586174;
+    --success-color: #16a34a;
+    --warning-color: #d97706;
+    --danger-color: #dc2626;
+    --info-color: #2563eb;
+    --light-bg: #f7f8fa;
+    --dark-text: #1e2433;
+    --border-color: #e4e7ec;
+    --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+    --shadow-lg: 0 4px 12px rgba(15, 23, 42, 0.08), 0 16px 40px rgba(15, 23, 42, 0.1);
+
+    /* Nouveaux tokens de la refonte */
+    --surface: #ffffff;
+    --surface-2: #f7f8fa;
+    --text-2: #586174;
+    --text-3: #8891a3;
+    --accent: #4f46e5;
+    --accent-dark: #4338ca;
+    --accent-soft: #eef0fd;
+    --accent-soft-text: #4338ca;
+    --red: #dc2626; --red-soft: #fdecec; --red-soft-text: #b42318;
+    --orange: #d9730d; --orange-soft: #fdf1e7; --orange-soft-text: #b1560a;
+    --amber: #d97706; --amber-soft: #fdf3e3; --amber-soft-text: #92600a;
+    --green: #16a34a; --green-soft: #eafaf0; --green-soft-text: #157a3d;
+    --blue: #2563eb; --blue-soft: #eaf1fe; --blue-soft-text: #1d4ed8;
+    --slate-soft: #f1f2f6; --slate-soft-text: #4b5468;
+    --sidebar-w: 264px;
+
+    /* Rethème des variables runtime de Bootstrap 5.3 (utilitaires bg-*/text-*/border-*) */
+    --bs-primary: var(--accent);
+    --bs-primary-rgb: 79, 70, 229;
+    --bs-success: var(--green);
+    --bs-success-rgb: 22, 163, 74;
+    --bs-warning: var(--amber);
+    --bs-warning-rgb: 217, 119, 6;
+    --bs-danger: var(--red);
+    --bs-danger-rgb: 220, 38, 38;
+    --bs-info: var(--blue);
+    --bs-info-rgb: 37, 99, 235;
+    --bs-secondary: var(--text-3);
+    --bs-secondary-rgb: 136, 145, 163;
+    --bs-body-font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    --bs-link-color: var(--accent);
+    --bs-link-hover-color: var(--accent-dark);
+    --bs-border-radius: 10px;
+    --bs-border-radius-lg: 14px;
+    --bs-border-radius-sm: 8px;
 }
 
 * {
@@ -21,22 +60,272 @@
 }
 
 body {
-    font-family: 'Inter', sans-serif;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
     background-color: var(--light-bg);
     color: var(--dark-text);
     line-height: 1.6;
 }
 
-/* Layout principal */
-.main-layout {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Manrope', system-ui, sans-serif;
+    letter-spacing: -0.01em;
 }
 
-.content-wrapper {
+.num, .font-mono {
+    font-family: 'IBM Plex Mono', monospace;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Reteinter les boutons/badges Bootstrap avec la nouvelle palette
+   (les variables --bs-btn-* / --bs-*-rgb ne sont pas toutes reliées
+   aux tokens de thème par Bootstrap, on les fixe explicitement) */
+.btn-primary {
+    --bs-btn-bg: var(--accent);
+    --bs-btn-border-color: var(--accent);
+    --bs-btn-hover-bg: var(--accent-dark);
+    --bs-btn-hover-border-color: var(--accent-dark);
+    --bs-btn-active-bg: var(--accent-dark);
+    --bs-btn-active-border-color: var(--accent-dark);
+    --bs-btn-disabled-bg: var(--accent);
+    --bs-btn-disabled-border-color: var(--accent);
+    --bs-btn-focus-shadow-rgb: 79, 70, 229;
+}
+.btn-outline-primary {
+    --bs-btn-color: var(--accent);
+    --bs-btn-border-color: var(--accent);
+    --bs-btn-hover-bg: var(--accent);
+    --bs-btn-hover-border-color: var(--accent);
+    --bs-btn-active-bg: var(--accent);
+    --bs-btn-active-border-color: var(--accent);
+}
+.btn-success { --bs-btn-bg: var(--green); --bs-btn-border-color: var(--green); --bs-btn-hover-bg: var(--green-soft-text); --bs-btn-hover-border-color: var(--green-soft-text); --bs-btn-active-bg: var(--green-soft-text); --bs-btn-active-border-color: var(--green-soft-text); }
+.btn-outline-success { --bs-btn-color: var(--green-soft-text); --bs-btn-border-color: var(--green); --bs-btn-hover-bg: var(--green); --bs-btn-hover-border-color: var(--green); }
+.btn-danger { --bs-btn-bg: var(--red); --bs-btn-border-color: var(--red); --bs-btn-hover-bg: var(--red-soft-text); --bs-btn-hover-border-color: var(--red-soft-text); --bs-btn-active-bg: var(--red-soft-text); --bs-btn-active-border-color: var(--red-soft-text); }
+.btn-outline-danger { --bs-btn-color: var(--red-soft-text); --bs-btn-border-color: var(--red); --bs-btn-hover-bg: var(--red); --bs-btn-hover-border-color: var(--red); }
+.btn-warning { --bs-btn-bg: var(--amber); --bs-btn-border-color: var(--amber); --bs-btn-hover-bg: var(--amber-soft-text); --bs-btn-hover-border-color: var(--amber-soft-text); }
+.btn-outline-warning { --bs-btn-color: var(--amber-soft-text); --bs-btn-border-color: var(--amber); --bs-btn-hover-bg: var(--amber); --bs-btn-hover-border-color: var(--amber); }
+.btn-info { --bs-btn-bg: var(--blue); --bs-btn-border-color: var(--blue); --bs-btn-color: #fff; --bs-btn-hover-bg: var(--blue-soft-text); --bs-btn-hover-border-color: var(--blue-soft-text); --bs-btn-hover-color: #fff; }
+.btn-outline-info { --bs-btn-color: var(--blue-soft-text); --bs-btn-border-color: var(--blue); --bs-btn-hover-bg: var(--blue); --bs-btn-hover-border-color: var(--blue); --bs-btn-hover-color: #fff; }
+.btn-outline-secondary { --bs-btn-color: var(--text-2); --bs-btn-border-color: var(--border-color); --bs-btn-hover-bg: var(--surface-2); --bs-btn-hover-border-color: var(--border-color); --bs-btn-hover-color: var(--text); }
+
+.badge.bg-secondary { background-color: var(--slate-soft) !important; color: var(--slate-soft-text) !important; }
+
+.card {
+    border-radius: var(--bs-border-radius-lg);
+    border-color: var(--border-color);
+    box-shadow: var(--shadow);
+}
+
+.card-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border-color);
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700;
+}
+
+.card-footer {
+    background: var(--surface);
+    border-top: 1px solid var(--border-color);
+}
+
+.table > :not(caption) > * > * {
+    border-bottom-color: var(--border-color);
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* ==================== APP SHELL (sidebar) ==================== */
+
+.app-shell {
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+    align-items: flex-start;
+}
+
+.app-main {
     flex: 1;
-    padding-top: 80px;
+    min-width: 0;
+}
+
+.app-sidebar {
+    width: var(--sidebar-w);
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    padding: 22px 14px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 10px 22px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.sidebar-brand-icon {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+
+.sidebar-brand-name {
+    display: block;
+    font-family: 'Manrope', sans-serif;
+    font-weight: 800;
+    font-size: 15px;
+    line-height: 1.1;
+    color: var(--dark-text);
+}
+
+.sidebar-brand-tagline {
+    display: block;
+    font-size: 11px;
+    color: var(--text-3);
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sidebar-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 9px 12px;
+    border-radius: 9px;
+    color: var(--text-2);
+    font-size: 13.5px;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.sidebar-nav-item i {
+    font-size: 1rem;
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.sidebar-nav-item:hover {
+    background: var(--surface-2);
+    color: var(--text-2);
+}
+
+.sidebar-nav-item.active {
+    background: var(--accent-soft);
+    color: var(--accent-soft-text);
+    font-weight: 600;
+}
+
+.sidebar-nav-badge {
+    margin-left: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-3);
+}
+
+.sidebar-section-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    padding: 0 12px;
+    margin-top: 18px;
+    margin-bottom: 6px;
+}
+
+.sidebar-user {
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.sidebar-user-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 6px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.sidebar-user-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.sidebar-user-info {
+    min-width: 0;
+    flex: 1;
+}
+
+.sidebar-user-name {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dark-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-user-role {
+    display: block;
+    font-size: 11.5px;
+    color: var(--text-3);
+}
+
+.sidebar-user-chevron {
+    color: var(--text-3);
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+@media (max-width: 991px) {
+    .app-shell {
+        flex-direction: column;
+    }
+    .app-sidebar {
+        width: 100%;
+        height: auto;
+        position: static;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
 }
 
 /* Navbar moderne */

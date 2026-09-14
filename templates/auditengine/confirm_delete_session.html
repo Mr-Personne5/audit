@@ -3,68 +3,64 @@
 {% block title %}Supprimer la session - {{ session.nom_session }}{% endblock %}
 
 {% block content %}
-<div class="auditengine-header">
-    <div class="container">
-        <div class="row align-items-center">
-            <div class="col-md-8">
-                <h1><i class="bi bi-trash"></i> Supprimer la session</h1>
-                <p class="mb-0">Confirmation de suppression de l'analyse IA</p>
-            </div>
-        </div>
-    </div>
-</div>
+<div class="container-fluid px-4 py-4">
 
-<div class="container">
+    <nav aria-label="breadcrumb" class="mb-2">
+        <ol class="breadcrumb mb-0 small">
+            <li class="breadcrumb-item"><a href="{% url 'auditengine:session_list' %}">Détection IA</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'auditengine:session_detail' session.pk %}">{{ session.nom_session }}</a></li>
+            <li class="breadcrumb-item active">Suppression</li>
+        </ol>
+    </nav>
+
+    <div class="mb-4">
+        <h1 class="h3 fw-bold mb-1">Supprimer la session</h1>
+        <p class="text-secondary mb-0">Cette action est définitive.</p>
+    </div>
+
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card border-danger">
-                <div class="card-header bg-danger text-white">
-                    <h5 class="mb-0">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        Confirmation de suppression
-                    </h5>
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="h6 fw-bold mb-0" style="color:var(--red-soft-text);">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Confirmation de suppression
+                    </h2>
                 </div>
                 <div class="card-body">
                     <div class="alert alert-warning">
-                        <h6><i class="bi bi-info-circle"></i> Attention</h6>
-                        <p class="mb-0">
-                            Cette action est <strong>irréversible</strong>.
-                            Toutes les données d'analyse IA seront définitivement perdues.
-                        </p>
+                        <strong>Attention.</strong> Cette action est irréversible : toutes les données d'analyse IA de cette session seront définitivement perdues.
                     </div>
 
-                    <h6>Session à supprimer :</h6>
-                    <div class="card">
+                    <h6 class="text-secondary small text-uppercase fw-semibold mb-2">Session à supprimer</h6>
+                    <div class="card mb-4">
                         <div class="card-body">
                             <dl class="row mb-0">
-                                <dt class="col-sm-3">Nom :</dt>
-                                <dd class="col-sm-9">{{ session.nom_session }}</dd>
-                                <dt class="col-sm-3">Mission :</dt>
-                                <dd class="col-sm-9">{{ session.mission.name }}</dd>
-                                <dt class="col-sm-3">Fichier :</dt>
-                                <dd class="col-sm-9">{{ session.fichier_paie.nom_fichier }}</dd>
-                                <dt class="col-sm-3">Date :</dt>
-                                <dd class="col-sm-9">{{ session.date_creation|date:"d/m/Y H:i" }}</dd>
+                                <dt class="col-sm-4">Nom</dt>
+                                <dd class="col-sm-8">{{ session.nom_session }}</dd>
+                                <dt class="col-sm-4">Mission</dt>
+                                <dd class="col-sm-8">{{ session.mission.name }}</dd>
+                                <dt class="col-sm-4">Fichier</dt>
+                                <dd class="col-sm-8">{{ session.fichier_paie.nom_fichier }}</dd>
+                                <dt class="col-sm-4">Date</dt>
+                                <dd class="col-sm-8">{{ session.date_creation|date:"d/m/Y H:i" }}</dd>
                                 {% if session.status == 'completed' %}
-                                <dt class="col-sm-3">Résultats :</dt>
-                                <dd class="col-sm-9">
-                                    {{ session.nb_anomalies_detectees }} anomalies détectées
-                                    sur {{ session.nb_lignes_analysees }} employés
+                                <dt class="col-sm-4">Résultats</dt>
+                                <dd class="col-sm-8 mb-0">
+                                    {{ session.nb_anomalies_detectees }} anomalies détectées sur {{ session.nb_lignes_analysees }} employés
                                 </dd>
                                 {% endif %}
                             </dl>
                         </div>
                     </div>
 
-                    <form method="post" class="mt-4">
+                    <form method="post">
                         {% csrf_token %}
                         <div class="d-flex justify-content-between">
-                            <a href="{% url 'auditengine:session_detail' session.pk %}"
-                               class="btn btn-secondary">
-                                <i class="bi bi-arrow-left"></i> Annuler
+                            <a href="{% url 'auditengine:session_detail' session.pk %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>Annuler
                             </a>
                             <button type="submit" class="btn btn-danger">
-                                <i class="bi bi-trash"></i> Confirmer la suppression
+                                <i class="bi bi-trash me-2"></i>Confirmer la suppression
                             </button>
                         </div>
                     </form>

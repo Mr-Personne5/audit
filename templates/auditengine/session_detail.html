@@ -6,72 +6,59 @@
 
 {% block content %}
 {% csrf_token %}
-<div class="auditengine-header">
-    <div class="container">
-        <div class="row align-items-center">
-            <div class="col-md-8">
-                <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb text-white-50 mb-2">
-                        <li class="breadcrumb-item">
-                            <a href="{% url 'auditengine:session_list' %}" class="text-white-50">
-                                Audit IA
-                            </a>
-                        </li>
-                        <li class="breadcrumb-item active text-white">{{ session.nom_session }}</li>
-                    </ol>
-                </nav>
-                <h1><i class="bi bi-cpu"></i> {{ session.nom_session }}</h1>
-                <p class="mb-0">{{ session.description|default:"Analyse IA automatique des anomalies de paie" }}</p>
-            </div>
-            <div class="col-md-4 text-end">
-                {% if can_process %}
-                    <button class="btn btn-success btn-lg me-2" id="process-session-btn"
-                            data-session-id="{{ session.pk }}">
-                        <i class="bi bi-cpu"></i> Lancer l'IA
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex align-items-center gap-2 small text-secondary mb-2">
+        <a href="{% url 'auditengine:session_list' %}" class="text-secondary text-decoration-none">Détection IA</a>
+        <span>/</span>
+        <span>{{ session.nom_session }}</span>
+    </div>
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1"><i class="bi bi-cpu me-1"></i>{{ session.nom_session }}</h1>
+            <p class="text-secondary mb-0">{{ session.description|default:"Analyse IA automatique des anomalies de paie" }}</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            {% if can_process %}
+                <button class="btn btn-primary" id="process-session-btn" data-session-id="{{ session.pk }}">
+                    <i class="bi bi-cpu me-2"></i>Lancer l'IA
+                </button>
+            {% endif %}
+            {% if session.status == 'completed' %}
+                <div class="btn-group">
+                    <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="bi bi-download me-2"></i>Exporter
                     </button>
-                {% endif %}
-                {% if session.status == 'completed' %}
-                    <div class="btn-group">
-                        <button class="btn btn-light dropdown-toggle" data-bs-toggle="dropdown">
-                            <i class="bi bi-download"></i> Exporter
-                        </button>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item"
-                                   href="{% url 'auditengine:export_results' session.pk %}?format=csv">
-                                <i class="bi bi-file-earmark-text"></i> Résultats CSV
-                            </a></li>
-                            <li><a class="dropdown-item"
-                                   href="{% url 'auditengine:export_results' session.pk %}?format=excel">
-                                <i class="bi bi-file-earmark-excel"></i> Résultats Excel
-                            </a></li>
-                            <li><a class="dropdown-item"
-                                   href="{% url 'auditengine:export_results' session.pk %}?format=csv&anomalies_only=true">
-                                <i class="bi bi-exclamation-triangle"></i> Anomalies seulement
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="#" id="download-logs-btn"
-                                   data-session-id="{{ session.pk }}">
-                                <i class="bi bi-file-earmark-code"></i> Logs IA complets
-                            </a></li>
-                        </ul>
-                    </div>
-                    <a href="{% url 'auditengine:generate_recommendations' session.pk %}"
-                       class="btn btn-warning ms-2">
-                        <i class="bi bi-lightbulb"></i> Recommandations
-                    </a>
-                {% endif %}
-                {% if can_edit %}
-                    <a href="{% url 'auditengine:delete_session' session.pk %}"
-                       class="btn btn-outline-light">
-                        <i class="bi bi-trash"></i>
-                    </a>
-                {% endif %}
-            </div>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item"
+                               href="{% url 'auditengine:export_results' session.pk %}?format=csv">
+                            <i class="bi bi-file-earmark-text me-2"></i>Résultats CSV
+                        </a></li>
+                        <li><a class="dropdown-item"
+                               href="{% url 'auditengine:export_results' session.pk %}?format=excel">
+                            <i class="bi bi-file-earmark-excel me-2"></i>Résultats Excel
+                        </a></li>
+                        <li><a class="dropdown-item"
+                               href="{% url 'auditengine:export_results' session.pk %}?format=csv&anomalies_only=true">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Anomalies seulement
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" id="download-logs-btn"
+                               data-session-id="{{ session.pk }}">
+                            <i class="bi bi-file-earmark-code me-2"></i>Logs IA complets
+                        </a></li>
+                    </ul>
+                </div>
+                <a href="{% url 'auditengine:generate_recommendations' session.pk %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-lightbulb me-2"></i>Recommandations
+                </a>
+            {% endif %}
+            {% if can_edit %}
+                <a href="{% url 'auditengine:delete_session' session.pk %}" class="btn btn-outline-danger">
+                    <i class="bi bi-trash"></i>
+                </a>
+            {% endif %}
         </div>
     </div>
-</div>
-
-<div class="container">
     <!-- Informations de la session -->
     <div class="row mb-4">
         <div class="col-md-8">
@@ -101,7 +88,7 @@
                                     {{ session.date_completion|date:"d/m/Y H:i" }}
                                     {% if session.duree_traitement_secondes %}
                                         <br><small class="text-success">
-                                            ⚡ Analysé en {{ session.duree_traitement_secondes }}s
+                                            Analysé en {{ session.duree_traitement_secondes }}s
                                         </small>
                                     {% endif %}
                                 </dd>
@@ -202,6 +189,12 @@
 
     {% if session.status == 'completed' %}
         <!-- Statistiques détaillées -->
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold text-secondary text-uppercase small mb-0">Statistiques détaillées</h6>
+            <button id="refreshSessionStatsBtn" class="btn btn-sm btn-outline-secondary" onclick="refreshSessionStats()">
+                <i class="bi bi-arrow-clockwise me-1"></i>Actualiser
+            </button>
+        </div>
         <div class="row mb-4">
             <div class="col-md-2">
                 <div class="anomalie-card card text-center critique">
@@ -787,10 +780,6 @@
         </div>
     </div>
 </div>
-
-<button id="refreshSessionStatsBtn" class="btn btn-outline-primary btn-modern" onclick="refreshSessionStats()">
-    <i class="bi bi-arrow-clockwise me-2"></i>Actualiser les statistiques
-</button>
 {% endblock %}
 
 {% block extra_js %}
@@ -946,7 +935,7 @@ function processSession(sessionId) {
                 clearInterval(progressInterval);
                 modal.hide();
                 showNotification(
-                    `🎉 Analyse IA terminée ! ${data.progress.nb_anomalies_detectees} anomalies détectées en ${data.progress.duree_traitement}s`,
+                    `Analyse IA terminée ! ${data.progress.nb_anomalies_detectees} anomalies détectées en ${data.progress.duree_traitement}s`,
                     'success'
                 );
                 setTimeout(() => location.reload(), 1500);
@@ -954,7 +943,7 @@ function processSession(sessionId) {
                 clearInterval(pollInterval);
                 clearInterval(progressInterval);
                 modal.hide();
-                showNotification('❌ Erreur IA: ' + (data.errors || 'Erreur inconnue'), 'danger');
+                showNotification('Erreur IA : ' + (data.errors || 'Erreur inconnue'), 'danger');
                 setTimeout(() => location.reload(), 2000);
             } else if (data.last_logs && data.last_logs.length > 0) {
                 statusEl.textContent = data.last_logs[data.last_logs.length - 1].message;
@@ -987,14 +976,14 @@ function processSession(sessionId) {
             clearInterval(pollInterval);
             clearInterval(progressInterval);
             modal.hide();
-            showNotification('❌ Erreur: ' + data.error, 'danger');
+            showNotification('Erreur : ' + data.error, 'danger');
         }
     })
     .catch(error => {
         clearInterval(pollInterval);
         clearInterval(progressInterval);
         modal.hide();
-        showNotification('❌ Erreur de traitement: ' + error.message, 'danger');
+        showNotification('Erreur de traitement : ' + error.message, 'danger');
     });
 }
 
@@ -1014,10 +1003,10 @@ function downloadLogs(sessionId) {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
 
-        showNotification('📄 Logs IA téléchargés avec succès!', 'success');
+        showNotification('Logs IA téléchargés avec succès', 'success');
     })
     .catch(error => {
-        showNotification('❌ Erreur lors du téléchargement: ' + error.message, 'danger');
+        showNotification('Erreur lors du téléchargement : ' + error.message, 'danger');
     });
 }
 

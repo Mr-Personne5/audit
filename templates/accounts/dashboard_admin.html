@@ -4,142 +4,124 @@
 {% block title %}Tableau de bord Administrateur - AuditIA{% endblock %}
 
 {% block content %}
-    <div class="container-fluid px-4">
-    <!-- Header avec breadcrumbs -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb breadcrumb-modern">
-                    <li class="breadcrumb-item"><i class="bi bi-house-door me-1"></i>Accueil</li>
-                    <li class="breadcrumb-item active">Tableau de bord Administrateur</li>
-                </ol>
-            </nav>
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h1 class="h3 fw-bold text-dark mb-1">Bonjour {{ user.get_full_name|default:user.username }} 👋</h1>
-                    <p class="text-muted mb-0">Bienvenue dans votre espace d'administration</p>
-                </div>
-                                    <div class="d-flex gap-2">
-                        <a href="{% url 'accounts:user_profile' %}" class="btn btn-outline-secondary btn-modern">
-                            <i class="bi bi-person me-2"></i>Mon profil
-                        </a>
-                        <a href="{% url 'accounts:user_settings' %}" class="btn btn-outline-info btn-modern">
-                            <i class="bi bi-gear me-2"></i>Paramètres
-                        </a>
-                        <a href="{% url 'accounts:dashboard_advanced' %}" class="btn btn-primary btn-modern">
-                            <i class="bi bi-graph-up me-2"></i>Tableau avancé
-                        </a>
-                        <a href="{% url 'accounts:mission_supervision' %}" class="btn btn-success btn-modern">
-                            <i class="bi bi-eye me-2"></i>Supervision missions
-                        </a>
-                        <button id="refreshStatsBtn" class="btn btn-outline-primary btn-modern" onclick="refreshAdminStats()">
-                            <i class="bi bi-arrow-clockwise me-2"></i>Actualiser
-                        </button>
-                    </div>
-            </div>
+<div class="container-fluid px-4 py-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Bonjour, {{ user.get_full_name|default:user.username }}</h1>
+            <p class="text-secondary mb-0">Voici l'activité de vos missions d'audit aujourd'hui.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button id="refreshStatsBtn" class="btn btn-outline-secondary" onclick="refreshAdminStats()">
+                <i class="bi bi-arrow-clockwise me-2"></i>Actualiser
+            </button>
+            <a href="{% url 'accounts:dashboard_advanced' %}" class="btn btn-primary">
+                <i class="bi bi-graph-up me-2"></i>Tableau avancé
+            </a>
         </div>
     </div>
 
-    <!-- Actions rapides -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="modern-card">
-                <div class="card-header bg-white border-0 p-4">
-                    <h5 class="fw-bold mb-1">Actions Rapides</h5>
-                    <p class="text-muted small mb-0">Gestion des utilisateurs et des missions</p>
-                </div>
-                <div class="card-body p-4">
-                    <div class="row g-4">
-                        <!-- Gestion Utilisateurs -->
-                        <div class="col-md-6">
-                            <div class="p-4 rounded-3 h-100 block-card position-relative" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(79, 70, 229, 0.05)); border: 2px solid rgba(99, 102, 241, 0.25);">
-                                <h6 class="fw-bold mb-3">
-                                    <i class="bi bi-people me-2" style="color: #6366f1;"></i>Gestion Utilisateurs
-                                </h6>
-                                <div class="d-grid gap-2">
-                                    <a href="{% url 'accounts:user_create' %}" class="btn" style="background: #6366f1; border-color: #6366f1; color: white; border-radius: 12px; font-weight: 500; padding: 0.5rem 1.5rem; transition: all 0.3s ease; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;">
-                                        <i class="bi bi-person-plus me-2"></i>Nouvel utilisateur
-                                    </a>
-                                    <a href="{% url 'accounts:user_list' %}" class="btn btn-modern" style="color: #6366f1; border-color: #6366f1; background: transparent; border-radius: 12px; font-weight: 500; padding: 0.5rem 1.5rem; transition: all 0.3s ease; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;">
-                                        <i class="bi bi-list-ul me-2"></i>Liste des utilisateurs
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Gestion Missions -->
-                        <div class="col-md-6">
-                            <div class="p-4 rounded-3 h-100 block-card position-relative" style="background: linear-gradient(135deg, rgba(5, 150, 105, 0.05), rgba(4, 120, 87, 0.05)); border: 2px solid rgba(5, 150, 105, 0.25);">
-                                <h6 class="fw-bold mb-3">
-                                    <i class="bi bi-briefcase me-2" style="color: #059669;"></i>Gestion Missions
-                                </h6>
-                                <div class="d-grid gap-2">
-                                    <a href="{% url 'accounts:mission_create' %}" class="btn" style="background: #059669; border-color: #059669; color: white; border-radius: 12px; font-weight: 500; padding: 0.5rem 1.5rem; transition: all 0.3s ease; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;">
-                                        <i class="bi bi-plus-circle me-2"></i>Nouvelle mission
-                                    </a>
-                                    <a href="{% url 'accounts:mission_list' %}" class="btn btn-modern" style="color: #059669; border-color: #059669; background: transparent; border-radius: 12px; font-weight: 500; padding: 0.5rem 1.5rem; transition: all 0.3s ease; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;">
-                                        <i class="bi bi-list-ul me-2"></i>Liste des missions
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Fichiers en attente d'approbation -->
-    {% if fichiers_en_attente %}
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="modern-card border-warning border-2">
-                <div class="card-header bg-warning bg-opacity-10 border-0 p-4">
+    <!-- KPI row -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="card h-100">
+                <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-secondary small fw-medium">Utilisateurs actifs</span>
+                        <span class="d-inline-flex align-items-center justify-content-center rounded-3" style="width:32px;height:32px;background:var(--accent-soft);">
+                            <i class="bi bi-people" style="color:var(--accent-soft-text);"></i>
+                        </span>
+                    </div>
+                    <div class="num fs-3 fw-semibold mt-2" id="active_users_count">{{ active_users_count }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-secondary small fw-medium">Missions actives</span>
+                        <span class="d-inline-flex align-items-center justify-content-center rounded-3" style="width:32px;height:32px;background:var(--green-soft);">
+                            <i class="bi bi-briefcase" style="color:var(--green-soft-text);"></i>
+                        </span>
+                    </div>
+                    <div class="num fs-3 fw-semibold mt-2" id="active_missions_count">{{ active_missions_count }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-secondary small fw-medium">Fichiers importés aujourd'hui</span>
+                        <span class="d-inline-flex align-items-center justify-content-center rounded-3" style="width:32px;height:32px;background:var(--amber-soft);">
+                            <i class="bi bi-clock-history" style="color:var(--amber-soft-text);"></i>
+                        </span>
+                    </div>
+                    <div class="num fs-3 fw-semibold mt-2" id="actions_today_count">{{ actions_today_count }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-secondary small fw-medium">Fichiers importés</span>
+                        <span class="d-inline-flex align-items-center justify-content-center rounded-3" style="width:32px;height:32px;background:var(--blue-soft);">
+                            <i class="bi bi-file-earmark-text" style="color:var(--blue-soft-text);"></i>
+                        </span>
+                    </div>
+                    <div class="num fs-3 fw-semibold mt-2" id="imported_files_count">{{ imported_files_count }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <!-- LEFT column -->
+        <div class="col-lg-8 d-flex flex-column gap-3">
+
+            <!-- Fichiers en attente -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
                         <div>
-                            <h5 class="fw-bold mb-1 text-warning">
-                                <i class="bi bi-exclamation-triangle me-2"></i>Fichiers en attente d'approbation
-                            </h5>
-                            <p class="text-muted small mb-0">{{ fichiers_en_attente|length }} fichier(s) nécessitent votre validation</p>
+                            <h2 class="h6 fw-bold d-flex align-items-center gap-2 mb-1" style="color:var(--orange-soft-text);">
+                                <i class="bi bi-exclamation-triangle"></i>Fichiers en attente d'approbation
+                            </h2>
+                            <p class="text-secondary small mb-0">{{ fichiers_en_attente|length }} fichier{{ fichiers_en_attente|length|pluralize }} nécessite{{ fichiers_en_attente|length|pluralize:"nt" }} votre validation</p>
                         </div>
-                        <a href="{% url 'uploads:bulk_approve' %}" class="btn btn-warning btn-modern">
+                        {% if fichiers_en_attente %}
+                        <a href="{% url 'uploads:bulk_approve' %}" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-check2-all me-2"></i>Approuver en lot
                         </a>
+                        {% endif %}
                     </div>
-                </div>
-                <div class="card-body p-4">
+                    {% if fichiers_en_attente %}
                     <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr class="text-secondary small text-uppercase">
                                     <th>Fichier</th>
                                     <th>Type</th>
-                                    <th>Utilisateur</th>
                                     <th>Mission</th>
-                                    <th>Date d'import</th>
-                                    <th>Actions</th>
+                                    <th>Utilisateur</th>
+                                    <th class="text-end">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for fichier in fichiers_en_attente|slice:":5" %}
                                 <tr>
                                     <td>
-                                        <div class="d-flex align-items-center">
-                                            <i class="bi bi-file-earmark-text me-2 text-primary"></i>
-                                            <div>
-                                                <div class="fw-semibold">{{ fichier.nom_fichier }}</div>
-                                                <small class="text-muted">{{ fichier.get_file_size_mb }} MB</small>
-                                            </div>
-                                        </div>
+                                        <div class="fw-semibold">{{ fichier.nom_fichier }}</div>
+                                        <div class="text-secondary small">{{ fichier.get_file_size_mb }} MB</div>
                                     </td>
-                                    <td>
-                                        <span class="badge bg-secondary">{{ fichier.get_type_fichier_display }}</span>
-                                    </td>
+                                    <td><span class="badge bg-secondary">{{ fichier.get_type_fichier_display }}</span></td>
+                                    <td>{{ fichier.mission.name|default:"-" }}</td>
                                     <td>{{ fichier.utilisateur.get_full_name|default:fichier.utilisateur.username }}</td>
-                                    <td>{{ fichier.mission.name }}</td>
-                                    <td>{{ fichier.date_import|date:"d/m/Y H:i" }}</td>
-                                    <td>
-                                        <a href="{% url 'uploads:approve_file' fichier.pk %}" class="btn btn-outline-success btn-sm">
+                                    <td class="text-end">
+                                        <a href="{% url 'uploads:approve_file' fichier.pk %}" class="btn btn-sm btn-outline-success">
                                             <i class="bi bi-check-circle me-1"></i>Approuver
                                         </a>
                                     </td>
@@ -150,212 +132,120 @@
                     </div>
                     {% if fichiers_en_attente|length > 5 %}
                     <div class="text-center mt-3">
-                        <a href="{% url 'uploads:bulk_approve' %}" class="btn btn-outline-warning btn-modern">
-                            <i class="bi bi-arrow-right me-2"></i>Voir tous les {{ fichiers_en_attente|length }} fichiers
+                        <a href="{% url 'uploads:bulk_approve' %}" class="btn btn-sm btn-outline-secondary">
+                            Voir les {{ fichiers_en_attente|length }} fichiers en attente
                         </a>
                     </div>
+                    {% endif %}
+                    {% else %}
+                    <p class="text-secondary small mb-0">Aucun fichier en attente d'approbation.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Activité récente -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="h6 fw-bold mb-0">Activité récente</h2>
+                        <a href="{% url 'accounts:logs' %}" class="small fw-semibold text-decoration-none">Voir tous les journaux</a>
+                    </div>
+                    {% if recent_logs %}
+                    <div class="d-flex flex-column gap-3">
+                        {% for log in recent_logs %}
+                        <div class="d-flex gap-3">
+                            <span class="d-inline-flex align-items-center justify-content-center rounded-3 flex-shrink-0 mt-1"
+                                  style="width:30px;height:30px;background:
+                                  {% if log.action == 'creation' %}var(--green-soft)
+                                  {% elif log.action == 'modification' %}var(--amber-soft)
+                                  {% elif log.action == 'suppression' %}var(--red-soft)
+                                  {% else %}var(--blue-soft){% endif %};">
+                                <i class="bi
+                                    {% if log.action == 'creation' %}bi-plus-circle{% elif log.action == 'modification' %}bi-pencil-square{% elif log.action == 'suppression' %}bi-trash{% elif log.action == 'consultation' %}bi-eye{% else %}bi-activity{% endif %}"
+                                   style="color:
+                                   {% if log.action == 'creation' %}var(--green-soft-text)
+                                   {% elif log.action == 'modification' %}var(--amber-soft-text)
+                                   {% elif log.action == 'suppression' %}var(--red-soft-text)
+                                   {% else %}var(--blue-soft-text){% endif %};"></i>
+                            </span>
+                            <div>
+                                <div class="small fw-semibold">{{ log.action|capfirst }} — {{ log.feature }}</div>
+                                {% if log.target %}<div class="text-secondary small">{{ log.target }}</div>{% endif %}
+                                <div class="text-secondary small">{{ log.timestamp|date:"d/m/Y H:i" }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-secondary small mb-0">Aucune activité récente.</p>
                     {% endif %}
                 </div>
             </div>
         </div>
-    </div>
-    {% endif %}
 
-    <!-- Outils d'Audit -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="modern-card">
-                <div class="card-header bg-white border-0 p-4">
-                    <h5 class="fw-bold mb-1">Outils d'Audit</h5>
-                    <p class="text-muted small mb-0">Fonctionnalités d'analyse de paie assistée par IA</p>
-                </div>
-                <div class="card-body p-4">
-                    <div class="row g-4">
-                        <div class="col-md-6">
-                            <div class="d-flex p-4 rounded-3 h-100 block-card block-subtle-file-upload position-relative">
-                                <div class="me-3">
-                                    <div class="p-3 rounded-3 icon-file-upload">
-                                        <i class="bi bi-upload fs-3 text-white"></i>
-                                    </div>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h6 class="fw-bold mb-2">Chargement de Fichiers</h6>
-                                    <p class="text-muted small mb-3">Importez vos fichiers de paie, grilles salariales et conventions collectives</p>
-                                    <a href="{% url 'uploads:upload_list' %}" class="btn btn-file-upload btn-sm">
-                                        <i class="bi bi-plus-circle me-1"></i>Gérer les fichiers
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="d-flex p-4 rounded-3 h-100 block-card block-subtle-reconciliation position-relative">
-                                <div class="me-3">
-                                    <div class="p-3 rounded-3 icon-reconciliation">
-                                        <i class="bi bi-arrow-left-right fs-3 text-white"></i>
-                                    </div>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h6 class="fw-bold mb-2">Rapprochement</h6>
-                                    <p class="text-muted small mb-3">Comparez les employés payés vs à payer et validez les règles</p>
-                                    <a href="{% url 'reconciliation:analysis_dashboard' %}" class="btn btn-reconciliation btn-sm">
-                                        <i class="bi bi-play-circle me-1"></i>Tableau de bord
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="d-flex p-4 rounded-3 h-100 block-card block-subtle-ai-detection position-relative">
-                                <div class="me-3">
-                                    <div class="p-3 rounded-3 icon-ai-detection">
-                                        <i class="bi bi-search fs-3 text-white"></i>
-                                    </div>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h6 class="fw-bold mb-2">Détection IA</h6>
-                                    <p class="text-muted small mb-3">Isolation Forest pour identifier automatiquement les anomalies</p>
-                                    <a href="{% url 'auditengine:session_list' %}" class="btn btn-ai-detection btn-sm">
-                                        <i class="bi bi-cpu me-1"></i>Analyser
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="d-flex p-4 rounded-3 h-100 block-card block-subtle-mlp-classification position-relative">
-                                <div class="me-3">
-                                    <div class="p-3 rounded-3 icon-mlp-classification">
-                                        <i class="bi bi-tags fs-3 text-white"></i>
-                                    </div>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h6 class="fw-bold mb-2">Classification MLP</h6>
-                                    <p class="text-muted small mb-3">Classification intelligente des anomalies détectées</p>
-                                    <a href="{% url 'recommendations:dashboard' %}" class="btn btn-mlp-classification btn-sm">Tableau de bord</a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- Fin Outils d'Audit -->
+        <!-- RIGHT column -->
+        <div class="col-lg-4 d-flex flex-column gap-3">
 
-    <!-- Statistiques -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="modern-card stat-card">
+            <div class="card">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-subtitle mb-2 text-muted">Utilisateurs Actifs</h6>
-                            <h2 class="card-title text-primary mb-0" id="active_users_count">{{ active_users_count }}</h2>
-                        </div>
-                        <div class="bg-primary bg-opacity-10 rounded-circle p-3">
-                            <i class="bi bi-people fs-3 text-primary"></i>
-                        </div>
+                    <h2 class="h6 fw-bold mb-3">Actions rapides</h2>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'accounts:user_create' %}" class="btn btn-primary">
+                            <i class="bi bi-person-plus me-2"></i>Nouvel utilisateur
+                        </a>
+                        <a href="{% url 'accounts:mission_create' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-plus-circle me-2"></i>Nouvelle mission
+                        </a>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="col-md-3">
-            <div class="modern-card stat-card">
+            <div class="card">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-subtitle mb-2 text-muted">Missions Actives</h6>
-                            <h2 class="card-title text-success mb-0" id="active_missions_count">{{ active_missions_count }}</h2>
-                        </div>
-                        <div class="bg-success bg-opacity-10 rounded-circle p-3">
-                            <i class="bi bi-briefcase fs-3 text-success"></i>
-                        </div>
+                    <h2 class="h6 fw-bold mb-1">Outils d'audit</h2>
+                    <p class="text-secondary small mb-3">Analyse de paie assistée par IA</p>
+                    <div class="d-flex flex-column gap-1">
+                        <a href="{% url 'uploads:upload_list' %}" class="d-flex align-items-center gap-3 p-2 rounded-3 text-decoration-none text-body">
+                            <span class="d-inline-flex align-items-center justify-content-center rounded-3 flex-shrink-0" style="width:32px;height:32px;background:var(--accent-soft);">
+                                <i class="bi bi-cloud-upload" style="color:var(--accent-soft-text);"></i>
+                            </span>
+                            <span class="flex-grow-1">
+                                <span class="d-block small fw-semibold">Chargement de fichiers</span>
+                                <span class="d-block text-secondary" style="font-size:11.5px;">Paie, grilles, conventions</span>
+                            </span>
+                            <i class="bi bi-chevron-right text-secondary"></i>
+                        </a>
+                        <a href="{% url 'reconciliation:analysis_dashboard' %}" class="d-flex align-items-center gap-3 p-2 rounded-3 text-decoration-none text-body">
+                            <span class="d-inline-flex align-items-center justify-content-center rounded-3 flex-shrink-0" style="width:32px;height:32px;background:var(--blue-soft);">
+                                <i class="bi bi-arrow-left-right" style="color:var(--blue-soft-text);"></i>
+                            </span>
+                            <span class="flex-grow-1">
+                                <span class="d-block small fw-semibold">Rapprochement</span>
+                                <span class="d-block text-secondary" style="font-size:11.5px;">RH vs paie effective</span>
+                            </span>
+                            <i class="bi bi-chevron-right text-secondary"></i>
+                        </a>
+                        <a href="{% url 'auditengine:session_list' %}" class="d-flex align-items-center gap-3 p-2 rounded-3 text-decoration-none text-body">
+                            <span class="d-inline-flex align-items-center justify-content-center rounded-3 flex-shrink-0" style="width:32px;height:32px;background:var(--red-soft);">
+                                <i class="bi bi-search" style="color:var(--red-soft-text);"></i>
+                            </span>
+                            <span class="flex-grow-1">
+                                <span class="d-block small fw-semibold">Détection IA</span>
+                                <span class="d-block text-secondary" style="font-size:11.5px;">Isolation Forest + MLP</span>
+                            </span>
+                            <i class="bi bi-chevron-right text-secondary"></i>
+                        </a>
+                        <a href="{% url 'recommendations:dashboard' %}" class="d-flex align-items-center gap-3 p-2 rounded-3 text-decoration-none text-body">
+                            <span class="d-inline-flex align-items-center justify-content-center rounded-3 flex-shrink-0" style="width:32px;height:32px;background:var(--green-soft);">
+                                <i class="bi bi-tags" style="color:var(--green-soft-text);"></i>
+                            </span>
+                            <span class="flex-grow-1">
+                                <span class="d-block small fw-semibold">Recommandations</span>
+                                <span class="d-block text-secondary" style="font-size:11.5px;">Plans d'action &amp; suivi</span>
+                            </span>
+                            <i class="bi bi-chevron-right text-secondary"></i>
+                        </a>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="modern-card stat-card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-subtitle mb-2 text-muted">Actions Aujourd'hui</h6>
-                            <h2 class="card-title text-warning mb-0" id="actions_today_count">{{ actions_today_count }}</h2>
-                        </div>
-                        <div class="bg-warning bg-opacity-10 rounded-circle p-3">
-                            <i class="bi bi-clock-history fs-3 text-warning"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="modern-card stat-card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-subtitle mb-2 text-muted">Fichiers Importés</h6>
-                            <h2 class="card-title text-info mb-0" id="imported_files_count">{{ imported_files_count }}</h2>
-                        </div>
-                        <div class="bg-info bg-opacity-10 rounded-circle p-3">
-                            <i class="bi bi-file-earmark-text fs-3 text-info"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Activité récente -->
-    <div class="row">
-        <div class="col-12">
-            <div class="modern-card">
-                <div class="card-header bg-white border-0 p-4">
-                    <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                            <h5 class="fw-bold mb-1">Activité Récente</h5>
-                            <p class="text-muted small mb-0">Dernières actions dans le système</p>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <a href="{% url 'uploads:upload_stats' %}" class="btn btn-outline-info btn-modern btn-sm">
-                                <i class="bi bi-graph-up me-2"></i>Statistiques fichiers
-                            </a>
-                            <a href="{% url 'accounts:logs' %}" class="btn btn-outline-primary btn-modern btn-sm">
-                                <i class="bi bi-clock-history me-2"></i>Voir tous les logs
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body p-4">
-                    {% if recent_logs %}
-                        <div class="timeline">
-                            {% for log in recent_logs %}
-                            <div class="d-flex mb-4">
-                                <div class="me-3">
-                                    <div class="p-2 rounded-circle" style="background:
-                                    {% if log.action == 'creation' %}var(--success-color)
-                                    {% elif log.action == 'modification' %}var(--warning-color)
-                                    {% elif log.action == 'suppression' %}var(--danger-color)
-                                    {% elif log.action == 'consultation' %}var(--info-color)
-                                    {% else %}var(--primary-color){% endif %};">
-                                        <i class="bi bi-{% if log.action == 'creation' %}plus-circle{% elif log.action == 'modification' %}pencil-square{% elif log.action == 'suppression' %}trash{% elif log.action == 'consultation' %}eye{% else %}activity{% endif %} text-white"></i>
-                                    </div>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <div class="fw-semibold mb-1">{{ log.action|capfirst }} - {{ log.feature }}</div>
-                                    {% if log.target %}<div class="text-muted small">{{ log.target }}</div>{% endif %}
-                                    <div class="text-muted small">{{ log.timestamp|date:"d/m/Y H:i" }}</div>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="text-center py-4">
-                            <i class="bi bi-clock-history fs-1 text-muted"></i>
-                            <h6 class="text-muted mt-3">Aucune activité récente</h6>
-                        </div>
-                        {% endif %}
                 </div>
             </div>
         </div>
@@ -364,7 +254,7 @@
 
 <script>
 function refreshAdminStats() {
-    fetch('/accounts/api/dashboard_admin_stats/')
+    fetch('{% url "accounts:dashboard_admin_stats_api" %}')
         .then(response => response.json())
         .then(stats => {
             document.getElementById('active_users_count').textContent = stats.active_users_count;
@@ -376,6 +266,5 @@ function refreshAdminStats() {
             showNotification('Erreur lors du rafraîchissement des statistiques', 'danger');
         });
 }
-document.addEventListener('DOMContentLoaded', refreshAdminStats);
 </script>
 {% endblock %}

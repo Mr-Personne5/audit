@@ -12,9 +12,9 @@
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <!-- ✅ Notre CSS personnalisé -->
-    <link href="{% static 'css/auditia.css' %}?v=2.0" rel="stylesheet">
+    <link href="{% static 'css/auditia.css' %}?v=3.0" rel="stylesheet">
 
     {% block extra_head %}{% endblock %}
     {% block extra_css %}{% endblock %}
@@ -22,10 +22,12 @@
 <body>
     <div class="main-layout">
         {% if user.is_authenticated %}
-            {% include 'components/navbar.html' %}
-            <div class="content-wrapper">
-                {% include 'components/alerts.html' %}
-                {% block content %}{% endblock %}
+            <div class="app-shell">
+                {% include 'components/sidebar.html' %}
+                <div class="app-main">
+                    {% include 'components/alerts.html' %}
+                    {% block content %}{% endblock %}
+                </div>
             </div>
         {% else %}
             {% block login_content %}{% endblock %}

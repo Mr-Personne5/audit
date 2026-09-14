@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tableau de bord sécurité - AuditIA{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Tableau de bord sécurité</h1>
+            <p class="text-secondary mb-0">Activité et alertes des {{ days }} derniers jours.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <form method="get" class="d-flex gap-2">
+                <select name="days" class="form-select" onchange="this.form.submit()">
+                    <option value="1" {% if days == 1 %}selected{% endif %}>24 heures</option>
+                    <option value="7" {% if days == 7 %}selected{% endif %}>7 jours</option>
+                    <option value="30" {% if days == 30 %}selected{% endif %}>30 jours</option>
+                    <option value="90" {% if days == 90 %}selected{% endif %}>90 jours</option>
+                </select>
+            </form>
+            <a href="{% url 'auditengine:audit_logs' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-journal-text me-2"></i>Journaux détaillés
+            </a>
+        </div>
+    </div>
+
+    <!-- KPI row -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Actions totales</div>
+                <div class="num fs-3 fw-semibold mt-2">{{ total_actions }}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Actions suspectes</div>
+                <div class="num fs-3 fw-semibold mt-2" style="color:var(--amber-soft-text);">{{ suspicious_actions }}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Erreurs</div>
+                <div class="num fs-3 fw-semibold mt-2" style="color:var(--red-soft-text);">{{ error_actions }}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Accès refusés</div>
+                <div class="num fs-3 fw-semibold mt-2" style="color:var(--red-soft-text);">{{ suspicious_access|length }}</div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Activité par heure</h2></div>
+                <div class="card-body">
+                    <div style="height:260px;"><canvas id="hourlyChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Actions les plus fréquentes</h2></div>
+                <div class="card-body">
+                    {% if actions_by_type %}
+                    <ul class="list-unstyled mb-0">
+                        {% for row in actions_by_type %}
+                        <li class="d-flex justify-content-between align-items-center py-1 {% if not forloop.last %}border-bottom{% endif %}">
+                            <span class="small">{{ row.action }}</span>
+                            <span class="fw-semibold small">{{ row.count }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-secondary small mb-0">Aucune activité sur cette période.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Utilisateurs les plus actifs</h2></div>
+                <div class="card-body">
+                    {% if actions_by_user %}
+                    <ul class="list-unstyled mb-0">
+                        {% for row in actions_by_user %}
+                        <li class="d-flex justify-content-between align-items-center py-1 {% if not forloop.last %}border-bottom{% endif %}">
+                            <span class="small">{{ row.user__username|default:"—" }}</span>
+                            <span class="fw-semibold small">{{ row.count }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-secondary small mb-0">Aucune activité sur cette période.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Tentatives d'accès refusées</h2></div>
+                <div class="card-body p-0">
+                    {% if suspicious_access %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr class="text-secondary small text-uppercase">
+                                    <th>Utilisateur</th>
+                                    <th>Cible</th>
+                                    <th>Horodatage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in suspicious_access %}
+                                <tr>
+                                    <td class="small">{{ log.user.username }}</td>
+                                    <td class="small">{{ log.feature }} / {{ log.target }}</td>
+                                    <td class="small text-secondary">{{ log.timestamp|date:"d/m/Y H:i" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-secondary small mb-0 p-3">Aucun accès refusé sur cette période.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><h2 class="h6 fw-bold mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Alertes de sécurité récentes</h2></div>
+        <div class="card-body p-0">
+            {% if security_alerts %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr class="text-secondary small text-uppercase">
+                            <th>Horodatage</th>
+                            <th>Utilisateur</th>
+                            <th>Action</th>
+                            <th>Fonctionnalité</th>
+                            <th>Sévérité</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in security_alerts %}
+                        <tr>
+                            <td><small>{{ log.timestamp|date:"d/m/Y H:i:s" }}</small></td>
+                            <td>{{ log.user.username }}</td>
+                            <td><span class="badge" style="background:var(--amber-soft); color:var(--amber-soft-text);">{{ log.get_action_display }}</span></td>
+                            <td class="small">{{ log.feature }}</td>
+                            <td>
+                                <span class="badge bg-{% if log.severity == 'critical' or log.severity == 'error' %}danger{% elif log.severity == 'warning' %}warning{% else %}info{% endif %}">
+                                    {{ log.get_severity_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-shield-check fs-1 text-secondary"></i>
+                <h5 class="text-secondary mt-3">Aucune alerte</h5>
+                <p class="text-secondary mb-0">Aucune activité suspecte détectée sur cette période.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const hourlyData = {{ hourly_activity|safe }};
+    const ctx = document.getElementById('hourlyChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: hourlyData.map(d => d.hour + 'h'),
+            datasets: [{
+                label: 'Actions',
+                data: hourlyData.map(d => d.count),
+                backgroundColor: 'rgba(79, 70, 229, 0.5)',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+    });
+});
+</script>
+{% endblock %}

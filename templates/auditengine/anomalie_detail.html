@@ -1,841 +1,204 @@
-{% load custom_filters %}
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AuditIA - Détail Anomalie</title>
+{% extends 'auditengine/base_auditengine.html' %}
+{% load static %}
 
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+{% block title %}Résultat #{{ resultat.pk }} - AuditIA{% endblock %}
 
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+{% block content %}
+<div class="container-fluid px-4 py-4">
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
-    <script>
-        // Test de chargement de Chart.js
-        window.addEventListener('load', function() {
-            if (typeof Chart !== 'undefined') {
-                console.log('✅ Chart.js chargé avec succès');
-                document.getElementById('chart-debug').innerHTML = '<small class="text-success">✅ Chart.js chargé</small>';
-            } else {
-                console.error('❌ Chart.js non chargé');
-                document.getElementById('chart-debug').innerHTML = '<small class="text-danger">❌ Chart.js non chargé</small>';
-            }
-        });
-    </script>
+    <nav aria-label="breadcrumb" class="mb-2">
+        <ol class="breadcrumb mb-0 small">
+            <li class="breadcrumb-item"><a href="{% url 'auditengine:session_list' %}">Détection IA</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'auditengine:session_detail' resultat.session.pk %}">{{ resultat.session.nom_session }}</a></li>
+            <li class="breadcrumb-item active">Résultat #{{ resultat.pk }}</li>
+        </ol>
+    </nav>
 
-    <style>
-        .anomalie-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 2rem 0;
-            margin-bottom: 2rem;
-        }
-
-        .score-card {
-            background: linear-gradient(45deg, #f8f9fa, #e9ecef);
-            border-left: 4px solid #007bff;
-            transition: transform 0.2s;
-        }
-
-        .score-card:hover {
-            transform: translateY(-2px);
-        }
-
-        .anomalie-badge {
-            font-size: 0.9rem;
-            padding: 0.5rem 1rem;
-        }
-
-        .risk-high {
-            background-color: #dc3545;
-            color: white;
-        }
-
-        .risk-medium {
-            background-color: #ffc107;
-            color: #212529;
-        }
-
-        .risk-low {
-            background-color: #28a745;
-            color: white;
-        }
-
-        .explanation-card {
-            background: #f8f9fa;
-            border-left: 4px solid #17a2b8;
-        }
-
-        .timeline {
-            position: relative;
-        }
-
-        .timeline::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 20px;
-            height: 100%;
-            width: 2px;
-            background: #dee2e6;
-        }
-
-        .timeline-item {
-            position: relative;
-            padding-left: 50px;
-            margin-bottom: 1.5rem;
-        }
-
-        .timeline-icon {
-            position: absolute;
-            left: 12px;
-            top: 5px;
-            width: 16px;
-            height: 16px;
-            background: #007bff;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 0.7rem;
-        }
-
-        .data-table {
-            background: white;
-            border-radius: 8px;
-        }
-
-        .chart-container {
-            height: 300px;
-            position: relative;
-        }
-
-        .action-buttons .btn {
-            margin-right: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .info-section {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 1.5rem;
-        }
-    </style>
-</head>
-<body class="bg-light">
-    {% csrf_token %}
-    <!-- Header -->
-    <div class="anomalie-header">
-        <div class="container">
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-3">
-                    <li class="breadcrumb-item"><a href="{% url 'auditengine:session_list' %}" class="text-white-50"><i class="fas fa-home"></i> Accueil</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'auditengine:session_list' %}" class="text-white-50">Audit Engine</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'auditengine:session_detail' resultat.session.pk %}" class="text-white-50">Session {{ resultat.session.nom_session }}</a></li>
-                    <li class="breadcrumb-item active text-white" aria-current="page">Résultat #{{ resultat.pk }}</li>
-                </ol>
-            </nav>
-
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <h1 class="h2 mb-2">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        {% if resultat.est_anomalie %}Anomalie{% else %}Résultat{% endif %} #{{ resultat.pk }}
-                    </h1>
-                    <p class="mb-0 opacity-75">
-                        <i class="fas fa-user me-2"></i>{{ resultat.nom }} {{ resultat.prenom }}
-                        {% if resultat.matricule %}(Matricule: {{ resultat.matricule }}){% endif %}
-                        <span class="ms-3"><i class="fas fa-calendar me-2"></i>Détecté le {{ resultat.session.date_completion|date:"d/m/Y à H:i" }}</span>
-                    </p>
-                </div>
-                <div class="col-md-4 text-end">
-                    <span class="badge anomalie-badge 
-                        {% if resultat.niveau_risque == 'critique' %}risk-high
-                        {% elif resultat.niveau_risque == 'eleve' %}risk-high
-                        {% elif resultat.niveau_risque == 'moyen' %}risk-medium
-                        {% else %}risk-low{% endif %}">
-                        <i class="fas fa-fire me-1"></i>{{ resultat.get_niveau_risque_display|upper }}
-                    </span>
-                </div>
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <h1 class="h3 fw-bold mb-0">{{ resultat.nom }} {{ resultat.prenom }}</h1>
+                <span class="badge bg-{{ resultat.get_couleur_risque }}">{{ resultat.get_niveau_risque_display }}</span>
             </div>
+            <p class="text-secondary mb-0 mt-1">
+                {% if resultat.matricule %}Matricule {{ resultat.matricule }} · {% endif %}
+                {{ resultat.get_type_anomalie_display }}
+                {% if resultat.session.date_completion %} · Détecté le {{ resultat.session.date_completion|date:"d/m/Y à H:i" }}{% endif %}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if can_correct %}
+            <a href="{% url 'auditengine:corriger_anomalie' resultat.pk %}" class="btn btn-primary">
+                <i class="bi bi-pencil-square me-2"></i>Corriger / valider
+            </a>
+            {% endif %}
+            <a href="{% url 'auditengine:session_detail' resultat.session.pk %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Retour à la session
+            </a>
         </div>
     </div>
 
-    <div class="container">
-        <!-- Résumé de l'anomalie -->
-        <div class="info-section p-4 mb-4">
-            <div class="row">
-                <div class="col-md-8">
-                    <h3 class="h4 mb-3">
-                        <i class="fas fa-info-circle text-primary me-2"></i>
-                        Résumé du résultat
-                    </h3>
-                    <div class="row">
-                        <div class="col-sm-6 mb-3">
-                            <strong>Type d'anomalie:</strong><br>
-                            <span class="badge 
-                                {% if resultat.type_anomalie == 'salaire_anormal' %}bg-warning text-dark
-                                {% elif resultat.type_anomalie == 'ghost_employee' %}bg-danger
-                                {% elif resultat.type_anomalie == 'heures_excessives' %}bg-info
-                                {% elif resultat.type_anomalie == 'prime_anormale' %}bg-primary
-                                {% elif resultat.type_anomalie == 'duplicate_rib' %}bg-secondary
-                                {% else %}bg-success{% endif %}">
-                                {{ resultat.get_type_anomalie_display }}
-                            </span>
-                        </div>
-                        <div class="col-sm-6 mb-3">
-                            <strong>Statut:</strong><br>
-                            {% if resultat.valide_par_humain %}
-                                <span class="badge bg-success">Validé</span>
-                            {% elif resultat.est_anomalie %}
-                                <span class="badge bg-warning">Anomalie détectée</span>
-                            {% else %}
-                                <span class="badge bg-info">Normal</span>
-                            {% endif %}
-                        </div>
-                        {% if resultat.salaire_brut %}
-                        <div class="col-sm-6 mb-3">
-                            <strong>Salaire brut:</strong><br>
-                            <span class="fw-bold">{{ resultat.salaire_brut|floatformat:0 }} €</span>
-                        </div>
-                        {% endif %}
-                        {% if resultat.montant_total %}
-                        <div class="col-sm-6 mb-3">
-                            <strong>Montant total:</strong><br>
-                            <span class="fw-bold">{{ resultat.montant_total|floatformat:0 }} €</span>
-                        </div>
-                        {% endif %}
-                        {% if resultat.heures_travaillees %}
-                        <div class="col-sm-6 mb-3">
-                            <strong>Heures travaillées:</strong><br>
-                            <span class="fw-bold">{{ resultat.heures_travaillees }}h</span>
-                        </div>
-                        {% endif %}
-                        {% if resultat.montant_primes %}
-                        <div class="col-sm-6 mb-3">
-                            <strong>Montant primes:</strong><br>
-                            <span class="fw-bold">{{ resultat.montant_primes|floatformat:0 }} €</span>
-                        </div>
-                        {% endif %}
-                        {% if resultat.est_anomalie %}
-                        <div class="col-sm-6 mb-3">
-                            <strong>Score d'anomalie IF:</strong><br>
-                            <span class="text-danger fw-bold">{{ resultat.score_anomalie_if|floatformat:3 }}</span>
-                        </div>
-                        {% endif %}
-                        {% if resultat.score_classification_mlp %}
-                        <div class="col-sm-6 mb-3">
-                            <strong>Score MLP:</strong><br>
-                            <span class="text-warning fw-bold">{{ resultat.score_classification_mlp|floatformat:3 }}</span>
-                        </div>
-                        {% endif %}
-                        {% if resultat.est_fausse_alerte %}
-                        <div class="col-sm-6 mb-3">
-                            <strong>Fausse alerte:</strong><br>
-                            <span class="badge bg-warning text-dark">
-                                <i class="fas fa-exclamation-triangle me-1"></i>Marquée comme fausse alerte
-                            </span>
-                        </div>
-                        {% endif %}
-                        {% if resultat.valide_par %}
-                        <div class="col-sm-6 mb-3">
-                            <strong>Validé par:</strong><br>
-                            <span class="text-success fw-bold">{{ resultat.valide_par.get_full_name|default:resultat.valide_par.username }}</span>
-                            {% if resultat.date_validation %}
-                            <br><small class="text-muted">{{ resultat.date_validation|date:"d/m/Y H:i" }}</small>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <h5>Données employé</h5>
-                    <table class="table table-sm">
-                        <tr><td><strong>Nom:</strong></td><td>{{ resultat.nom }} {{ resultat.prenom }}</td></tr>
-                        {% if resultat.matricule %}
-                        <tr><td><strong>Matricule:</strong></td><td>{{ resultat.matricule }}</td></tr>
-                        {% endif %}
-                        {% if resultat.poste %}
-                        <tr><td><strong>Poste:</strong></td><td>{{ resultat.poste }}</td></tr>
-                        {% endif %}
-                        {% if resultat.rib %}
-                        <tr><td><strong>RIB:</strong></td><td>{{ resultat.rib }}</td></tr>
-                        {% endif %}
-                        <tr><td><strong>Ligne fichier:</strong></td><td>{{ resultat.ligne_fichier }}</td></tr>
-                        <tr><td><strong>Session:</strong></td><td>{{ resultat.session.nom_session }}</td></tr>
-                    </table>
-                </div>
-            </div>
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Score Isolation Forest</div>
+                <div class="num fs-3 fw-semibold mt-2">{% if resultat.score_anomalie_if is not None %}{% widthratio resultat.score_anomalie_if 1 100 %}%{% else %}—{% endif %}</div>
+            </div></div>
         </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Score classification MLP</div>
+                <div class="num fs-3 fw-semibold mt-2">{% if resultat.score_classification_mlp is not None %}{% widthratio resultat.score_classification_mlp 1 100 %}%{% else %}—{% endif %}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Statut</div>
+                <div class="mt-2">
+                    {% if resultat.valide_par_humain %}
+                        <span class="badge" style="background:var(--green-soft); color:var(--green-soft-text);">Validé</span>
+                    {% elif resultat.est_anomalie %}
+                        <span class="badge" style="background:var(--amber-soft); color:var(--amber-soft-text);">Anomalie détectée</span>
+                    {% else %}
+                        <span class="badge" style="background:var(--blue-soft); color:var(--blue-soft-text);">Normal</span>
+                    {% endif %}
+                </div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Fausse alerte</div>
+                <div class="mt-2">
+                    {% if resultat.est_fausse_alerte %}
+                        <span class="badge" style="background:var(--amber-soft); color:var(--amber-soft-text);">Oui</span>
+                    {% else %}
+                        <span class="text-secondary">Non</span>
+                    {% endif %}
+                </div>
+            </div></div>
+        </div>
+    </div>
 
-        <!-- Scores IA -->
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="info-section p-4">
-                    <h4 class="h5 mb-3">
-                        <i class="fas fa-brain text-info me-2"></i>
-                        Scores des modèles IA
-                    </h4>
+    <div class="row g-3 mb-4">
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Données analysées</h2></div>
+                <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-6">
-                            <div class="score-card p-4 rounded">
-                                <h6 class="text-muted mb-2 fw-bold">Isolation Forest</h6>
-                                <div class="h2 text-danger mb-2">
-                                    {% if resultat.score_anomalie_if is not None %}
-                                        {% widthratio resultat.score_anomalie_if 1 100 %}%
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </div>
-                                <div class="small text-muted">
-                                    Anomalie détectée
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="score-card p-4 rounded">
-                                <h6 class="text-muted mb-2 fw-bold">Classification MLP</h6>
-                                <div class="h2 text-warning mb-2">
-                                    {% if resultat.score_classification_mlp is not None %}
-                                        {% widthratio resultat.score_classification_mlp 1 100 %}%
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </div>
-                                <div class="small text-muted">
-                                    Confiance élevée
-                                </div>
-                            </div>
-                        </div>
+                        <div class="col-sm-6"><div class="text-secondary small">Nom complet</div><div class="fw-semibold">{{ resultat.nom }} {{ resultat.prenom }}</div></div>
+                        {% if resultat.matricule %}<div class="col-sm-6"><div class="text-secondary small">Matricule</div><div class="fw-semibold">{{ resultat.matricule }}</div></div>{% endif %}
+                        {% if resultat.poste %}<div class="col-sm-6"><div class="text-secondary small">Poste</div><div class="fw-semibold">{{ resultat.poste }}</div></div>{% endif %}
+                        {% if resultat.rib %}<div class="col-sm-6"><div class="text-secondary small">RIB</div><div class="fw-semibold">{{ resultat.rib }}</div></div>{% endif %}
+                        {% if resultat.salaire_brut %}<div class="col-sm-6"><div class="text-secondary small">Salaire brut</div><div class="fw-semibold">{{ resultat.salaire_brut|floatformat:0 }} €</div></div>{% endif %}
+                        {% if resultat.montant_total %}<div class="col-sm-6"><div class="text-secondary small">Montant total</div><div class="fw-semibold">{{ resultat.montant_total|floatformat:0 }} €</div></div>{% endif %}
+                        {% if resultat.heures_travaillees %}<div class="col-sm-6"><div class="text-secondary small">Heures travaillées</div><div class="fw-semibold">{{ resultat.heures_travaillees }} h</div></div>{% endif %}
+                        {% if resultat.montant_primes %}<div class="col-sm-6"><div class="text-secondary small">Montant primes</div><div class="fw-semibold">{{ resultat.montant_primes|floatformat:0 }} €</div></div>{% endif %}
+                        <div class="col-sm-6"><div class="text-secondary small">Ligne fichier</div><div class="fw-semibold">{{ resultat.ligne_fichier }}</div></div>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="info-section p-4">
-                    <h4 class="h5 mb-3">
-                        <i class="fas fa-chart-line text-success me-2"></i>
-                        Visualisation des scores
-                    </h4>
-                    <div class="chart-container">
-                        <canvas id="scoresChart" width="400" height="300"></canvas>
-                        <div id="chart-fallback" class="d-none">
-                            <div class="alert alert-info text-center">
-                                <i class="fas fa-chart-line fa-3x mb-3"></i>
-                                <h6>Visualisation des scores</h6>
-                                <p class="mb-0">Graphique en cours de chargement...</p>
-                            </div>
-                        </div>
-                        <div id="chart-debug" class="mt-2">
-                            <small class="text-muted">Debug: Canvas initialisé</small>
-                        </div>
+                    {% if resultat.valide_par %}
+                    <hr>
+                    <div class="text-secondary small">
+                        Validé par <strong>{{ resultat.valide_par.get_full_name|default:resultat.valide_par.username }}</strong>
+                        {% if resultat.date_validation %} le {{ resultat.date_validation|date:"d/m/Y H:i" }}{% endif %}
                     </div>
-                    <div class="mt-4">
-                        <div class="row text-center">
-                            <div class="col-4">
-                                <div class="mb-2">
-                                    <small class="text-muted fw-bold">Score IF</small>
-                                </div>
-                                <div class="h6 mb-0">
-                                    {% widthratio resultat.score_anomalie_if 1 100 %}%
-                                </div>
-                            </div>
-                            <div class="col-4">
-                                <div class="mb-2">
-                                    <small class="text-muted fw-bold">Score MLP</small>
-                                </div>
-                                <div class="h6 mb-0">
-                                    {% widthratio resultat.score_classification_mlp 1 100 %}%
-                                </div>
-                            </div>
-                            <div class="col-4">
-                                <div class="mb-2">
-                                    <small class="text-muted fw-bold">Fiabilité</small>
-                                </div>
-                                <div class="h6 mb-0">
-                                    <span id="fiabilite-score">-</span>%
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
-
-        <!-- Explications IA -->
-        <div class="info-section p-4 mb-4">
-            <h4 class="h5 mb-3">
-                <i class="fas fa-lightbulb text-warning me-2"></i>
-                Explications des modèles IA
-            </h4>
-
-            <div class="row g-4">
-                <div class="col-md-6">
-                    <div class="explanation-card p-4 rounded">
-                        <div class="mb-3">
-                            <h6 class="fw-bold mb-0">
-                                <i class="fas fa-search me-2"></i>
-                                Isolation Forest (Détection)
-                            </h6>
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Confiance des modèles</h2></div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-secondary">Isolation Forest</span>
+                            <span class="fw-semibold">{% if resultat.score_anomalie_if is not None %}{% widthratio resultat.score_anomalie_if 1 100 %}%{% else %}—{% endif %}</span>
                         </div>
-                        <div class="mb-3">
-                            <p class="mb-0">
-                                {% if resultat.explication_if %}
-                                    {{ resultat.explication_if }}
-                                {% else %}
-                                    Analyse automatique par le modèle Isolation Forest.
-                                {% endif %}
-                            </p>
+                        <div class="progress" style="height:6px;">
+                            <div class="progress-bar bg-danger" style="width:{% if resultat.score_anomalie_if %}{% widthratio resultat.score_anomalie_if 1 100 %}{% else %}0{% endif %}%"></div>
                         </div>
-                        <ul class="list-unstyled mb-0">
-                            <li class="mb-2"><i class="fas fa-arrow-right text-danger me-2"></i>Score d'anomalie: {{ resultat.score_anomalie_if|floatformat:3 }}</li>
-                            <li class="mb-2"><i class="fas fa-arrow-right text-info me-2"></i>Anomalie détectée: {% if resultat.est_anomalie %}Oui{% else %}Non{% endif %}</li>
-                            <li class="mb-2"><i class="fas fa-arrow-right text-warning me-2"></i>Niveau de risque: {{ resultat.get_niveau_risque_display }}</li>
-                            {% if resultat.est_fausse_alerte %}
-                            <li class="mb-2"><i class="fas fa-arrow-right text-warning me-2"></i>Fausse alerte: Oui</li>
-                            {% endif %}
-                        </ul>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="explanation-card p-4 rounded">
-                        <div class="mb-3">
-                            <h6 class="fw-bold mb-0">
-                                <i class="fas fa-tags me-2"></i>
-                                Classification MLP (Typologie)
-                            </h6>
+                    <div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-secondary">Classification MLP</span>
+                            <span class="fw-semibold">{% if resultat.score_classification_mlp is not None %}{% widthratio resultat.score_classification_mlp 1 100 %}%{% else %}—{% endif %}</span>
                         </div>
-                        <div class="mb-3">
-                            <p class="mb-0">
-                                {% if resultat.explication_mlp %}
-                                    {{ resultat.explication_mlp }}
-                                {% else %}
-                                    Classification automatique par le modèle MLP.
-                                {% endif %}
-                            </p>
-                        </div>
-                        <ul class="list-unstyled mb-0">
-                            <li class="mb-2"><i class="fas fa-percentage text-info me-2"></i>Score MLP: {{ resultat.score_classification_mlp|floatformat:3 }}</li>
-                            <li class="mb-2"><i class="fas fa-tag text-primary me-2"></i>Type: {{ resultat.get_type_anomalie_display }}</li>
-                            {% if resultat.recommandation_auto %}
-                            <li class="mb-2"><i class="fas fa-lightbulb text-warning me-2"></i>Recommandation: {{ resultat.recommandation_auto|truncatechars:50 }}</li>
-                            {% endif %}
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Recommandations automatiques -->
-        <div class="info-section p-4 mb-4">
-            <h4 class="h5 mb-3">
-                <i class="fas fa-robot text-primary me-2"></i>
-                Recommandations automatiques
-            </h4>
-            {% if resultat.recommandation_auto %}
-            <div class="alert alert-warning" role="alert">
-                <h6 class="alert-heading">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Recommandation IA
-                </h6>
-                <p class="mb-2">
-                    {{ resultat.recommandation_auto }}
-                </p>
-                {% if resultat.commentaire_utilisateur %}
-                <hr>
-                <h6 class="alert-heading">
-                    <i class="fas fa-user me-2"></i>
-                    Commentaire utilisateur
-                </h6>
-                <p class="mb-0">
-                    {{ resultat.commentaire_utilisateur }}
-                </p>
-                {% endif %}
-            </div>
-            {% else %}
-            <div class="alert alert-info" role="alert">
-                <h6 class="alert-heading">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Aucune recommandation automatique
-                </h6>
-                <p class="mb-0">
-                    Aucune recommandation automatique n'a été générée pour ce résultat.
-                </p>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Critères de détection -->
-        <div class="info-section p-4 mb-4">
-            <h4 class="h5 mb-3">
-                <i class="fas fa-cogs text-secondary me-2"></i>
-                Critères de détection
-            </h4>
-            <div class="row">
-                <div class="col-md-6">
-                    <h6 class="text-muted">Seuils appliqués</h6>
-                    <ul class="list-unstyled">
-                        {% if resultat.type_anomalie == 'salaire_anormal' %}
-                            <li><i class="fas fa-check text-success me-2"></i>Salaire > 2 écarts-types de la moyenne</li>
-                        {% elif resultat.type_anomalie == 'ghost_employee' %}
-                            <li><i class="fas fa-check text-success me-2"></i>Nom/prénom ≤ 2 caractères ou invalide</li>
-                        {% elif resultat.type_anomalie == 'heures_excessives' %}
-                            <li><i class="fas fa-check text-success me-2"></i>Heures > 250h/mois</li>
-                        {% elif resultat.type_anomalie == 'prime_anormale' %}
-                            <li><i class="fas fa-check text-success me-2"></i>Prime > 50% du salaire brut</li>
-                        {% elif resultat.type_anomalie == 'duplicate_rib' %}
-                            <li><i class="fas fa-check text-success me-2"></i>RIB apparaît ≥ 2 fois</li>
-                        {% endif %}
-                    </ul>
-                </div>
-                <div class="col-md-6">
-                    <h6 class="text-muted">Scores de confiance</h6>
-                    <ul class="list-unstyled">
-                        <li><i class="fas fa-brain text-info me-2"></i>IF: {{ resultat.score_anomalie_if|floatformat:3 }}</li>
-                        <li><i class="fas fa-network-wired text-warning me-2"></i>MLP: {{ resultat.score_classification_mlp|floatformat:3 }}</li>
-                        <li><i class="fas fa-shield-alt text-success me-2"></i>Seuil minimum: 0.5</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <!-- Historique des corrections -->
-        <div class="info-section p-4 mb-4">
-            <h4 class="h5 mb-3">
-                <i class="fas fa-history text-secondary me-2"></i>
-                Historique des corrections
-            </h4>
-
-            <div class="timeline">
-                <div class="timeline-item">
-                    <div class="timeline-icon">
-                        <i class="fas fa-robot"></i>
-                    </div>
-                    <div class="card">
-                        <div class="card-body">
-                            <h6 class="card-title mb-1">
-                                Détection automatique
-                                <small class="text-muted">{{ resultat.session.date_completion|date:"d/m/Y H:i" }}</small>
-                            </h6>
-                            <p class="card-text mb-0">
-                                {% if resultat.est_anomalie %}Anomalie{% else %}Résultat{% endif %} détecté par le système IA lors de l'analyse de la session {{ resultat.session.nom_session }}.
-                                Score IF: {{ resultat.score_anomalie_if|floatformat:3 }}, Type: {{ resultat.get_type_anomalie_display }}
-                            </p>
+                        <div class="progress" style="height:6px;">
+                            <div class="progress-bar bg-warning" style="width:{% if resultat.score_classification_mlp %}{% widthratio resultat.score_classification_mlp 1 100 %}{% else %}0{% endif %}%"></div>
                         </div>
                     </div>
                 </div>
-
-                {% for correction in corrections %}
-                <div class="timeline-item">
-                    <div class="timeline-icon bg-info">
-                        <i class="fas fa-edit"></i>
-                    </div>
-                    <div class="card">
-                        <div class="card-body">
-                            <h6 class="card-title mb-1">
-                                Correction par {{ correction.utilisateur.get_full_name|default:correction.utilisateur.username }}
-                                <small class="text-muted">{{ correction.date_correction|date:"d/m/Y H:i" }}</small>
-                            </h6>
-                            <p class="card-text mb-0">
-                                Type: {{ correction.get_type_correction_display }}, 
-                                Confiance: {{ correction.confiance_utilisateur }}/10
-                                {% if correction.justification %}<br>Justification: {{ correction.justification }}{% endif %}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {% if not corrections %}
-            <div class="text-center text-muted mt-3">
-                <i class="fas fa-clock me-2"></i>
-                Aucune correction n'a encore été apportée à cette anomalie
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Actions disponibles -->
-        <div class="info-section p-4 mb-4">
-            <h4 class="h5 mb-3">
-                <i class="fas fa-tools text-success me-2"></i>
-                Actions disponibles
-            </h4>
-
-            <div class="action-buttons">
-                {% if can_correct %}
-                <a href="{% url 'auditengine:corriger_anomalie' resultat.pk %}" class="btn btn-warning">
-                    <i class="fas fa-edit me-2"></i>
-                    Corriger/Modifier
-                </a>
-                {% endif %}
-                
-                {% if not resultat.valide_par_humain %}
-                <button type="button" class="btn btn-success" onclick="validerResultat({{ resultat.pk }})">
-                    <i class="fas fa-check me-2"></i>
-                    Valider
-                </button>
-                {% else %}
-                <span class="btn btn-outline-success" title="Déjà validé">
-                    <i class="fas fa-check-lg me-2"></i>
-                    Validé
-                </span>
-                {% endif %}
-
-                {% if resultat.est_fausse_alerte %}
-                <span class="btn btn-outline-warning" title="Marquée comme fausse alerte">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Fausse alerte
-                </span>
-                {% endif %}
-                
-                <a href="{% url 'auditengine:session_detail' resultat.session.pk %}" class="btn btn-info">
-                    <i class="fas fa-arrow-left me-2"></i>
-                    Retour à la session
-                </a>
-                
-                <button type="button" class="btn btn-secondary" onclick="addComment()">
-                    <i class="fas fa-comment me-2"></i>
-                    Ajouter un commentaire
-                </button>
-            </div>
-        </div>
-
-        <!-- Navigation -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <button type="button" class="btn btn-outline-secondary" onclick="history.back()">
-                <i class="fas fa-arrow-left me-2"></i>
-                Retour à la session
-            </button>
-
-            <div>
-                <button type="button" class="btn btn-outline-primary me-2">
-                    <i class="fas fa-chevron-left me-1"></i>
-                    Anomalie précédente
-                </button>
-                <button type="button" class="btn btn-outline-primary">
-                    Anomalie suivante
-                    <i class="fas fa-chevron-right ms-1"></i>
-                </button>
             </div>
         </div>
     </div>
 
-    <!-- Bootstrap 5 JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0"><i class="bi bi-search me-2"></i>Explication Isolation Forest</h2></div>
+                <div class="card-body">
+                    <p class="mb-0">{{ resultat.explication_if|default:"Analyse automatique par le modèle Isolation Forest." }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0"><i class="bi bi-tags me-2"></i>Explication classification MLP</h2></div>
+                <div class="card-body">
+                    <p class="mb-0">{{ resultat.explication_mlp|default:"Classification automatique par le modèle MLP." }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <script>
-        // Graphique des scores IA - Version simplifiée et robuste
-        window.addEventListener('load', function() {
-            console.log('Page chargée, initialisation du graphique...');
-            
-            // Attendre un peu que tout soit prêt
-            setTimeout(function() {
-                initChart();
-            }, 100);
-        });
-        
-        function initChart() {
-            console.log('Initialisation du graphique...');
-            
-            // Vérifier que Chart.js est chargé
-            if (typeof Chart === 'undefined') {
-                console.error('Chart.js non chargé');
-                showFallback();
-                return;
-            }
-            
-            console.log('Chart.js disponible');
-            
-            // Récupérer le canvas
-            const canvas = document.getElementById('scoresChart');
-            if (!canvas) {
-                console.error('Canvas scoresChart non trouvé');
-                return;
-            }
-            
-            console.log('Canvas trouvé:', canvas);
-            
-            // Données hardcodées pour test
-            const scoreIF = 85.0;
-            const scoreMLP = 78.0;
-            const scoreRisque = 80;
-            const fiabilite = Math.round((scoreIF + scoreMLP) / 2);
-            const validation = 0;
-            
-            console.log('Données du graphique:', [scoreIF, scoreMLP, scoreRisque, fiabilite, validation]);
-            
-            try {
-                // Créer le graphique avec des options simplifiées
-                const ctx = canvas.getContext('2d');
-                const scoresChart = new Chart(ctx, {
-                    type: 'radar',
-                    data: {
-                        labels: ['Score IF', 'Confiance MLP', 'Niveau Risque', 'Fiabilité', 'Validation'],
-                        datasets: [{
-                            label: 'Scores du résultat',
-                            data: [scoreIF, scoreMLP, scoreRisque, fiabilite, validation],
-                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                            borderColor: 'rgba(255, 99, 132, 1)',
-                            borderWidth: 2,
-                            pointBackgroundColor: 'rgba(255, 99, 132, 1)',
-                            pointBorderColor: '#fff',
-                            pointHoverBackgroundColor: '#fff',
-                            pointHoverBorderColor: 'rgba(255, 99, 132, 1)'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        },
-                        scales: {
-                            r: {
-                                beginAtZero: true,
-                                max: 100,
-                                ticks: {
-                                    stepSize: 20
-                                }
-                            }
-                        }
-                    }
-                });
-                
-                console.log('Graphique créé avec succès:', scoresChart);
-                
-                // Mettre à jour l'affichage du score de fiabilité
-                const fiabiliteElement = document.getElementById('fiabilite-score');
-                if (fiabiliteElement) {
-                    fiabiliteElement.textContent = fiabilite;
-                    console.log('Score de fiabilité mis à jour:', fiabilite);
-                }
-                
-                // Mettre à jour le debug
-                const debugElement = document.getElementById('chart-debug');
-                if (debugElement) {
-                    debugElement.innerHTML = '<small class="text-muted">Graphique radar des scores IA</small>';
-                }
-                
-            } catch (error) {
-                console.error('Erreur lors de la création du graphique:', error);
-                showFallback();
-            }
-        }
-        
-        function showFallback() {
-            const canvas = document.getElementById('scoresChart');
-            const fallback = document.getElementById('chart-fallback');
-            const debugElement = document.getElementById('chart-debug');
-            
-            if (canvas) canvas.style.display = 'none';
-            if (fallback) fallback.classList.remove('d-none');
-            if (debugElement) {
-                debugElement.innerHTML = '<small class="text-danger">❌ Erreur: Graphique non disponible</small>';
-            }
-        }
+    {% if resultat.recommandation_auto or resultat.commentaire_utilisateur %}
+    <div class="card mb-4">
+        <div class="card-header"><h2 class="h6 fw-bold mb-0"><i class="bi bi-lightbulb me-2"></i>Recommandation automatique</h2></div>
+        <div class="card-body">
+            {% if resultat.recommandation_auto %}<p class="mb-2">{{ resultat.recommandation_auto }}</p>{% endif %}
+            {% if resultat.commentaire_utilisateur %}
+            <hr>
+            <div class="text-secondary small fw-semibold mb-1">Commentaire utilisateur</div>
+            <p class="mb-0">{{ resultat.commentaire_utilisateur }}</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 
-        // Fonction pour valider un résultat
-        function validerResultat(resultatId) {
-            if (confirm('Êtes-vous sûr de vouloir marquer ce résultat comme validé ?')) {
-                // Récupérer le token CSRF
-                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
-                                 document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
-                
-                fetch(`/auditengine/resultats/${resultatId}/valider/`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken,
-                        'Content-Type': 'application/json',
-                    },
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Afficher une notification de succès
-                        showNotification('✅ Résultat validé avec succès !', 'success');
-                        setTimeout(() => location.reload(), 1500);
-                    } else {
-                        showNotification('❌ Erreur lors de la validation: ' + (data.error || 'Erreur inconnue'), 'danger');
-                    }
-                })
-                .catch(error => {
-                    console.error('Erreur:', error);
-                    showNotification('❌ Erreur lors de la validation', 'danger');
-                });
-            }
-        }
+    <div class="card">
+        <div class="card-header"><h2 class="h6 fw-bold mb-0"><i class="bi bi-clock-history me-2"></i>Historique des corrections</h2></div>
+        <div class="card-body">
+            <ul class="list-unstyled mb-0">
+                <li class="d-flex gap-3 pb-3 {% if corrections %}border-bottom mb-3{% endif %}">
+                    <div><i class="bi bi-robot fs-5 text-secondary"></i></div>
+                    <div>
+                        <div class="fw-semibold small">Détection automatique
+                            <span class="text-secondary fw-normal">— {{ resultat.session.date_completion|date:"d/m/Y H:i" }}</span>
+                        </div>
+                        <div class="text-secondary small">
+                            {% if resultat.est_anomalie %}Anomalie{% else %}Résultat{% endif %} détecté lors de l'analyse de la session {{ resultat.session.nom_session }}.
+                        </div>
+                    </div>
+                </li>
+                {% for correction in corrections %}
+                <li class="d-flex gap-3 {% if not forloop.last %}pb-3 border-bottom mb-3{% endif %}">
+                    <div><i class="bi bi-pencil-square fs-5 text-secondary"></i></div>
+                    <div>
+                        <div class="fw-semibold small">{{ correction.utilisateur.get_full_name|default:correction.utilisateur.username }}
+                            <span class="text-secondary fw-normal">— {{ correction.date_correction|date:"d/m/Y H:i" }}</span>
+                        </div>
+                        <div class="text-secondary small">
+                            {{ correction.get_type_correction_display }} · Confiance {{ correction.confiance_utilisateur }}/10
+                            {% if correction.justification %}<br>{{ correction.justification }}{% endif %}
+                        </div>
+                    </div>
+                </li>
+                {% empty %}
+                <li class="text-secondary small">Aucune correction n'a encore été apportée à ce résultat.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
 
-        // Fonction pour afficher des notifications
-        function showNotification(message, type = 'info') {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-            alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
-            alertDiv.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            document.body.appendChild(alertDiv);
-            
-            // Auto-dismiss après 5 secondes
-            setTimeout(() => {
-                if (alertDiv.parentNode) {
-                    alertDiv.remove();
-                }
-            }, 5000);
-        }
-
-        // Fonctions d'actions
-        function markAsFalseAlert() {
-            if (confirm('Êtes-vous sûr de vouloir marquer cette anomalie comme fausse alerte ?')) {
-                // Logique de marquage comme fausse alerte
-                alert('Anomalie marquée comme fausse alerte');
-            }
-        }
-
-        function assignToUser() {
-            const user = prompt('Nom de l\'utilisateur à assigner :');
-            if (user) {
-                alert(`Anomalie assignée à ${user}`);
-            }
-        }
-
-        function exportDetails() {
-            // Logique d'export
-            alert('Export des détails en cours...');
-        }
-
-        function addComment() {
-            const comment = prompt('Votre commentaire :');
-            if (comment) {
-                // Logique d'ajout de commentaire
-                alert('Commentaire ajouté avec succès');
-            }
-        }
-
-        // Animation d'entrée
-        document.addEventListener('DOMContentLoaded', function() {
-            const cards = document.querySelectorAll('.info-section');
-            cards.forEach((card, index) => {
-                card.style.opacity = '0';
-                card.style.transform = 'translateY(20px)';
-                setTimeout(() => {
-                    card.style.transition = 'all 0.5s ease';
-                    card.style.opacity = '1';
-                    card.style.transform = 'translateY(0)';
-                }, index * 100);
-            });
-        });
-    </script>
-</body>
-</html>
+</div>
+{% endblock %}

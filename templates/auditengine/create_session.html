@@ -4,180 +4,120 @@
 {% block title %}Nouvelle analyse IA - AuditIA{% endblock %}
 
 {% block content %}
-<div class="auditengine-header">
-    <div class="container">
-        <div class="row align-items-center">
-            <div class="col-md-8">
-                <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb text-white-50 mb-2">
-                        <li class="breadcrumb-item">
-                            <a href="{% url 'auditengine:session_list' %}" class="text-white-50">
-                                Audit IA
-                            </a>
-                        </li>
-                        <li class="breadcrumb-item active text-white">Nouvelle analyse</li>
-                    </ol>
-                </nav>
-                <h1><i class="bi bi-cpu"></i> Créer une analyse IA</h1>
-                <p class="mb-0">Configurez une nouvelle session d'audit par intelligence artificielle</p>
-            </div>
-            <div class="col-md-4 text-end">
-                <span class="ai-badge">
-                    <i class="bi bi-lightning-fill"></i> Powered by AI
-                </span>
-            </div>
+<div class="container-fluid px-4 py-4">
+
+    <nav aria-label="breadcrumb" class="mb-2">
+        <ol class="breadcrumb mb-0 small">
+            <li class="breadcrumb-item"><a href="{% url 'auditengine:session_list' %}">Détection IA</a></li>
+            <li class="breadcrumb-item active">Nouvelle analyse</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Créer une analyse IA</h1>
+            <p class="text-secondary mb-0">Configurez une nouvelle session d'audit par intelligence artificielle.</p>
         </div>
     </div>
-</div>
 
-<div class="container">
-    <div class="row">
+    <div class="row g-3">
         <div class="col-lg-8">
             <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-gear"></i> Configuration de l'analyse</h5>
-                </div>
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Configuration de l'analyse</h2></div>
                 <div class="card-body">
                     <form method="post" id="session-form">
                         {% csrf_token %}
 
-                        <!-- Informations générales -->
+                        <h6 class="text-secondary small text-uppercase fw-semibold mb-3">Informations générales</h6>
                         <div class="row mb-4">
-                            <div class="col-12">
-                                <h6 class="text-muted border-bottom pb-2">
-                                    <i class="bi bi-info-circle"></i> Informations générales
-                                </h6>
-                            </div>
                             <div class="col-md-8">
                                 <div class="mb-3">
                                     {{ form.nom_session.label_tag }}
                                     {{ form.nom_session }}
-                                    {% if form.nom_session.errors %}
-                                        <div class="invalid-feedback d-block">
-                                            {{ form.nom_session.errors.0 }}
-                                        </div>
-                                    {% endif %}
-                                    <div class="form-text">
-                                        Nom distinctif pour identifier cette analyse IA
-                                    </div>
+                                    {% if form.nom_session.errors %}<div class="invalid-feedback d-block">{{ form.nom_session.errors.0 }}</div>{% endif %}
+                                    <div class="form-text">Nom distinctif pour identifier cette analyse IA.</div>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     {{ form.mission.label_tag }}
                                     {{ form.mission }}
-                                    {% if form.mission.errors %}
-                                        <div class="invalid-feedback d-block">
-                                            {{ form.mission.errors.0 }}
-                                        </div>
-                                    {% endif %}
+                                    {% if form.mission.errors %}<div class="invalid-feedback d-block">{{ form.mission.errors.0 }}</div>{% endif %}
                                 </div>
                             </div>
                             <div class="col-12">
                                 <div class="mb-3">
                                     {{ form.description.label_tag }}
                                     {{ form.description }}
-                                    {% if form.description.errors %}
-                                        <div class="invalid-feedback d-block">
-                                            {{ form.description.errors.0 }}
-                                        </div>
-                                    {% endif %}
-                                    <div class="form-text">
-                                        Description optionnelle pour contextualiser l'analyse
-                                    </div>
+                                    {% if form.description.errors %}<div class="invalid-feedback d-block">{{ form.description.errors.0 }}</div>{% endif %}
+                                    <div class="form-text">Description optionnelle pour contextualiser l'analyse.</div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Sélection du fichier -->
+                        <h6 class="text-secondary small text-uppercase fw-semibold mb-3">Fichier à analyser</h6>
                         <div class="row mb-4">
-                            <div class="col-12">
-                                <h6 class="text-muted border-bottom pb-2">
-                                    <i class="bi bi-file-earmark-spreadsheet"></i> Fichier à analyser
-                                </h6>
-                            </div>
                             <div class="col-12">
                                 <div class="mb-3">
                                     {{ form.fichier_paie.label_tag }}
                                     {{ form.fichier_paie }}
-                                    {% if form.fichier_paie.errors %}
-                                        <div class="invalid-feedback d-block">
-                                            {{ form.fichier_paie.errors.0 }}
-                                        </div>
-                                    {% endif %}
-                                    <div class="form-text">
-                                        <i class="bi bi-info-circle"></i>
-                                        Fichier de paie contenant les données employés à analyser
-                                    </div>
+                                    {% if form.fichier_paie.errors %}<div class="invalid-feedback d-block">{{ form.fichier_paie.errors.0 }}</div>{% endif %}
+                                    <div class="form-text">Fichier de paie contenant les données employés à analyser.</div>
                                 </div>
 
-                                <!-- Aperçu du fichier sélectionné -->
                                 <div id="file-preview" class="d-none">
                                     <div class="alert alert-info">
-                                        <h6><i class="bi bi-file-earmark-check"></i> Fichier sélectionné</h6>
+                                        <div class="fw-semibold mb-1"><i class="bi bi-file-earmark-check me-1"></i>Fichier sélectionné</div>
                                         <div id="file-info" class="small"></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Modèles IA utilisés -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <h6 class="text-muted border-bottom pb-2">
-                                    <i class="bi bi-cpu"></i> Modèles d'intelligence artificielle
-                                </h6>
-                                <div class="alert alert-primary">
-                                    <h6><i class="bi bi-lightbulb"></i> Pipeline d'analyse automatique</h6>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="d-flex align-items-center mb-2">
-                                                <div class="ai-badge me-3">IF</div>
-                                                <div>
-                                                    <strong>Isolation Forest</strong>
-                                                    <br><small class="text-muted">Détection d'anomalies non supervisée</small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="d-flex align-items-center mb-2">
-                                                <div class="ai-badge me-3">MLP</div>
-                                                <div>
-                                                    <strong>Multi-Layer Perceptron</strong>
-                                                    <br><small class="text-muted">Classification supervisée des anomalies</small>
-                                                </div>
-                                            </div>
+                        <h6 class="text-secondary small text-uppercase fw-semibold mb-3">Pipeline d'analyse</h6>
+                        <div class="alert alert-primary mb-4">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <span class="badge me-3" style="background:var(--accent-soft); color:var(--accent-soft-text);">IF</span>
+                                        <div>
+                                            <strong>Isolation Forest</strong>
+                                            <br><small class="text-secondary">Détection d'anomalies non supervisée</small>
                                         </div>
                                     </div>
-                                    <hr>
-                                    <div class="small">
-                                        <strong>Types d'anomalies détectables :</strong>
-                                        <span class="badge bg-danger ms-2">Salaires anormaux</span>
-                                        <span class="badge bg-warning ms-1">Employés fantômes</span>
-                                        <span class="badge bg-info ms-1">Primes anormales</span>
-                                        <span class="badge bg-secondary ms-1">Heures excessives</span>
-                                        <span class="badge bg-dark ms-1">RIB dupliqués</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <span class="badge me-3" style="background:var(--accent-soft); color:var(--accent-soft-text);">MLP</span>
+                                        <div>
+                                            <strong>Multi-Layer Perceptron</strong>
+                                            <br><small class="text-secondary">Classification supervisée des anomalies</small>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                            <hr>
+                            <div class="small">
+                                <strong>Types d'anomalies détectables :</strong>
+                                <span class="badge bg-danger ms-2">Salaires anormaux</span>
+                                <span class="badge bg-warning ms-1">Employés fantômes</span>
+                                <span class="badge bg-info ms-1">Primes anormales</span>
+                                <span class="badge bg-secondary ms-1">Heures excessives</span>
+                                <span class="badge bg-dark ms-1">RIB dupliqués</span>
+                            </div>
                         </div>
 
-                        <!-- Actions -->
-                        <div class="row">
-                            <div class="col-12">
-                                <div class="d-flex justify-content-between">
-                                    <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary">
-                                        <i class="bi bi-arrow-left"></i> Retour
-                                    </a>
-                                    <div>
-                                        <button type="button" class="btn btn-outline-primary me-2" id="preview-btn">
-                                            <i class="bi bi-eye"></i> Aperçu
-                                        </button>
-                                        <button type="submit" class="btn btn-primary">
-                                            <i class="bi bi-cpu"></i> Créer l'analyse IA
-                                        </button>
-                                    </div>
-                                </div>
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>Retour
+                            </a>
+                            <div>
+                                <button type="button" class="btn btn-outline-primary me-2" id="preview-btn">
+                                    <i class="bi bi-eye me-2"></i>Aperçu
+                                </button>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-cpu me-2"></i>Créer l'analyse IA
+                                </button>
                             </div>
                         </div>
                     </form>
@@ -186,17 +126,13 @@
         </div>
 
         <div class="col-lg-4">
-            <!-- Guide d'utilisation -->
             <div class="card">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="bi bi-question-circle"></i> Guide d'utilisation</h6>
-                </div>
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Guide d'utilisation</h2></div>
                 <div class="card-body">
                     <div class="accordion" id="guideAccordion">
                         <div class="accordion-item">
                             <h2 class="accordion-header">
-                                <button class="accordion-button" type="button" data-bs-toggle="collapse"
-                                        data-bs-target="#step1">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#step1">
                                     1. Préparer vos données
                                 </button>
                             </h2>
@@ -210,18 +146,16 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="accordion-item">
                             <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                        data-bs-target="#step2">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step2">
                                     2. Lancer l'analyse
                                 </button>
                             </h2>
                             <div id="step2" class="accordion-collapse collapse">
                                 <div class="accordion-body small">
                                     <ul class="mb-0">
-                                        <li>L'IA analysera automatiquement chaque employé</li>
+                                        <li>L'IA analyse automatiquement chaque employé</li>
                                         <li>Détection d'anomalies en temps réel</li>
                                         <li>Classification intelligente des problèmes</li>
                                         <li>Génération de recommandations</li>
@@ -229,11 +163,9 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="accordion-item">
                             <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                        data-bs-target="#step3">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step3">
                                     3. Analyser les résultats
                                 </button>
                             </h2>
@@ -249,36 +181,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <!-- Statistiques des modèles -->
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="bi bi-graph-up"></i> Performance des modèles</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row text-center">
-                        <div class="col-6">
-                            <div class="border rounded p-2">
-                                <div class="ai-badge mb-2">IF</div>
-                                <div class="fw-bold text-primary">96.8%</div>
-                                <small class="text-muted">Précision</small>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="border rounded p-2">
-                                <div class="ai-badge mb-2">MLP</div>
-                                <div class="fw-bold text-success">94.2%</div>
-                                <small class="text-muted">Précision</small>
-                            </div>
-                        </div>
-                    </div>
-                    <hr>
-                    <small class="text-muted">
-                        <i class="bi bi-shield-check"></i>
-                        Modèles entraînés sur plus de 50 000 données d'audit réelles
-                    </small>
                 </div>
             </div>
         </div>
@@ -304,7 +206,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fermer</button>
             </div>
         </div>
     </div>
@@ -320,7 +222,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const filePreview = document.getElementById('file-preview');
     const fileInfo = document.getElementById('file-info');
 
-    // Aperçu du fichier
     previewBtn.addEventListener('click', function() {
         const fichierPaie = fichierSelect.value;
 
@@ -333,15 +234,14 @@ document.addEventListener('DOMContentLoaded', function() {
         loadPreview(fichierPaie);
     });
 
-    // Affichage info fichier sélectionné
     fichierSelect.addEventListener('change', function() {
         if (this.value) {
             const selectedOption = this.options[this.selectedIndex];
             const fileName = selectedOption.text;
 
             fileInfo.innerHTML = `
-                <strong>📄 ${fileName}</strong><br>
-                <small class="text-muted">Prêt pour l'analyse IA</small>
+                <strong>${fileName}</strong><br>
+                <small class="text-secondary">Prêt pour l'analyse IA</small>
             `;
             filePreview.classList.remove('d-none');
         } else {
@@ -349,7 +249,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Validation du formulaire
     const form = document.getElementById('session-form');
     form.addEventListener('submit', function(e) {
         const nomSession = document.getElementById('id_nom_session').value.trim();
@@ -369,7 +268,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Confirmation avant lancement
         if (!confirm('Lancer l\'analyse IA sur ce fichier ? Cette opération peut prendre plusieurs minutes.')) {
             e.preventDefault();
             return;
@@ -380,12 +278,12 @@ document.addEventListener('DOMContentLoaded', function() {
 function loadPreview(fichierPaieId) {
     const previewContent = document.getElementById('preview-content');
 
-                    fetch(`/uploads/preview/${fichierPaieId}/?nb_lignes=5`)
+    fetch(`/uploads/preview/${fichierPaieId}/?nb_lignes=5`)
     .then(response => response.json())
     .then(data => {
         previewContent.innerHTML = `
             <div class="alert alert-info">
-                <h6><i class="bi bi-file-earmark-spreadsheet"></i> ${data.nb_total_lignes} employés à analyser</h6>
+                <strong>${data.nb_total_lignes}</strong> employés à analyser
             </div>
 
             <div class="table-responsive">
@@ -404,46 +302,37 @@ function loadPreview(fichierPaieId) {
             </div>
 
             <div class="alert alert-success">
-                <h6><i class="bi bi-check-circle"></i> Vérifications automatiques IA</h6>
+                <div class="fw-semibold mb-2"><i class="bi bi-check-circle me-1"></i>Vérifications automatiques</div>
                 <div class="row">
                     <div class="col-md-6">
                         <ul class="mb-0 small">
-                            <li class="${data.colonnes.some(c => c.toLowerCase().includes('matricule')) ? 'text-success' : 'text-warning'}">
-                                ${data.colonnes.some(c => c.toLowerCase().includes('matricule')) ? '✅' : '⚠️'}
+                            <li class="${data.colonnes.some(c => c.toLowerCase().includes('matricule')) ? '' : 'text-secondary'}">
                                 Matricule employé
                             </li>
-                            <li class="${data.colonnes.some(c => c.toLowerCase().includes('nom')) ? 'text-success' : 'text-warning'}">
-                                ${data.colonnes.some(c => c.toLowerCase().includes('nom')) ? '✅' : '⚠️'}
+                            <li class="${data.colonnes.some(c => c.toLowerCase().includes('nom')) ? '' : 'text-secondary'}">
                                 Identité employé
                             </li>
                         </ul>
                     </div>
                     <div class="col-md-6">
                         <ul class="mb-0 small">
-                            <li class="${data.colonnes.some(c => c.toLowerCase().includes('salaire') || c.toLowerCase().includes('montant')) ? 'text-success' : 'text-warning'}">
-                                ${data.colonnes.some(c => c.toLowerCase().includes('salaire') || c.toLowerCase().includes('montant')) ? '✅' : '⚠️'}
+                            <li class="${data.colonnes.some(c => c.toLowerCase().includes('salaire') || c.toLowerCase().includes('montant')) ? '' : 'text-secondary'}">
                                 Données salariales
                             </li>
-                            <li class="${data.colonnes.some(c => c.toLowerCase().includes('rib') || c.toLowerCase().includes('compte')) ? 'text-success' : 'text-info'}">
-                                ${data.colonnes.some(c => c.toLowerCase().includes('rib') || c.toLowerCase().includes('compte')) ? '✅' : 'ℹ️'}
+                            <li class="${data.colonnes.some(c => c.toLowerCase().includes('rib') || c.toLowerCase().includes('compte')) ? '' : 'text-secondary'}">
                                 Informations bancaires
                             </li>
                         </ul>
                     </div>
                 </div>
-                <hr>
-                <small class="text-muted">
-                    <i class="bi bi-cpu"></i>
-                    L'IA analysera automatiquement ces colonnes pour détecter les anomalies
-                </small>
             </div>
         `;
     })
     .catch(error => {
         previewContent.innerHTML = `
             <div class="alert alert-danger">
-                <h6><i class="bi bi-exclamation-triangle"></i> Erreur de chargement</h6>
-                <p class="mb-0">Impossible de charger l'aperçu du fichier: ${error.message}</p>
+                <div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-1"></i>Erreur de chargement</div>
+                <p class="mb-0">Impossible de charger l'aperçu du fichier : ${error.message}</p>
             </div>
         `;
     });

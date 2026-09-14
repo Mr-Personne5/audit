@@ -1,50 +1,36 @@
 {% extends 'auditengine/base_auditengine.html' %}
+{% load static %}
 
 {% block title %}Configuration IA - AuditIA{% endblock %}
 
 {% block content %}
-<div class="auditengine-header">
-    <div class="container">
-        <div class="row align-items-center">
-            <div class="col-md-8">
-                <h1><i class="bi bi-gear"></i> Configuration de l'IA</h1>
-                <p class="mb-0">Paramétrage des modèles de détection d'anomalies</p>
-            </div>
-            <div class="col-md-4 text-end">
-                <a href="{% url 'auditengine:modeles_ia' %}" class="btn btn-light">
-                    <i class="bi bi-cpu"></i> Gestion des modèles
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
+<div class="container-fluid px-4 py-4">
 
-<div class="container">
-    <div class="row">
-        <div class="col-md-8">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Configuration de l'IA</h1>
+            <p class="text-secondary mb-0">Paramétrage des seuils et du comportement des modèles de détection.</p>
+        </div>
+        <a href="{% url 'auditengine:modeles_ia' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-cpu me-2"></i>Gestion des modèles
+        </a>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-8">
             <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-sliders"></i> Paramètres des modèles IA</h5>
-                </div>
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Paramètres des modèles IA</h2></div>
                 <div class="card-body">
                     <form method="post">
                         {% csrf_token %}
 
+                        <h6 class="text-secondary small text-uppercase fw-semibold mb-3">Seuils de détection</h6>
                         <div class="row mb-4">
-                            <div class="col-12">
-                                <h6 class="text-muted border-bottom pb-2">
-                                    <i class="bi bi-target"></i> Seuils de détection
-                                </h6>
-                            </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     {{ form.seuil_isolation_forest.label_tag }}
                                     {{ form.seuil_isolation_forest }}
-                                    {% if form.seuil_isolation_forest.errors %}
-                                        <div class="invalid-feedback d-block">
-                                            {{ form.seuil_isolation_forest.errors.0 }}
-                                        </div>
-                                    {% endif %}
+                                    {% if form.seuil_isolation_forest.errors %}<div class="invalid-feedback d-block">{{ form.seuil_isolation_forest.errors.0 }}</div>{% endif %}
                                     <div class="form-text">{{ form.seuil_isolation_forest.help_text }}</div>
                                 </div>
                             </div>
@@ -52,22 +38,14 @@
                                 <div class="mb-3">
                                     {{ form.score_minimum_classification.label_tag }}
                                     {{ form.score_minimum_classification }}
-                                    {% if form.score_minimum_classification.errors %}
-                                        <div class="invalid-feedback d-block">
-                                            {{ form.score_minimum_classification.errors.0 }}
-                                        </div>
-                                    {% endif %}
+                                    {% if form.score_minimum_classification.errors %}<div class="invalid-feedback d-block">{{ form.score_minimum_classification.errors.0 }}</div>{% endif %}
                                     <div class="form-text">{{ form.score_minimum_classification.help_text }}</div>
                                 </div>
                             </div>
                         </div>
 
+                        <h6 class="text-secondary small text-uppercase fw-semibold mb-3">Configuration des modèles</h6>
                         <div class="row mb-4">
-                            <div class="col-12">
-                                <h6 class="text-muted border-bottom pb-2">
-                                    <i class="bi bi-cpu"></i> Configuration des modèles
-                                </h6>
-                            </div>
                             <div class="col-md-6">
                                 <div class="form-check mb-3">
                                     {{ form.utiliser_modele_global }}
@@ -84,21 +62,13 @@
                             </div>
                         </div>
 
+                        <h6 class="text-secondary small text-uppercase fw-semibold mb-3">Interface utilisateur</h6>
                         <div class="row mb-4">
-                            <div class="col-12">
-                                <h6 class="text-muted border-bottom pb-2">
-                                    <i class="bi bi-display"></i> Interface utilisateur
-                                </h6>
-                            </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     {{ form.nb_anomalies_max_tableau_de_bord.label_tag }}
                                     {{ form.nb_anomalies_max_tableau_de_bord }}
-                                    {% if form.nb_anomalies_max_tableau_de_bord.errors %}
-                                        <div class="invalid-feedback d-block">
-                                            {{ form.nb_anomalies_max_tableau_de_bord.errors.0 }}
-                                        </div>
-                                    {% endif %}
+                                    {% if form.nb_anomalies_max_tableau_de_bord.errors %}<div class="invalid-feedback d-block">{{ form.nb_anomalies_max_tableau_de_bord.errors.0 }}</div>{% endif %}
                                     <div class="form-text">{{ form.nb_anomalies_max_tableau_de_bord.help_text }}</div>
                                 </div>
                             </div>
@@ -113,10 +83,10 @@
 
                         <div class="d-flex justify-content-between">
                             <a href="{% url 'auditengine:dashboard' %}" class="btn btn-outline-secondary">
-                                <i class="bi bi-arrow-left"></i> Retour au tableau de bord
+                                <i class="bi bi-arrow-left me-2"></i>Retour au tableau de bord
                             </a>
                             <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check-circle"></i> Sauvegarder les paramètres
+                                <i class="bi bi-check-circle me-2"></i>Sauvegarder les paramètres
                             </button>
                         </div>
                     </form>
@@ -124,66 +94,56 @@
             </div>
         </div>
 
-        <div class="col-md-4">
-            <!-- Statistiques des modèles -->
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="bi bi-graph-up"></i> Statistiques des modèles</h6>
-                </div>
+        <div class="col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Statistiques des modèles</h2></div>
                 <div class="card-body">
-                    <div class="row text-center">
+                    <div class="row g-3 text-center">
                         <div class="col-6">
-                            <div class="border rounded p-2 mb-2">
-                                <div class="h4 text-primary">{{ modeles_stats.if_global }}</div>
-                                <small class="text-muted">IF Global</small>
+                            <div class="border rounded-3 p-2">
+                                <div class="fs-4 fw-semibold">{{ modeles_stats.if_global }}</div>
+                                <small class="text-secondary">IF Global</small>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="border rounded p-2 mb-2">
-                                <div class="h4 text-success">{{ modeles_stats.mlp_global }}</div>
-                                <small class="text-muted">MLP Global</small>
+                            <div class="border rounded-3 p-2">
+                                <div class="fs-4 fw-semibold" style="color:var(--green-soft-text);">{{ modeles_stats.mlp_global }}</div>
+                                <small class="text-secondary">MLP Global</small>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="border rounded p-2">
-                                <div class="h4 text-info">{{ modeles_stats.if_mission }}</div>
-                                <small class="text-muted">IF Mission</small>
+                            <div class="border rounded-3 p-2">
+                                <div class="fs-4 fw-semibold" style="color:var(--blue-soft-text);">{{ modeles_stats.if_mission }}</div>
+                                <small class="text-secondary">IF Mission</small>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="border rounded p-2">
-                                <div class="h4 text-warning">{{ modeles_stats.mlp_mission }}</div>
-                                <small class="text-muted">MLP Mission</small>
+                            <div class="border rounded-3 p-2">
+                                <div class="fs-4 fw-semibold" style="color:var(--amber-soft-text);">{{ modeles_stats.mlp_mission }}</div>
+                                <small class="text-secondary">MLP Mission</small>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Configuration actuelle -->
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Configuration actuelle</h6>
-                </div>
+            <div class="card">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Configuration actuelle</h2></div>
                 <div class="card-body">
                     <dl class="row small mb-0">
-                        <dt class="col-6">Seuil IF:</dt>
+                        <dt class="col-6">Seuil IF</dt>
                         <dd class="col-6">{{ config.seuil_isolation_forest }}</dd>
-                        <dt class="col-6">Seuil MLP:</dt>
+                        <dt class="col-6">Seuil MLP</dt>
                         <dd class="col-6">{{ config.score_minimum_classification }}</dd>
-                        <dt class="col-6">Modèle global:</dt>
-                        <dd class="col-6">
-                            {% if config.utiliser_modele_global %}✅{% else %}❌{% endif %}
-                        </dd>
-                        <dt class="col-6">Auto-train:</dt>
-                        <dd class="col-6">
-                            {% if config.reentrainement_auto %}✅{% else %}❌{% endif %}
-                        </dd>
+                        <dt class="col-6">Modèle global</dt>
+                        <dd class="col-6">{% if config.utiliser_modele_global %}Oui{% else %}Non{% endif %}</dd>
+                        <dt class="col-6">Auto-train</dt>
+                        <dd class="col-6">{% if config.reentrainement_auto %}Oui{% else %}Non{% endif %}</dd>
                     </dl>
                     <hr>
-                    <small class="text-muted">
-                        Dernière modification: {{ config.date_modification|date:"d/m/Y H:i" }}
-                        par {{ config.modifie_par.username }}
+                    <small class="text-secondary">
+                        Dernière modification : {{ config.date_modification|date:"d/m/Y H:i" }}
+                        {% if config.modifie_par %}par {{ config.modifie_par.username }}{% endif %}
                     </small>
                 </div>
             </div>

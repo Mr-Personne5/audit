@@ -1,510 +1,138 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AuditIA - Corriger Anomalie</title>
+{% extends 'auditengine/base_auditengine.html' %}
+{% load static %}
 
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+{% block title %}Corriger - {{ resultat.nom }} {{ resultat.prenom }} - AuditIA{% endblock %}
 
-    <style>
-        :root {
-            --primary-color: #2563eb;
-            --secondary-color: #64748b;
-            --success-color: #059669;
-            --warning-color: #d97706;
-            --danger-color: #dc2626;
-            --light-bg: #f8fafc;
-            --border-color: #e2e8f0;
-        }
+{% block content %}
+<div class="container-fluid px-4 py-4">
 
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+    <nav aria-label="breadcrumb" class="mb-2">
+        <ol class="breadcrumb mb-0 small">
+            <li class="breadcrumb-item"><a href="{% url 'auditengine:session_list' %}">Détection IA</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'auditengine:session_detail' resultat.session.pk %}">{{ resultat.session.nom_session }}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'auditengine:anomalie_detail' resultat.pk %}">Résultat #{{ resultat.pk }}</a></li>
+            <li class="breadcrumb-item active">Correction</li>
+        </ol>
+    </nav>
 
-        .main-container {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            margin: 2rem auto;
-            max-width: 1000px;
-        }
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Corriger le résultat</h1>
+            <p class="text-secondary mb-0">{{ resultat.nom }} {{ resultat.prenom }}{% if resultat.matricule %} — Matricule {{ resultat.matricule }}{% endif %}</p>
+        </div>
+        <a href="{% url 'auditengine:anomalie_detail' resultat.pk %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>Annuler
+        </a>
+    </div>
 
-        .header-section {
-            background: linear-gradient(135deg, var(--primary-color), #1e40af);
-            color: white;
-            border-radius: 16px 16px 0 0;
-            padding: 2rem;
-        }
-
-        .anomalie-card {
-            background: white;
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
-
-        .score-badge {
-            font-size: 0.875rem;
-            font-weight: 600;
-            padding: 0.5rem 1rem;
-            border-radius: 50px;
-        }
-
-        .score-danger { background: rgba(220, 38, 38, 0.1); color: #dc2626; }
-        .score-warning { background: rgba(217, 119, 6, 0.1); color: #d97706; }
-        .score-success { background: rgba(5, 150, 105, 0.1); color: #059669; }
-
-        .form-section {
-            background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            margin-bottom: 1.5rem;
-            border: 1px solid var(--border-color);
-        }
-
-        .btn-custom {
-            border-radius: 8px;
-            font-weight: 500;
-            padding: 0.75rem 2rem;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary-custom {
-            background: var(--primary-color);
-            border: none;
-            color: white;
-        }
-
-        .btn-primary-custom:hover {
-            background: #1d4ed8;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-        }
-
-        .btn-success-custom {
-            background: var(--success-color);
-            border: none;
-            color: white;
-        }
-
-        .btn-warning-custom {
-            background: var(--warning-color);
-            border: none;
-            color: white;
-        }
-
-        .btn-danger-custom {
-            background: var(--danger-color);
-            border: none;
-            color: white;
-        }
-
-        .form-control, .form-select {
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            padding: 0.75rem 1rem;
-        }
-
-        .form-control:focus, .form-select:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.25);
-        }
-
-        .confidence-slider {
-            height: 8px;
-            border-radius: 4px;
-            background: linear-gradient(to right, #dc2626, #d97706, #059669);
-        }
-
-        .confidence-slider::-webkit-slider-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: white;
-            border: 3px solid var(--primary-color);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .explanation-box {
-            background: var(--light-bg);
-            border-left: 4px solid var(--primary-color);
-            padding: 1rem;
-            border-radius: 0 8px 8px 0;
-            font-style: italic;
-        }
-
-        .alert-custom {
-            border-radius: 12px;
-            border: none;
-            padding: 1rem 1.5rem;
-        }
-
-        .recommendation-box {
-            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
-            border: 1px solid #0ea5e9;
-            border-radius: 12px;
-            padding: 1.5rem;
-        }
-    </style>
-</head>
-<body>
-    <div class="container-fluid">
-        <div class="main-container">
-            <!-- Header -->
-            <div class="header-section">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h2 class="mb-2">
-                            <i class="fas fa-tools me-3"></i>Correction d'Anomalie
-                        </h2>
-                        <p class="mb-0 opacity-90">
-                            Validation et correction de l'anomalie détectée par l'IA
-                        </p>
+    <div class="row g-3">
+        <div class="col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Résultat actuel</h2></div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <div class="text-secondary small">Type d'anomalie</div>
+                        <div class="fw-semibold">{{ resultat.get_type_anomalie_display }}</div>
                     </div>
-                    <div class="text-end">
-                        <button class="btn btn-light btn-sm" onclick="history.back()">
-                            <i class="bi bi-arrow-left me-1"></i>Retour
-                        </button>
+                    <div class="mb-2">
+                        <div class="text-secondary small">Niveau de risque</div>
+                        <span class="badge bg-{{ resultat.get_couleur_risque }}">{{ resultat.get_niveau_risque_display }}</span>
+                    </div>
+                    <div class="mb-2">
+                        <div class="text-secondary small">Est une anomalie</div>
+                        <div class="fw-semibold">{% if resultat.est_anomalie %}Oui{% else %}Non{% endif %}</div>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span class="text-secondary">Score Isolation Forest</span>
+                        <span class="fw-semibold">{% if resultat.score_anomalie_if is not None %}{% widthratio resultat.score_anomalie_if 1 100 %}%{% else %}—{% endif %}</span>
+                    </div>
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-secondary">Score classification MLP</span>
+                        <span class="fw-semibold">{% if resultat.score_classification_mlp is not None %}{% widthratio resultat.score_classification_mlp 1 100 %}%{% else %}—{% endif %}</span>
                     </div>
                 </div>
             </div>
 
-            <div class="p-4">
-                <!-- Informations de l'anomalie -->
-                <div class="anomalie-card">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <h5 class="mb-3">
-                                <i class="fas fa-exclamation-triangle text-warning me-2"></i>
-                                Détails de l'Anomalie
-                            </h5>
-
-                            <div class="row mb-3">
-                                <div class="col-sm-6">
-                                    <strong>Employé :</strong><br>
-                                    <span class="text-primary">Martin DUBOIS</span>
-                                </div>
-                                <div class="col-sm-6">
-                                    <strong>Matricule :</strong><br>
-                                    <span class="badge bg-secondary">EMP001234</span>
-                                </div>
-                            </div>
-
-                            <div class="row mb-3">
-                                <div class="col-sm-6">
-                                    <strong>Type d'anomalie :</strong><br>
-                                    <span class="badge bg-warning">Écart salarial important</span>
-                                </div>
-                                <div class="col-sm-6">
-                                    <strong>Niveau de risque :</strong><br>
-                                    <span class="badge bg-danger">Élevé</span>
-                                </div>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-sm-6">
-                                    <strong>Salaire attendu :</strong><br>
-                                    <span class="text-success">3 200,00 €</span>
-                                </div>
-                                <div class="col-sm-6">
-                                    <strong>Salaire payé :</strong><br>
-                                    <span class="text-danger">4 500,00 €</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <h6 class="mb-3">Scores IA</h6>
-
-                            <div class="mb-3">
-                                <small class="text-muted">Score Isolation Forest</small>
-                                <div class="d-flex align-items-center">
-                                    <div class="flex-grow-1 me-2">
-                                        <div class="progress" style="height: 8px;">
-                                            <div class="progress-bar bg-danger" style="width: 85%"></div>
-                                        </div>
-                                    </div>
-                                    <span class="score-badge score-danger">85%</span>
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <small class="text-muted">Score Classification MLP</small>
-                                <div class="d-flex align-items-center">
-                                    <div class="flex-grow-1 me-2">
-                                        <div class="progress" style="height: 8px;">
-                                            <div class="progress-bar bg-warning" style="width: 78%"></div>
-                                        </div>
-                                    </div>
-                                    <span class="score-badge score-warning">78%</span>
-                                </div>
-                            </div>
-
-                            <div class="mb-0">
-                                <small class="text-muted">Confiance globale</small>
-                                <div class="d-flex align-items-center">
-                                    <div class="flex-grow-1 me-2">
-                                        <div class="progress" style="height: 8px;">
-                                            <div class="progress-bar bg-danger" style="width: 82%"></div>
-                                        </div>
-                                    </div>
-                                    <span class="score-badge score-danger">82%</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+            {% if resultat.explication_if or resultat.explication_mlp %}
+            <div class="card mb-3">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Explications IA</h2></div>
+                <div class="card-body">
+                    {% if resultat.explication_if %}<p class="small mb-2"><strong>IF :</strong> {{ resultat.explication_if }}</p>{% endif %}
+                    {% if resultat.explication_mlp %}<p class="small mb-0"><strong>MLP :</strong> {{ resultat.explication_mlp }}</p>{% endif %}
                 </div>
+            </div>
+            {% endif %}
 
-                <!-- Explications IA -->
-                <div class="anomalie-card">
-                    <h6 class="mb-3">
-                        <i class="fas fa-brain text-primary me-2"></i>
-                        Explications de l'IA
-                    </h6>
-
-                    <div class="explanation-box mb-3">
-                        <strong>Isolation Forest :</strong><br>
-                        L'écart salarial de +40,6% par rapport à la moyenne du poste dépasse largement les seuils normaux.
-                        Les caractéristiques de ce paiement (montant, timing, bénéficiaire) sont atypiques par rapport
-                        aux patterns habituels observés sur cette mission.
-                    </div>
-
-                    <div class="explanation-box">
-                        <strong>Classification MLP :</strong><br>
-                        Probabilité élevée d'erreur de saisie ou de doublon de paiement. Le modèle identifie une
-                        corrélation forte avec des cas précédents d'erreurs comptables sur des montants similaires.
-                    </div>
+            {% if resultat.recommandation_auto %}
+            <div class="card">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0"><i class="bi bi-lightbulb me-2"></i>Recommandation automatique</h2></div>
+                <div class="card-body">
+                    <p class="small mb-0">{{ resultat.recommandation_auto }}</p>
                 </div>
+            </div>
+            {% endif %}
+        </div>
 
-                <!-- Recommandation automatique -->
-                <div class="recommendation-box mb-4">
-                    <h6 class="text-primary mb-3">
-                        <i class="fas fa-lightbulb me-2"></i>
-                        Recommandation Automatique
-                    </h6>
-                    <p class="mb-0">
-                        <strong>Action suggérée :</strong> Vérifier les éléments variables de paie et contrôler
-                        l'absence de doublon. Recommandation de validation manuelle auprès du service RH
-                        pour confirmer les heures supplémentaires ou primes exceptionnelles justifiant cet écart.
-                    </p>
-                </div>
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Formulaire de correction</h2></div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                        {% endif %}
 
-                <!-- Formulaire de correction -->
-                <form class="form-section" id="correctionForm">
-                    <h5 class="mb-4">
-                        <i class="fas fa-edit text-success me-2"></i>
-                        Correction de l'Anomalie
-                    </h5>
-
-                    <!-- Type de correction -->
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <label class="form-label">Type de correction *</label>
-                            <select class="form-select" id="typeCorrection" required>
-                                <option value="">Sélectionner une action...</option>
-                                <option value="valider">Valider l'anomalie</option>
-                                <option value="corriger">Corriger l'anomalie</option>
-                                <option value="fausse_alerte">Marquer comme fausse alerte</option>
-                                <option value="reporter">Reporter la décision</option>
-                            </select>
+                        <div class="mb-3">
+                            {{ form.type_correction.label_tag }}
+                            {{ form.type_correction }}
+                            {% if form.type_correction.errors %}<div class="invalid-feedback d-block">{{ form.type_correction.errors.0 }}</div>{% endif %}
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Nouveau statut</label>
-                            <select class="form-select" id="nouveauStatut">
-                                <option value="">Garder le statut actuel</option>
-                                <option value="confirme">Anomalie confirmée</option>
-                                <option value="corrige">Anomalie corrigée</option>
-                                <option value="justifie">Justifiée (pas d'anomalie)</option>
-                                <option value="en_attente">En attente de validation</option>
-                            </select>
-                        </div>
-                    </div>
 
-                    <!-- Niveau de risque -->
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <label class="form-label">Nouveau niveau de risque</label>
-                            <select class="form-select" id="niveauRisque">
-                                <option value="">Garder le niveau actuel</option>
-                                <option value="critique">Critique</option>
-                                <option value="eleve">Élevé</option>
-                                <option value="moyen">Moyen</option>
-                                <option value="faible">Faible</option>
-                                <option value="aucun">Aucun risque</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Niveau de confiance de votre correction</label>
-                            <div class="d-flex align-items-center">
-                                <span class="me-3 text-muted">0%</span>
-                                <input type="range" class="form-range confidence-slider flex-grow-1"
-                                       id="niveauConfiance" min="0" max="100" value="50">
-                                <span class="ms-3 text-muted">100%</span>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                {{ form.nouveau_est_anomalie.label_tag }}
+                                {{ form.nouveau_est_anomalie }}
                             </div>
-                            <div class="text-center mt-1">
-                                <small class="badge bg-primary" id="confianceValue">50%</small>
+                            <div class="col-md-6 mb-3">
+                                {{ form.nouveau_type_anomalie.label_tag }}
+                                {{ form.nouveau_type_anomalie }}
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Justification -->
-                    <div class="mb-4">
-                        <label class="form-label">Justification de la correction *</label>
-                        <textarea class="form-control" id="justification" rows="4" required
-                                  placeholder="Expliquez les raisons de votre correction, les vérifications effectuées, les sources consultées..."></textarea>
-                        <div class="form-text">
-                            Cette justification sera utilisée pour améliorer les futurs modèles IA.
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                {{ form.nouveau_niveau_risque.label_tag }}
+                                {{ form.nouveau_niveau_risque }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                {{ form.confiance_utilisateur.label_tag }}
+                                {{ form.confiance_utilisateur }}
+                                <div class="form-text">Utilisée pour prioriser cette correction lors du prochain réentraînement.</div>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Commentaires additionnels -->
-                    <div class="mb-4">
-                        <label class="form-label">Commentaires additionnels</label>
-                        <textarea class="form-control" id="commentaires" rows="3"
-                                  placeholder="Commentaires optionnels, recommandations pour les futurs audits..."></textarea>
-                    </div>
-
-                    <!-- Pièces jointes -->
-                    <div class="mb-4">
-                        <label class="form-label">Pièces justificatives (optionnel)</label>
-                        <input type="file" class="form-control" id="piecesJointes" multiple
-                               accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png">
-                        <div class="form-text">
-                            Formats acceptés : PDF, Word, Excel, Images. Taille max : 10MB par fichier.
+                        <div class="mb-3">
+                            {{ form.justification.label_tag }}
+                            {{ form.justification }}
+                            {% if form.justification.errors %}<div class="invalid-feedback d-block">{{ form.justification.errors.0 }}</div>{% endif %}
+                            <div class="form-text">Cette justification sera utilisée pour améliorer les futurs modèles IA.</div>
                         </div>
-                    </div>
 
-                    <!-- Actions -->
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <button type="button" class="btn btn-outline-secondary btn-custom me-2" onclick="history.back()">
-                                <i class="bi bi-arrow-left me-1"></i>Annuler
-                            </button>
-                            <button type="button" class="btn btn-warning-custom btn-custom" onclick="sauvegarderBrouillon()">
-                                <i class="bi bi-save me-1"></i>Sauvegarder brouillon
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'auditengine:anomalie_detail' resultat.pk %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>Annuler
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check2 me-2"></i>Enregistrer la correction
                             </button>
                         </div>
-                        <div>
-                            <button type="submit" class="btn btn-success-custom btn-custom">
-                                <i class="bi bi-check2 me-1"></i>Valider la correction
-                            </button>
-                        </div>
-                    </div>
-                </form>
-
-                <!-- Historique des corrections -->
-                <div class="form-section">
-                    <h6 class="mb-3">
-                        <i class="fas fa-history text-secondary me-2"></i>
-                        Historique des Corrections
-                    </h6>
-
-                    <div class="alert alert-info alert-custom">
-                        <i class="bi bi-info-circle me-2"></i>
-                        Aucune correction précédente pour cette anomalie.
-                    </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Bootstrap 5 JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-    <script>
-        // Mise à jour du niveau de confiance
-        document.getElementById('niveauConfiance').addEventListener('input', function() {
-            document.getElementById('confianceValue').textContent = this.value + '%';
-        });
-
-        // Gestion du formulaire
-        document.getElementById('correctionForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            const typeCorrection = document.getElementById('typeCorrection').value;
-            const justification = document.getElementById('justification').value;
-
-            if (!typeCorrection || !justification.trim()) {
-                alert('Veuillez remplir tous les champs obligatoires.');
-                return;
-            }
-
-            // Simulation de soumission
-            const submitBtn = this.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Traitement...';
-            submitBtn.disabled = true;
-
-            setTimeout(() => {
-                alert('Correction enregistrée avec succès !');
-                // Redirection simulée
-                window.location.href = '#anomalie-detail';
-            }, 2000);
-        });
-
-        // Sauvegarde brouillon
-        function sauvegarderBrouillon() {
-            const btn = event.target;
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sauvegarde...';
-            btn.disabled = true;
-
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-
-                const toast = document.createElement('div');
-                toast.className = 'toast align-items-center text-white bg-success border-0 position-fixed top-0 end-0 m-3';
-                toast.innerHTML = `
-                    <div class="d-flex">
-                        <div class="toast-body">
-                            <i class="bi bi-check-circle me-2"></i>Brouillon sauvegardé
-                        </div>
-                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                    </div>
-                `;
-                document.body.appendChild(toast);
-
-                const bsToast = new bootstrap.Toast(toast);
-                bsToast.show();
-
-                setTimeout(() => toast.remove(), 5000);
-            }, 1000);
-        }
-
-        // Gestion du type de correction
-        document.getElementById('typeCorrection').addEventListener('change', function() {
-            const statutSelect = document.getElementById('nouveauStatut');
-            const risqueSelect = document.getElementById('niveauRisque');
-
-            // Suggestions automatiques selon le type
-            switch(this.value) {
-                case 'valider':
-                    statutSelect.value = 'confirme';
-                    break;
-                case 'corriger':
-                    statutSelect.value = 'corrige';
-                    break;
-                case 'fausse_alerte':
-                    statutSelect.value = 'justifie';
-                    risqueSelect.value = 'aucun';
-                    break;
-                case 'reporter':
-                    statutSelect.value = 'en_attente';
-                    break;
-            }
-        });
-    </script>
-</body>
-</html>
+</div>
+{% endblock %}

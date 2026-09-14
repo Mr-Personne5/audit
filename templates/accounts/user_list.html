@@ -1,116 +1,145 @@
 {% extends 'base.html' %}
 
-{% block page_title %}Gestion des Utilisateurs{% endblock %}
+{% block title %}Utilisateurs - AuditIA{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="mb-0">
-        <i class="bi bi-people me-2"></i>Liste des Utilisateurs
-    </h4>
-    <a href="{% url 'accounts:user_create' %}" class="btn btn-primary">
-        <i class="bi bi-person-plus me-2"></i>Nouvel utilisateur
-    </a>
-</div>
+<div class="container-fluid px-4 py-4">
 
-<div class="card">
-    <div class="card-header bg-white">
-        <div class="row align-items-center">
-            <div class="col-md-6">
-                <h6 class="card-title mb-0">{{ page_obj.paginator.count }} utilisateur{{ page_obj.paginator.count|pluralize }}</h6>
-            </div>
-            <div class="col-md-6">
-                <form method="get" class="d-flex">
-                    <label for="search-input" class="visually-hidden">Rechercher</label>
-                    <input type="text" id="search-input" name="search" class="form-control me-2"
-                           placeholder="Rechercher par nom, email..." value="{{ search }}">
-                    <button type="submit" class="btn btn-outline-primary">
-                        <i class="bi bi-search"></i>
-                    </button>
-                    {% if search %}
-                        <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-secondary ms-2">
-                            <i class="bi bi-x"></i>
-                        </a>
-                    {% endif %}
-                </form>
-            </div>
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Utilisateurs</h1>
+            <p class="text-secondary mb-0">Comptes et rôles des membres de l'équipe d'audit.</p>
+        </div>
+        <a href="{% url 'accounts:user_create' %}" class="btn btn-primary">
+            <i class="bi bi-person-plus me-2"></i>Nouvel utilisateur
+        </a>
+    </div>
+
+    <!-- KPI row -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Total utilisateurs</div>
+                <div class="num fs-3 fw-semibold mt-2">{{ stats.total }}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Actifs</div>
+                <div class="num fs-3 fw-semibold mt-2" style="color:var(--green-soft-text);">{{ stats.actifs }}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Administrateurs</div>
+                <div class="num fs-3 fw-semibold mt-2">{{ stats.admins }}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Auditeurs</div>
+                <div class="num fs-3 fw-semibold mt-2">{{ stats.auditeurs }}</div>
+            </div></div>
         </div>
     </div>
-    <div class="card-body p-0">
+
+    <!-- Filters -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label for="search-input" class="form-label small fw-semibold">Recherche</label>
+                    <input type="text" id="search-input" name="search" class="form-control"
+                           placeholder="Nom, e-mail, identifiant…" value="{{ search }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="role-select" class="form-label small fw-semibold">Rôle</label>
+                    <select id="role-select" name="role" class="form-select">
+                        <option value="">Tous les rôles</option>
+                        {% for code, label in role_choices %}
+                            <option value="{{ code }}" {% if role_filter == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary flex-fill">
+                        <i class="bi bi-search me-1"></i>Filtrer
+                    </button>
+                    {% if search or role_filter %}
+                        <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-secondary" title="Réinitialiser">
+                            <i class="bi bi-x-lg"></i>
+                        </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
         {% if page_obj %}
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr class="text-secondary small text-uppercase">
                             <th>Utilisateur</th>
                             <th>Rôle</th>
                             <th>Mission</th>
                             <th>Dernière activité</th>
                             <th>Statut</th>
-                            <th class="col-2">Actions</th>
+                            <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for user_obj in page_obj %}
                         <tr>
                             <td>
-                                <div class="d-flex align-items-center">
-                                    <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="rounded-3 d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
+                                         style="width: 34px; height: 34px; font-size: 12px; background: linear-gradient(135deg, var(--accent), var(--accent-dark));">
                                         {{ user_obj.first_name|first }}{{ user_obj.last_name|first }}
                                     </div>
                                     <div>
-                                        <div class="fw-bold">{{ user_obj.get_full_name }}</div>
-                                        <small class="text-muted">{{ user_obj.email }}</small>
-                                        {% if user_obj.phone %}
-                                            <div><small class="text-muted">{{ user_obj.phone }}</small></div>
-                                        {% endif %}
+                                        <div class="fw-semibold">{{ user_obj.get_full_name }}</div>
+                                        <div class="text-secondary small">{{ user_obj.email }}</div>
                                     </div>
                                 </div>
                             </td>
                             <td>
                                 {% if user_obj.role == 'admin' %}
-                                    <span class="badge bg-danger">
-                                        <i class="bi bi-person-gear me-1"></i>{{ user_obj.get_role_display }}
-                                    </span>
+                                    <span class="badge" style="background:var(--accent-soft); color:var(--accent-soft-text);">{{ user_obj.get_role_display }}</span>
+                                    {% if user_obj.is_superuser %}<span class="badge bg-warning ms-1">Super admin</span>{% endif %}
                                 {% else %}
-                                    <span class="badge bg-primary">
-                                        <i class="bi bi-person me-1"></i>{{ user_obj.get_role_display }}
-                                    </span>
-                                {% endif %}
-                                {% if user_obj.is_superuser %}
-                                    <span class="badge bg-warning">Super Admin</span>
+                                    <span class="badge" style="background:var(--blue-soft); color:var(--blue-soft-text);">{{ user_obj.get_role_display }}</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if user_obj.mission %}
-                                    <div class="fw-bold">{{ user_obj.mission.name }}</div>
-                                    <small class="text-muted">{{ user_obj.mission.client }}</small>
+                                    <span class="badge bg-secondary">{{ user_obj.mission.name }}</span>
                                 {% else %}
-                                    <span class="text-muted">Aucune mission</span>
+                                    <span class="text-secondary">Aucune mission</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if user_obj.last_activity %}
-                                    <span class="text-success">{{ user_obj.last_activity|timesince }}</span>
+                                    <span style="color:var(--green-soft-text);">Il y a {{ user_obj.last_activity|timesince }}</span>
                                 {% else %}
-                                    <span class="text-muted">Jamais connecté</span>
+                                    <span class="text-secondary">Jamais connecté</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if user_obj.is_active %}
-                                    <span class="badge bg-success">Actif</span>
+                                    <span class="badge" style="background:var(--green-soft); color:var(--green-soft-text);">Actif</span>
                                 {% else %}
                                     <span class="badge bg-secondary">Inactif</span>
                                 {% endif %}
                             </td>
-                            <td>
-                                <div class="btn-group btn-group-sm" role="group">
-                                    <a href="{% url 'accounts:user_edit' user_obj.id %}"
-                                       class="btn btn-outline-primary" title="Modifier">
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'accounts:user_edit' user_obj.id %}" class="btn btn-outline-secondary" title="Modifier">
                                         <i class="bi bi-pencil"></i>
                                     </a>
                                     {% if not user_obj.is_superuser and user_obj.id != user.id %}
-                                        <a href="{% url 'accounts:user_delete' user_obj.id %}"
-                                           class="btn btn-outline-danger" title="Supprimer">
+                                        <a href="{% url 'accounts:user_delete' user_obj.id %}" class="btn btn-outline-danger" title="Supprimer">
                                             <i class="bi bi-trash"></i>
                                         </a>
                                     {% endif %}
@@ -122,47 +151,22 @@
                 </table>
             </div>
 
-            <!-- Pagination -->
             {% if page_obj.has_other_pages %}
                 <div class="card-footer bg-white">
                     <nav aria-label="Pagination">
                         <ul class="pagination justify-content-center mb-0">
                             {% if page_obj.has_previous %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}">
-                                        <i class="bi bi-chevron-double-left"></i>
-                                    </a>
-                                </li>
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}">
-                                        <i class="bi bi-chevron-left"></i>
-                                    </a>
-                                </li>
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}">Précédent</a></li>
                             {% endif %}
-
                             {% for num in page_obj.paginator.page_range %}
                                 {% if page_obj.number == num %}
-                                    <li class="page-item active">
-                                        <span class="page-link">{{ num }}</span>
-                                    </li>
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                                 {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}">{{ num }}</a>
-                                    </li>
+                                    <li class="page-item"><a class="page-link" href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}">{{ num }}</a></li>
                                 {% endif %}
                             {% endfor %}
-
                             {% if page_obj.has_next %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}">
-                                        <i class="bi bi-chevron-right"></i>
-                                    </a>
-                                </li>
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}">
-                                        <i class="bi bi-chevron-double-right"></i>
-                                    </a>
-                                </li>
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}">Suivant</a></li>
                             {% endif %}
                         </ul>
                     </nav>
@@ -170,11 +174,11 @@
             {% endif %}
         {% else %}
             <div class="text-center py-5">
-                <i class="bi bi-people fs-1 text-muted"></i>
-                <h5 class="text-muted mt-3">Aucun utilisateur trouvé</h5>
-                {% if search %}
-                    <p class="text-muted">Aucun résultat pour "{{ search }}"</p>
-                    <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-primary">Voir tous les utilisateurs</a>
+                <i class="bi bi-people fs-1 text-secondary"></i>
+                <h5 class="text-secondary mt-3">Aucun utilisateur trouvé</h5>
+                {% if search or role_filter %}
+                    <p class="text-secondary">Aucun résultat pour ces filtres.</p>
+                    <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-secondary">Voir tous les utilisateurs</a>
                 {% else %}
                     <a href="{% url 'accounts:user_create' %}" class="btn btn-primary">Créer le premier utilisateur</a>
                 {% endif %}

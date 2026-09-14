@@ -3,519 +3,236 @@
 
 {% block title %}Tableau de bord Audit IA - AuditIA{% endblock %}
 
-{% block extra_css %}
-{{ block.super }}
-<style>
-    .metric-card {
-        transition: all 0.3s ease;
-        cursor: pointer;
-        border-radius: 12px;
-        overflow: hidden;
-    }
-    .metric-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-    }
-
-    .metric-value {
-        font-size: 2.5rem;
-        font-weight: 700;
-        line-height: 1;
-    }
-
-    .metric-icon {
-        font-size: 3rem;
-        opacity: 0.8;
-    }
-
-    .chart-container {
-        position: relative;
-        height: 350px;
-    }
-
-    .ai-insight {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 1.5rem;
-    }
-
-    .anomaly-type-card {
-        background: white;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        border-left: 4px solid;
-        transition: all 0.3s ease;
-    }
-
-    .anomaly-type-card:hover {
-        transform: translateX(5px);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-
-    .trend-indicator {
-        font-size: 0.85rem;
-        font-weight: 600;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-    }
-
-    .trend-up { color: #dc2626; }
-    .trend-down { color: #16a34a; }
-    .trend-stable { color: #6b7280; }
-
-    .performance-ring {
-        width: 120px;
-        height: 120px;
-    }
-
-    .session-timeline {
-        max-height: 400px;
-        overflow-y: auto;
-    }
-
-    .timeline-item {
-        border-left: 3px solid #e5e7eb;
-        padding-left: 1rem;
-        margin-bottom: 1rem;
-        position: relative;
-    }
-
-    .timeline-item::before {
-        content: '';
-        position: absolute;
-        left: -8px;
-        top: 0.5rem;
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        background: #3b82f6;
-    }
-
-    .timeline-item.success::before { background: #10b981; }
-    .timeline-item.warning::before { background: #f59e0b; }
-    .timeline-item.danger::before { background: #ef4444; }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="auditengine-header">
-    <div class="container">
-        <div class="row align-items-center">
-            <div class="col-md-6">
-                <h1><i class="bi bi-graph-up"></i> Tableau de bord Audit IA</h1>
-                <p class="mb-0">Vue d'ensemble des performances de détection d'anomalies</p>
+<div class="container-fluid px-4 py-4">
+
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Tableau de bord Audit IA</h1>
+            <p class="text-secondary mb-0">Vue d'ensemble des performances de détection d'anomalies.</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            {% if request.user.is_admin %}
+                <select class="form-select" id="mission-filter" onchange="filterByMission(this.value)">
+                    <option value="">Toutes les missions</option>
+                    {% for mission in missions %}
+                        <option value="{{ mission.id }}" {% if current_mission == mission.id|stringformat:"s" %}selected{% endif %}>
+                            {{ mission.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            {% endif %}
+            <a href="{% url 'auditengine:session_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-list-ul me-2"></i>Sessions
+            </a>
+            <a href="{% url 'auditengine:create_session' %}" class="btn btn-primary">
+                <i class="bi bi-cpu me-2"></i>Nouvelle analyse
+            </a>
+        </div>
+    </div>
+
+    <!-- KPI row -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Taux de détection moyen</div>
+                <div class="num fs-3 fw-semibold mt-2" id="taux_detection_moyen">{{ stats.taux_detection_moyen }}%</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Analyses terminées</div>
+                <div class="num fs-3 fw-semibold mt-2" id="sessions_completed" style="color:var(--green-soft-text);">{{ stats.sessions_completed }}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Anomalies détectées</div>
+                <div class="num fs-3 fw-semibold mt-2" id="total_anomalies_detectees" style="color:var(--amber-soft-text);">{{ stats.total_anomalies_detectees }}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small fw-medium">Employés analysés</div>
+                <div class="num fs-3 fw-semibold mt-2" id="total_employes_analyses" style="color:var(--blue-soft-text);">{{ stats.total_employes_analyses }}</div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Évolution du taux de détection</h2></div>
+                <div class="card-body">
+                    <div style="height:320px;"><canvas id="evolutionChart"></canvas></div>
+                </div>
             </div>
-            <div class="col-md-6 text-end">
-                {% if request.user.is_admin %}
-                    <div class="btn-group me-3">
-                        <select class="form-select" id="mission-filter" onchange="filterByMission(this.value)">
-                            <option value="">Toutes les missions</option>
-                            {% for mission in missions %}
-                                <option value="{{ mission.id }}"
-                                        {% if current_mission == mission.id|stringformat:"s" %}selected{% endif %}>
-                                    {{ mission.name }}
-                                </option>
+        </div>
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Répartition des anomalies</h2></div>
+                <div class="card-body">
+                    <div style="height:320px;"><canvas id="typesChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+            <div class="card h-100" style="border-left:4px solid #dc2626;">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">Employés fantômes</h6>
+                        <small class="text-secondary">Détection par absence de données cohérentes</small>
+                    </div>
+                    <div class="text-end">
+                        <div class="fs-3 fw-semibold" id="total_employes_fantomes" style="color:var(--red-soft-text);">{{ stats.total_employes_fantomes }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="card h-100" style="border-left:4px solid #ea580c;">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">Salaires anormaux</h6>
+                        <small class="text-secondary">Écarts vs grilles salariales</small>
+                    </div>
+                    <div class="text-end">
+                        <div class="fs-3 fw-semibold" id="total_salaires_anormaux" style="color:var(--amber-soft-text);">{{ stats.total_salaires_anormaux }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="card h-100" style="border-left:4px solid #0891b2;">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">RIB dupliqués</h6>
+                        <small class="text-secondary">Comptes bancaires partagés</small>
+                    </div>
+                    <div class="text-end">
+                        <div class="fs-3 fw-semibold" id="total_rib_dupliques" style="color:var(--blue-soft-text);">{{ stats.total_rib_dupliques }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-body border-bottom d-flex justify-content-between align-items-center">
+                    <h2 class="h6 fw-bold mb-0">Sessions récentes</h2>
+                    <a href="{% url 'auditengine:session_list' %}" class="btn btn-outline-secondary btn-sm">Voir toutes</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr class="text-secondary small text-uppercase">
+                                <th>Session</th>
+                                <th>Mission</th>
+                                <th>Date</th>
+                                <th>Taux d'anomalies</th>
+                                <th>Anomalies</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for session in sessions_recentes %}
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">{{ session.nom_session }}</div>
+                                    {% if session.description %}<div class="text-secondary small">{{ session.description|truncatechars:30 }}</div>{% endif %}
+                                </td>
+                                <td><span class="badge bg-secondary">{{ session.mission.name }}</span></td>
+                                <td>
+                                    <small>{{ session.date_completion|date:"d/m/Y H:i" }}</small>
+                                    {% if session.duree_traitement_secondes %}<br><small class="text-secondary">{{ session.duree_traitement_secondes }}s</small>{% endif %}
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="progress flex-grow-1 me-2" style="height:8px;">
+                                            <div class="progress-bar
+                                                {% if session.get_taux_anomalies >= 15 %}bg-danger
+                                                {% elif session.get_taux_anomalies >= 10 %}bg-warning
+                                                {% elif session.get_taux_anomalies >= 5 %}bg-info
+                                                {% else %}bg-success{% endif %}"
+                                                 style="width: {{ session.get_taux_anomalies }}%"></div>
+                                        </div>
+                                        <small class="text-nowrap">{{ session.get_taux_anomalies }}%</small>
+                                    </div>
+                                    <small class="text-secondary">{{ session.nb_lignes_analysees }} employés</small>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1 flex-wrap">
+                                        {% if session.nb_employes_fantomes %}<span class="badge bg-danger">{{ session.nb_employes_fantomes }}</span>{% endif %}
+                                        {% if session.nb_salaires_anormaux %}<span class="badge bg-warning">{{ session.nb_salaires_anormaux }}</span>{% endif %}
+                                        {% if session.nb_rib_dupliques %}<span class="badge bg-info">{{ session.nb_rib_dupliques }}</span>{% endif %}
+                                        {% if not session.nb_anomalies_detectees %}<span class="badge" style="background:var(--green-soft); color:var(--green-soft-text);">Aucune</span>{% endif %}
+                                    </div>
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'auditengine:session_detail' session.pk %}" class="btn btn-outline-secondary" title="Voir détails">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="{% url 'auditengine:generate_recommendations' session.pk %}" class="btn btn-outline-secondary" title="Recommandations">
+                                            <i class="bi bi-lightbulb"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <i class="bi bi-cpu fs-1 text-secondary"></i>
+                                    <h5 class="text-secondary mt-3">Aucune session d'analyse</h5>
+                                    <p class="text-secondary">Créez votre première analyse IA.</p>
+                                    <a href="{% url 'auditengine:create_session' %}" class="btn btn-primary">
+                                        <i class="bi bi-plus-circle me-2"></i>Première analyse
+                                    </a>
+                                </td>
+                            </tr>
                             {% endfor %}
-                        </select>
-                    </div>
-                {% endif %}
-                <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary me-2">
-                    <i class="bi bi-arrow-left"></i> Retour
-                </a>
-                <a href="{% url 'auditengine:session_list' %}" class="btn btn-light me-2">
-                    <i class="bi bi-list-ul"></i> Sessions
-                </a>
-                <a href="{% url 'auditengine:create_session' %}" class="btn btn-warning">
-                    <i class="bi bi-cpu"></i> Nouvelle analyse
-                </a>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
-</div>
 
-<div class="container">
-    <!-- Métriques principales IA -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="metric-card card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="metric-icon text-primary mb-3">
-                        <i class="bi bi-cpu"></i>
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header"><h2 class="h6 fw-bold mb-0">Activité récente</h2></div>
+                <div class="card-body" style="max-height:400px; overflow-y:auto;">
+                    {% for session in sessions_recentes|slice:":5" %}
+                    <div class="d-flex justify-content-between align-items-start {% if not forloop.last %}pb-3 border-bottom mb-3{% endif %}">
+                        <div>
+                            <h6 class="mb-1">{{ session.nom_session|truncatechars:25 }}</h6>
+                            <small class="text-secondary">
+                                {{ session.date_completion|timesince }} · {{ session.nb_anomalies_detectees }} anomalies
+                            </small>
+                        </div>
                     </div>
-                    <div class="metric-value text-primary" id="taux_detection_moyen">{{ stats.taux_detection_moyen }}%</div>
-                    <h6 class="text-muted mb-2">Efficacité IA</h6>
-                    <div class="trend-indicator trend-up">
-                        <i class="bi bi-arrow-up"></i> +2.3%
-                    </div>
+                    {% empty %}
+                    <p class="text-secondary text-center mb-0">Aucune activité récente</p>
+                    {% endfor %}
                 </div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="metric-card card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="metric-icon text-success mb-3">
-                        <i class="bi bi-check-circle-fill"></i>
-                    </div>
-                    <div class="metric-value text-success" id="sessions_completed">{{ stats.sessions_completed }}</div>
-                    <h6 class="text-muted mb-2">Analyses terminées</h6>
-                    <div class="trend-indicator trend-up">
-                        <i class="bi bi-arrow-up"></i> +{{ stats.total_sessions|add:"-5" }}
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="metric-card card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="metric-icon text-warning mb-3">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                    </div>
-                    <div class="metric-value text-warning" id="total_anomalies_detectees">{{ stats.total_anomalies_detectees }}</div>
-                    <h6 class="text-muted mb-2">Anomalies détectées</h6>
-                    <div class="trend-indicator trend-down">
-                        <i class="bi bi-arrow-down"></i> -8%
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="metric-card card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="metric-icon text-info mb-3">
-                        <i class="bi bi-people-fill"></i>
-                    </div>
-                    <div class="metric-value text-info" id="total_employes_analyses">{{ stats.total_employes_analyses }}</div>
-                    <h6 class="text-muted mb-2">Employés analysés</h6>
-                    <div class="trend-indicator trend-up">
-                        <i class="bi bi-arrow-up"></i> +1.2K
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Insights IA et graphiques -->
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent">
-                    <h5 class="mb-0">
-                        <i class="bi bi-graph-up"></i> Évolution de la détection IA
-                    </h5>
-                </div>
+            {% if request.user.is_admin %}
+            <div class="card mt-3">
                 <div class="card-body">
-                    <div class="chart-container">
-                        <canvas id="evolutionChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="ai-insight mb-3">
-                <h6><i class="bi bi-lightbulb-fill"></i> Insight IA</h6>
-                <p class="mb-2">L'IA a détecté une augmentation de 15% des salaires anormaux ce mois-ci.</p>
-                <small class="opacity-75">
-                    <i class="bi bi-shield-check"></i> Fiabilité: 94.2%
-                </small>
-            </div>
-
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent">
-                    <h6 class="mb-0">Performance des modèles</h6>
-                </div>
-                <div class="card-body text-center">
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="position-relative d-inline-block mb-3">
-                                <svg class="performance-ring" viewBox="0 0 120 120">
-                                    <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" stroke-width="8"/>
-                                    <circle cx="60" cy="60" r="50" fill="none" stroke="#3b82f6" stroke-width="8"
-                                            stroke-linecap="round" stroke-dasharray="96.8, 100"
-                                            transform="rotate(-90 60 60)"/>
-                                </svg>
-                                <div class="position-absolute top-50 start-50 translate-middle text-center">
-                                    <div class="ai-badge">IF</div>
-                                    <div class="fw-bold">96.8%</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="position-relative d-inline-block mb-3">
-                                <svg class="performance-ring" viewBox="0 0 120 120">
-                                    <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" stroke-width="8"/>
-                                    <circle cx="60" cy="60" r="50" fill="none" stroke="#10b981" stroke-width="8"
-                                            stroke-linecap="round" stroke-dasharray="94.2, 100"
-                                            transform="rotate(-90 60 60)"/>
-                                </svg>
-                                <div class="position-absolute top-50 start-50 translate-middle text-center">
-                                    <div class="ai-badge">MLP</div>
-                                    <div class="fw-bold">94.2%</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <small class="text-muted">Précision des modèles IA</small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Détection par types d'anomalies -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent">
-                    <h5 class="mb-0">
-                        <i class="bi bi-pie-chart"></i> Répartition des anomalies
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container">
-                        <canvas id="typesChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent">
-                    <h5 class="mb-0">
-                        <i class="bi bi-shield-exclamation"></i> Types d'anomalies détectées
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="anomaly-type-card" style="border-left-color: #dc2626;">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-1">👻 Employés fantômes</h6>
-                                <small class="text-muted">Détection par absence de données cohérentes</small>
-                            </div>
-                            <div class="text-end">
-                                <div class="h4 text-danger mb-0" id="total_employes_fantomes">{{ stats.total_employes_fantomes }}</div>
-                                <small class="text-danger">Critique</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="anomaly-type-card" style="border-left-color: #ea580c;">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-1">💰 Salaires anormaux</h6>
-                                <small class="text-muted">Écarts significatifs vs grilles salariales</small>
-                            </div>
-                            <div class="text-end">
-                                <div class="h4 text-warning mb-0" id="total_salaires_anormaux">{{ stats.total_salaires_anormaux }}</div>
-                                <small class="text-warning">Élevé</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="anomaly-type-card" style="border-left-color: #0891b2;">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-1">💳 RIB dupliqués</h6>
-                                <small class="text-muted">Comptes bancaires partagés suspects</small>
-                            </div>
-                            <div class="text-end">
-                                <div class="h4 text-info mb-0" id="total_rib_dupliques">{{ stats.total_rib_dupliques }}</div>
-                                <small class="text-info">Moyen</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="text-center mt-3">
-                        <small class="text-muted">
-                            <i class="bi bi-cpu"></i>
-                            Détection automatique par modèles IF + MLP
-                        </small>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Sessions récentes et activité -->
-    <div class="row">
-        <div class="col-md-8">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="bi bi-clock-history"></i> Sessions récentes
-                    </h5>
-                    <a href="{% url 'auditengine:session_list' %}" class="btn btn-outline-primary btn-sm">
-                        Voir toutes <i class="bi bi-arrow-right"></i>
+                    <a href="{% url 'auditengine:parametrage_ia' %}" class="btn btn-outline-secondary w-100 mb-2">
+                        <i class="bi bi-sliders me-2"></i>Configuration IA
+                    </a>
+                    <a href="{% url 'auditengine:modeles_ia' %}" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-cpu me-2"></i>Gestion des modèles
                     </a>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Session</th>
-                                    <th>Mission</th>
-                                    <th>Date</th>
-                                    <th>Performance IA</th>
-                                    <th>Anomalies</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for session in sessions_recentes %}
-                                <tr>
-                                    <td>
-                                        <div>
-                                            <strong>{{ session.nom_session }}</strong>
-                                            <br><small class="text-muted">{{ session.description|truncatechars:30 }}</small>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-secondary">{{ session.mission.name }}</span>
-                                    </td>
-                                    <td>
-                                        <small>{{ session.date_completion|date:"d/m/Y H:i" }}</small>
-                                        {% if session.duree_traitement_secondes %}
-                                            <br><small class="text-success">⚡ {{ session.duree_traitement_secondes }}s</small>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <div class="progress flex-grow-1 me-2" style="height: 8px;">
-                                                <div class="progress-bar
-                                                    {% if session.get_taux_anomalies >= 15 %}bg-danger
-                                                    {% elif session.get_taux_anomalies >= 10 %}bg-warning
-                                                    {% elif session.get_taux_anomalies >= 5 %}bg-info
-                                                    {% else %}bg-success{% endif %}"
-                                                     style="width: {{ session.get_taux_anomalies|add:10 }}%"></div>
-                                            </div>
-                                            <small class="text-nowrap">{{ session.get_taux_anomalies }}%</small>
-                                        </div>
-                                        <small class="text-muted">{{ session.nb_lignes_analysees }} employés</small>
-                                    </td>
-                                    <td>
-                                        <div class="d-flex gap-1 flex-wrap">
-                                            {% if session.nb_employes_fantomes %}
-                                                <span class="badge bg-danger">👻{{ session.nb_employes_fantomes }}</span>
-                                            {% endif %}
-                                            {% if session.nb_salaires_anormaux %}
-                                                <span class="badge bg-warning">💰{{ session.nb_salaires_anormaux }}</span>
-                                            {% endif %}
-                                            {% if session.nb_rib_dupliques %}
-                                                <span class="badge bg-info">💳{{ session.nb_rib_dupliques }}</span>
-                                            {% endif %}
-                                            {% if not session.nb_anomalies_detectees %}
-                                                <span class="badge bg-success">✅ Aucune</span>
-                                            {% endif %}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div class="btn-group btn-group-sm">
-                                            <a href="{% url 'auditengine:session_detail' session.pk %}"
-                                               class="btn btn-outline-primary" title="Voir détails">
-                                                <i class="bi bi-eye"></i>
-                                            </a>
-                                            <a href="{% url 'auditengine:generate_recommendations' session.pk %}"
-                                               class="btn btn-outline-warning" title="Recommandations">
-                                                <i class="bi bi-lightbulb"></i>
-                                            </a>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="6" class="text-center py-4">
-                                        <i class="bi bi-cpu display-4 text-muted"></i>
-                                        <h5 class="text-muted mt-3">Aucune session d'analyse</h5>
-                                        <p class="text-muted">Créez votre première analyse IA</p>
-                                        <a href="{% url 'auditengine:create_session' %}" class="btn btn-primary">
-                                            <i class="bi bi-plus-circle"></i> Première analyse
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
             </div>
-        </div>
-
-        <div class="col-md-4">
-            <!-- Timeline d'activité -->
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent">
-                    <h6 class="mb-0">
-                        <i class="bi bi-activity"></i> Activité récente IA
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="session-timeline">
-                        {% for session in sessions_recentes|slice:":5" %}
-                        <div class="timeline-item {% if session.nb_anomalies_detectees > 10 %}danger{% elif session.nb_anomalies_detectees > 5 %}warning{% else %}success{% endif %}">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <h6 class="mb-1">{{ session.nom_session|truncatechars:25 }}</h6>
-                                    <small class="text-muted">
-                                        {{ session.date_completion|timesince }} ago
-                                        <br>{{ session.nb_anomalies_detectees }} anomalies détectées
-                                    </small>
-                                </div>
-                                <span class="ai-badge">IA</span>
-                            </div>
-                        </div>
-                        {% empty %}
-                        <div class="text-center text-muted">
-                            <i class="bi bi-inbox"></i>
-                            <p class="mb-0">Aucune activité récente</p>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Statistiques système -->
-            <div class="card border-0 shadow-sm mt-3">
-                <div class="card-header bg-transparent">
-                    <h6 class="mb-0">
-                        <i class="bi bi-gear"></i> Système IA
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="row text-center">
-                        <div class="col-4">
-                            <div class="text-success h5">🟢</div>
-                            <small class="text-muted">Modèle IF</small>
-                        </div>
-                        <div class="col-4">
-                            <div class="text-success h5">🟢</div>
-                            <small class="text-muted">Modèle MLP</small>
-                        </div>
-                        <div class="col-4">
-                            <div class="text-warning h5">🟡</div>
-                            <small class="text-muted">Réentraînement</small>
-                        </div>
-                    </div>
-                    <hr>
-                    <small class="text-muted">
-                        <i class="bi bi-shield-check"></i>
-                        Dernière mise à jour: il y a 2 jours
-                    </small>
-                    {% if request.user.is_admin %}
-                        <div class="mt-2">
-                            <a href="{% url 'auditengine:parametrage_ia' %}" class="btn btn-outline-primary btn-sm w-100">
-                                <i class="bi bi-gear"></i> Configuration IA
-                            </a>
-                        </div>
-                    {% endif %}
-                    <button id="refreshAuditStatsBtn" class="btn btn-outline-primary btn-modern" onclick="refreshAuditStats()">
-                        <i class="bi bi-arrow-clockwise me-2"></i>Actualiser
-                    </button>
-                </div>
-            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -525,7 +242,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Graphique d'évolution des détections
     const evolutionCtx = document.getElementById('evolutionChart').getContext('2d');
     const evolutionData = {{ evolution_data|safe }};
 
@@ -536,59 +252,34 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 label: 'Taux de détection IA (%)',
                 data: evolutionData.map(d => d.taux),
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderColor: '#4f46e5',
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
                 tension: 0.4,
                 fill: true,
-                pointBackgroundColor: '#3b82f6',
+                pointBackgroundColor: '#4f46e5',
                 pointBorderColor: '#ffffff',
                 pointBorderWidth: 2,
-                pointRadius: 6
+                pointRadius: 5
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: {
-                    display: false
-                },
+                legend: { display: false },
                 tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    titleColor: '#ffffff',
-                    bodyColor: '#ffffff',
-                    borderColor: '#3b82f6',
-                    borderWidth: 1,
                     callbacks: {
-                        label: function(context) {
-                            return `Détection: ${context.parsed.y}%`;
-                        }
+                        label: function(context) { return `Détection: ${context.parsed.y}%`; }
                     }
                 }
             },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 20,
-                    ticks: {
-                        callback: function(value) {
-                            return value + '%';
-                        }
-                    },
-                    grid: {
-                        color: 'rgba(0, 0, 0, 0.05)'
-                    }
-                },
-                x: {
-                    grid: {
-                        display: false
-                    }
-                }
+                y: { beginAtZero: true, ticks: { callback: value => value + '%' } },
+                x: { grid: { display: false } }
             }
         }
     });
 
-    // Graphique des types d'anomalies
     const typesCtx = document.getElementById('typesChart').getContext('2d');
     const typesData = {{ types_data|safe }};
 
@@ -598,13 +289,7 @@ document.addEventListener('DOMContentLoaded', function() {
             labels: typesData.map(d => d.type),
             datasets: [{
                 data: typesData.map(d => d.count),
-                backgroundColor: [
-                    '#dc2626',
-                    '#ea580c',
-                    '#0891b2',
-                    '#7c3aed',
-                    '#059669'
-                ],
+                backgroundColor: ['#dc2626', '#ea580c', '#0891b2'],
                 borderWidth: 0,
                 hoverOffset: 4
             }]
@@ -613,22 +298,12 @@ document.addEventListener('DOMContentLoaded', function() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        padding: 20,
-                        usePointStyle: true,
-                        pointStyle: 'circle'
-                    }
-                },
+                legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle' } },
                 tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    titleColor: '#ffffff',
-                    bodyColor: '#ffffff',
                     callbacks: {
                         label: function(context) {
                             const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            const percentage = total ? ((context.parsed / total) * 100).toFixed(1) : 0;
                             return `${context.label}: ${context.parsed} (${percentage}%)`;
                         }
                     }
@@ -636,52 +311,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
-
-    // Animation des cartes métriques
-    const metricCards = document.querySelectorAll('.metric-card');
-    metricCards.forEach((card, index) => {
-        setTimeout(() => {
-            card.style.opacity = '0';
-            card.style.transform = 'translateY(20px)';
-            card.style.transition = 'all 0.6s ease';
-
-            setTimeout(() => {
-                card.style.opacity = '1';
-                card.style.transform = 'translateY(0)';
-            }, 100);
-        }, index * 150);
-    });
-
-    // Animation des éléments timeline
-    const timelineItems = document.querySelectorAll('.timeline-item');
-    timelineItems.forEach((item, index) => {
-        setTimeout(() => {
-            item.style.opacity = '0';
-            item.style.transform = 'translateX(-20px)';
-            item.style.transition = 'all 0.5s ease';
-
-            setTimeout(() => {
-                item.style.opacity = '1';
-                item.style.transform = 'translateX(0)';
-            }, 100);
-        }, index * 200);
-    });
-
-    // Actualisation automatique toutes les 5 minutes
-    setInterval(() => {
-        // Vérifier s'il y a des sessions en cours
-        fetch(`/auditengine/dashboard/`)
-        .then(response => {
-            if (response.ok) {
-                // Actualiser silencieusement si de nouvelles données
-                const currentTime = new Date().getMinutes();
-                if (currentTime % 5 === 0) {
-                    window.location.reload();
-                }
-            }
-        })
-        .catch(error => console.log('Auto-refresh check failed:', error));
-    }, 60000); // Check every minute
 });
 
 function filterByMission(missionId) {
@@ -694,29 +323,6 @@ function filterByMission(missionId) {
     window.location.href = url.toString();
 }
 
-// Interactions avec les cartes métriques
-document.querySelectorAll('.metric-card').forEach(card => {
-    card.addEventListener('click', function() {
-        // Animation de clic
-        this.style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            this.style.transform = 'scale(1)';
-        }, 150);
-
-        // Navigation selon le type de métrique
-        const icon = this.querySelector('.metric-icon i');
-        if (icon.classList.contains('bi-cpu')) {
-            window.location.href = '{% url "auditengine:parametrage_ia" %}';
-        } else if (icon.classList.contains('bi-check-circle-fill')) {
-            window.location.href = '{% url "auditengine:session_list" %}?status=completed';
-        } else if (icon.classList.contains('bi-exclamation-triangle-fill')) {
-            window.location.href = '{% url "auditengine:session_list" %}';
-        } else if (icon.classList.contains('bi-people-fill')) {
-            window.location.href = '{% url "auditengine:session_list" %}';
-        }
-    });
-});
-
 function refreshAuditStats() {
     fetch('/auditengine/api/dashboard_stats/')
         .then(response => response.json())
@@ -726,11 +332,8 @@ function refreshAuditStats() {
             document.getElementById('total_anomalies_detectees').textContent = stats.total_anomalies_detectees;
             document.getElementById('total_employes_analyses').textContent = stats.total_employes_analyses;
         })
-        .catch(() => {
-            showNotification('Erreur lors du rafraîchissement des statistiques', 'danger');
-        });
+        .catch(() => {});
 }
-document.addEventListener('DOMContentLoaded', refreshAuditStats);
 
 function refreshAnomaliesStats() {
     fetch('/auditengine/api/dashboard_anomalies_stats/')
@@ -740,16 +343,12 @@ function refreshAnomaliesStats() {
             document.getElementById('total_salaires_anormaux').textContent = data.total_salaires_anormaux;
             document.getElementById('total_rib_dupliques').textContent = data.total_rib_dupliques;
         })
-        .catch(() => {
-            // Optionnel : afficher une notification d'erreur
-        });
+        .catch(() => {});
 }
+
 document.addEventListener('DOMContentLoaded', function() {
+    refreshAuditStats();
     refreshAnomaliesStats();
-    if (typeof refreshAuditStats === 'function') {
-        refreshAuditStats();
-    }
-    // ... code existant ...
 });
 </script>
 {% endblock %}

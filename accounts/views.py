@@ -61,7 +61,20 @@ def dashboard(request):
         'current_mission': user.mission
     }
 
-    template = 'accounts/dashboard_admin.html' if user.is_admin() else 'accounts/dashboard_user.html'
+    if user.is_admin():
+        today = timezone.now().date()
+        context.update({
+            'active_users_count': CustomUser.objects.filter(is_active=True).count(),
+            'active_missions_count': Mission.objects.filter(is_active=True).count(),
+            'actions_today_count': FichierImporte.objects.filter(date_import__date=today).count(),
+            'imported_files_count': FichierImporte.objects.count(),
+            'fichiers_en_attente': FichierImporte.objects.filter(status='pending')
+                .select_related('utilisateur', 'mission').order_by('-date_import'),
+            'recent_logs': UserLog.objects.select_related('user').order_by('-timestamp')[:8],
+        })
+        template = 'accounts/dashboard_admin.html'
+    else:
+        template = 'accounts/dashboard_user.html'
 
     log_user_action(user, "consultation", "Tableau de bord", request=request)
     return render(request, template, context)
@@ -121,10 +134,11 @@ def dashboard_user_stats_api(request):
 @login_required
 @user_passes_test(is_admin)
 def user_list(request):
-    users = CustomUser.objects.select_related('mission').all()
+    all_users = CustomUser.objects.select_related('mission').order_by('first_name', 'last_name')
     search = request.GET.get('search', '')
     role_filter = request.GET.get('role', '')
 
+    users = all_users
     if search:
         users = users.filter(
             Q(username__icontains=search) |
@@ -143,7 +157,14 @@ def user_list(request):
     return render(request, 'accounts/user_list.html', {
         'page_obj': page_obj,
         'search': search,
-        'role_filter': role_filter
+        'role_filter': role_filter,
+        'role_choices': CustomUser.ROLE_CHOICES,
+        'stats': {
+            'total': all_users.count(),
+            'actifs': all_users.filter(is_active=True).count(),
+            'admins': all_users.filter(role='admin').count(),
+            'auditeurs': all_users.filter(role='user').count(),
+        },
     })
 
 
