@@ -1,4 +1,8 @@
 # auditengine/engine.py
+import uploads.dataprep
+import sys
+import contextlib
+from uploads.dataprep import DataPrep
 import os
 import joblib
 import pandas as pd
@@ -9,6 +13,8 @@ from datetime import datetime
 from decimal import Decimal
 from django.conf import settings
 from django.db import transaction
+import unicodedata
+from difflib import SequenceMatcher
 
 from .models import (
     SessionAudit, ResultatAudit, ParametrageIA, ModeleIA,
@@ -17,6 +23,25 @@ from .models import (
 from uploads.utils import FileProcessor
 
 logger = logging.getLogger('auditia')
+
+
+@contextlib.contextmanager
+def _dataprep_comme_main():
+    """Certains modèles .pkl ont été picklés alors que DataPrep vivait dans __main__
+    (script exécuté directement). On le rend disponible sous ce nom uniquement le
+    temps du chargement, au lieu de remplacer sys.modules['__main__'] pour tout le
+    process — ce qui casserait multiprocessing/joblib (spawn), l'autoreloader Django,
+    et tout autre unpickling qui attend le vrai __main__ ailleurs dans le process.
+    """
+    module_main_original = sys.modules.get('__main__')
+    sys.modules['__main__'] = uploads.dataprep
+    try:
+        yield
+    finally:
+        if module_main_original is not None:
+            sys.modules['__main__'] = module_main_original
+        else:
+            del sys.modules['__main__']
 
 
 # ==================== FONCTIONS UTILITAIRES ====================
@@ -93,6 +118,54 @@ def generer_plan_action(analyse_types: Dict) -> List[Dict]:
             })
 
     return plan
+
+
+# Fonction utilitaire pour normaliser et mapper les colonnes DataFrame
+COLONNES_VARIANTES = {
+    'matricule': ['matricule', 'Matricule', 'MATRICULE'],
+    'nom': ['nom', 'Nom', 'NOM', 'noms', 'Noms', 'NOMS'],
+    'prenom': ['prenom', 'Prenom', 'PRENOM', 'prénom', 'Prénom', 'PRENOMS', 'Prénoms', 'prenoms'],
+    'salaire_brut': ['salaire_brut', 'Salaire brut', 'salaire brut', 'SALAIRE BRUT', 'salairebrut', 'brut', 'Brut', 'salaire de base', 'Salaire de base', 'SALAIRE DE BASE', 'salaire_base', 'base', 'Base', 'BASE'],
+    'montant_total': ['montant_total', 'montant total', 'salaire_net', 'salaire net', 'Salaire net', 'SALAIRE NET', 'salaire_net_a_payer', 'salaire net à payer', 'salaire net a payer', 'net', 'Net', 'montant_paye', 'montant payé', 'net à payer', 'Net à payer', 'NET À PAYER', 'net a payer', 'Net a payer', 'NET A PAYER'],
+    'montant_primes': ['montant_primes', 'montant primes', 'Montant primes', 'primes', 'Primes', 'PRIMES', 'prime', 'Prime', 'PRIME'],
+    'numero_compte': ['numero_compte', 'Numéro de compte', 'numero de compte', 'Numéro_compte', 'compte', 'Compte', 'compte bancaire', 'Compte bancaire', 'COMPTE BANCAIRE', 'banque', 'Banque', 'BANQUE'],
+    'departement': ['departement', 'Département', 'Département/Service', 'departement/service', 'DEPARTEMENT', 'DEPARTEMENT/SERVICE'],
+    'poste': ['poste', 'Poste', 'POSTE', 'poste/fonction', 'Poste/fonction', 'fonction', 'Fonction', 'FONCTION'],
+    'statut': ['statut', 'Statut', 'STATUT', 'statut employé', 'Statut Employé', 'Statut Employé (CDD, CDI, EXPATRIE)'],
+    'lieu_emploi': ['lieu emploi', 'Lieu Emploi', 'lieu_emploi', 'Lieu_Emploi', 'lieu', 'Lieu'],
+    'date_embauche': ["Dates d'Embauche", 'date_embauche', 'Date embauche', 'embauche', 'Embauche'],
+    'anciennete': ['anciennete', 'Ancienneté', 'ancienneté', 'Anciennete', 'Ancienneté (Nb années)', 'ancienneté (nb années)', 'Nb années', 'nb années'],
+    'date_naissance': ['date_naissance', 'Date Naissance', 'date naissance', 'Naissance'],
+    'age': ['age', 'Age', 'AGE', 'ages', 'Ages', 'AGES'],
+    'classe_salariale': ['classe_salariale', 'Classe salariale', 'classe salariale', 'Classe Salariale'],
+    'categorie_salariale': ['categorie_salariale', 'CATEGORIE salariale', 'Catégorie salariale', 'categorie salariale'],
+    'heures_travaillees': ['heures_travaillees', 'Heures travaillées', 'heures travaillées', 'Heures Travaillées'],
+    'primes': ['primes', 'Primes', 'PRIMES', 'primes ou avantages', 'Primes ou avantages', 'prime', 'Prime', 'PRIME'],
+    'retenues': ['retenues', 'Retenues', 'RETENUES', 'retenues (impôts, assurances, autres)', 'Retenues (impôts, assurances, autres)', 'retenue', 'Retenue', 'RETENUE'],
+    'date_paie': ['date_paie', 'Date de paie', 'date de paie', 'Date de paie (Chronologiquement)'],
+    'annees_retraite': ['annees_retraite', 'Nombre Années Avant Retraite', 'nombre années avant retraite'],
+    'salaire_net': ['salaire_net', 'salaire net', 'Salaire net', 'SALAIRE NET', 'net', 'Net', 'NET'],
+}
+
+def normaliser_nom_colonne(nom_colonne):
+    if not nom_colonne:
+        return ""
+    nom_normalise = nom_colonne.lower().strip()
+    nom_normalise = unicodedata.normalize('NFD', nom_normalise)
+    nom_normalise = ''.join(c for c in nom_normalise if not unicodedata.combining(c))
+    nom_normalise = nom_normalise.replace(' ', '_')
+    return nom_normalise
+
+def mapping_colonnes_robuste(df):
+    """Renomme les colonnes du DataFrame selon les variantes connues"""
+    mapping = {}
+    colonnes_df = list(df.columns)
+    for cible, variantes in COLONNES_VARIANTES.items():
+        for variante in variantes:
+            for col in colonnes_df:
+                if normaliser_nom_colonne(col) == normaliser_nom_colonne(variante):
+                    mapping[col] = cible
+    return df.rename(columns=mapping)
 
 
 # ==================== CLASSES PRINCIPALES ====================
@@ -179,6 +252,9 @@ class AuditEngine:
         self.df_data = FileProcessor.lire_fichier(self.session.fichier_paie)
         self._log(f"Fichier chargé: {len(self.df_data)} lignes")
 
+        # Appliquer le mapping robuste juste après le chargement des données :
+        self.df_data = mapping_colonnes_robuste(self.df_data)
+
         # Normaliser les colonnes
         self.df_data.columns = self.df_data.columns.str.lower().str.strip()
 
@@ -222,31 +298,32 @@ class AuditEngine:
         self._log("Chargement des modèles IA...")
 
         try:
-            # Modèle Isolation Forest
-            model_if_obj = ModeleIA.get_modele_actif('isolation_forest', self.session.mission)
-            if model_if_obj:
-                self.model_if = joblib.load(model_if_obj.get_chemin_complet())
-                self.session.modele_utilise = f"IF: {model_if_obj.nom_modele}"
-                self._log(f"Modèle IF chargé: {model_if_obj.nom_modele}")
-            else:
-                # Fallback sur le modèle par défaut
-                chemin_if = os.path.join(settings.BASE_DIR, 'ml_models', 'model_iforest.pkl')
-                self.model_if = joblib.load(chemin_if)
-                self.session.modele_utilise = "IF: model_iforest.pkl (défaut)"
-                self._log("Modèle IF par défaut chargé")
+            with _dataprep_comme_main():
+                # Modèle Isolation Forest
+                model_if_obj = ModeleIA.get_modele_actif('isolation_forest', self.session.mission)
+                if model_if_obj:
+                    self.model_if = joblib.load(model_if_obj.get_chemin_complet())
+                    self.session.modele_utilise = f"IF: {model_if_obj.nom_modele}"
+                    self._log(f"Modèle IF chargé: {model_if_obj.nom_modele}")
+                else:
+                    # Fallback sur le modèle par défaut
+                    chemin_if = os.path.join(settings.BASE_DIR, 'ml_models', 'model_iforest.pkl')
+                    self.model_if = joblib.load(chemin_if)
+                    self.session.modele_utilise = "IF: model_iforest.pkl (défaut)"
+                    self._log("Modèle IF par défaut chargé")
 
-            # Modèle MLP Classifier
-            model_mlp_obj = ModeleIA.get_modele_actif('mlp_classifier', self.session.mission)
-            if model_mlp_obj:
-                self.model_mlp = joblib.load(model_mlp_obj.get_chemin_complet())
-                self.session.modele_utilise += f" | MLP: {model_mlp_obj.nom_modele}"
-                self._log(f"Modèle MLP chargé: {model_mlp_obj.nom_modele}")
-            else:
-                # Fallback sur le modèle par défaut
-                chemin_mlp = os.path.join(settings.BASE_DIR, 'ml_models', 'model_mlp.pkl')
-                self.model_mlp = joblib.load(chemin_mlp)
-                self.session.modele_utilise += " | MLP: model_mlp.pkl (défaut)"
-                self._log("Modèle MLP par défaut chargé")
+                # Modèle MLP Classifier
+                model_mlp_obj = ModeleIA.get_modele_actif('mlp_classifier', self.session.mission)
+                if model_mlp_obj:
+                    self.model_mlp = joblib.load(model_mlp_obj.get_chemin_complet())
+                    self.session.modele_utilise += f" | MLP: {model_mlp_obj.nom_modele}"
+                    self._log(f"Modèle MLP chargé: {model_mlp_obj.nom_modele}")
+                else:
+                    # Fallback sur le modèle par défaut
+                    chemin_mlp = os.path.join(settings.BASE_DIR, 'ml_models', 'model_mlp.pkl')
+                    self.model_mlp = joblib.load(chemin_mlp)
+                    self.session.modele_utilise += " | MLP: model_mlp.pkl (défaut)"
+                    self._log("Modèle MLP par défaut chargé")
 
             self.session.save()
 
@@ -269,84 +346,53 @@ class AuditEngine:
         """Extrait les features numériques pour Isolation Forest"""
         features = pd.DataFrame()
 
-        # Features financières de base
-        if 'salaire_brut' in self.df_data.columns:
-            features['salaire_brut'] = self.df_data['salaire_brut']
-
-        if 'montant_total' in self.df_data.columns:
-            features['montant_total'] = self.df_data['montant_total']
-
-        if 'montant_primes' in self.df_data.columns:
-            features['montant_primes'] = self.df_data['montant_primes']
+        # Récupérer la liste des features attendues par le modèle (ordre et noms)
+        feature_names = None
+        if self.model_if is not None and hasattr(self.model_if, 'feature_names_in_'):
+            feature_names = list(self.model_if.feature_names_in_)
         else:
-            features['montant_primes'] = 0
+            # fallback: liste standard
+            feature_names = [
+                'age', 'anciennete', 'salaire_brut', 'heures_travaillees',
+                'primes', 'retenues', 'salaire_net', 'annees_retraite',
+                'montant_total', 'montant_primes'
+            ]
 
-        if 'heures_travaillees' in self.df_data.columns:
-            features['heures_travaillees'] = self.df_data['heures_travaillees']
-        else:
-            features['heures_travaillees'] = 0
-
-        # Features calculées
-        if 'salaire_brut' in features.columns and 'montant_total' in features.columns:
-            # Ratio montant total / salaire brut
-            features['ratio_total_brut'] = features['montant_total'] / (features['salaire_brut'] + 1)
-
-            # Écart absolu
-            features['ecart_total_brut'] = abs(features['montant_total'] - features['salaire_brut'])
-
-        if 'heures_travaillees' in features.columns and 'salaire_brut' in features.columns:
-            # Salaire horaire approximatif
-            features['salaire_horaire'] = features['salaire_brut'] / (features['heures_travaillees'] + 1)
-
-        if 'montant_primes' in features.columns and 'salaire_brut' in features.columns:
-            # Ratio primes / salaire
-            features['ratio_primes_salaire'] = features['montant_primes'] / (features['salaire_brut'] + 1)
+        # Pour chaque feature attendue, prendre la colonne ou mettre 0 si absente
+        for col in feature_names:
+            if col in self.df_data.columns:
+                features[col] = self.df_data[col]
+            else:
+                features[col] = 0
 
         # Remplacer les valeurs infinies et NaN
         features = features.replace([np.inf, -np.inf], 0).fillna(0)
-
         return features
 
     def _extraire_features_mlp(self) -> pd.DataFrame:
         """Extrait les features pour le classificateur MLP"""
+        # On part de features_if mais on doit matcher exactement les features attendues par le modèle MLP
         features = self.features_if.copy()
 
-        # Features additionnelles pour la classification
-
-        # Présence de données
-        features['has_matricule'] = (
-                self.df_data['matricule'].notna() &
-                (self.df_data['matricule'] != '') &
-                (self.df_data['matricule'] != 'nan')
-        ).astype(int)
-
-        features['has_nom'] = (
-                self.df_data['nom'].notna() &
-                (self.df_data['nom'] != '') &
-                (self.df_data['nom'] != 'nan')
-        ).astype(int)
-
-        # Détection de doublons RIB
-        if 'rib' in self.df_data.columns:
-            rib_counts = self.df_data['rib'].value_counts()
-            features['rib_duplicate'] = self.df_data['rib'].map(rib_counts).fillna(1)
-            features['is_rib_duplicate'] = (features['rib_duplicate'] > 1).astype(int)
+        # Récupérer la liste des features attendues par le modèle MLP
+        feature_names = None
+        if self.model_mlp is not None and hasattr(self.model_mlp, 'feature_names_in_'):
+            feature_names = list(self.model_mlp.feature_names_in_)
         else:
-            features['rib_duplicate'] = 1
-            features['is_rib_duplicate'] = 0
+            # fallback: liste standard (à adapter si besoin)
+            feature_names = list(features.columns)
 
-        # Statistiques relatives (par rapport à la moyenne du dataset)
-        if len(features) > 1:
-            for col in ['salaire_brut', 'montant_total', 'heures_travaillees']:
-                if col in features.columns:
-                    mean_val = features[col].mean()
-                    std_val = features[col].std()
-                    if std_val > 0:
-                        features[f'{col}_zscore'] = (features[col] - mean_val) / std_val
-                    else:
-                        features[f'{col}_zscore'] = 0
+        # Pour chaque feature attendue, prendre la colonne ou mettre 0 si absente
+        features_final = pd.DataFrame()
+        for col in feature_names:
+            if col in features.columns:
+                features_final[col] = features[col]
+            else:
+                features_final[col] = 0
 
-        return features
+        # Remplacer les valeurs infinies et NaN
+        features_final = features_final.replace([np.inf, -np.inf], 0).fillna(0)
+        return features_final
 
     def _executer_isolation_forest(self) -> List[Dict]:
         """Exécute la détection d'anomalies avec Isolation Forest"""
@@ -364,7 +410,9 @@ class AuditEngine:
 
             resultats = []
             for i, (prediction, score) in enumerate(zip(predictions, scores_normalized)):
-                est_anomalie = (prediction == -1) or (score >= self.config.seuil_isolation_forest)
+                # CORRECTION: Seulement utiliser la prédiction du modèle, pas le seuil
+                # Le seuil sera utilisé plus tard dans la logique combinée
+                est_anomalie = (prediction == -1)
 
                 # Explication simple
                 explication = self._generer_explication_if(i, score, est_anomalie)
@@ -404,9 +452,37 @@ class AuditEngine:
                 # Type d'anomalie prédit
                 type_anomalie = str(pred)
 
-                # Si pas assez confiant ou pas d'anomalie IF, classer comme 'aucune'
-                if (not score_if_data['est_anomalie'] or
-                        max_proba < self.config.score_minimum_classification):
+                # CORRECTION: Logique améliorée pour la détection d'anomalies
+                # 1. Si Isolation Forest détecte une anomalie ET MLP est confiant
+                if (score_if_data['est_anomalie'] and 
+                    max_proba >= self.config.score_minimum_classification):
+                    # Garder le type d'anomalie prédit par MLP
+                    pass
+                # 2. Si Isolation Forest détecte une anomalie mais MLP pas très confiant
+                elif score_if_data['est_anomalie'] and max_proba < self.config.score_minimum_classification:
+                    # Anomalie détectée mais type incertain - utiliser le type prédit même si pas très confiant
+                    # mais seulement si le score est raisonnable (> 0.3)
+                    if max_proba > 0.3:
+                        # Garder le type prédit mais avec un score plus faible
+                        pass
+                    else:
+                        # Pas assez confiant, utiliser une classification basée sur les données
+                        # Analyser les features pour déterminer le type le plus probable
+                        row = self.features_mlp.iloc[i]
+                        if 'salaire_brut' in row and row['salaire_brut'] > 5000:
+                            type_anomalie = 'salaire_anormal'
+                        elif not row.get('nom', '') or not row.get('prenom', ''):
+                            type_anomalie = 'ghost_employee'
+                        elif row.get('montant_primes', 0) > 1000:
+                            type_anomalie = 'prime_anormale'
+                        elif row.get('heures_travaillees', 0) > 200:
+                            type_anomalie = 'heures_excessives'
+                        else:
+                            type_anomalie = 'salaire_anormal'  # Par défaut
+                        max_proba = score_if_data['score_anomalie']
+                # 3. Si Isolation Forest ne détecte pas d'anomalie
+                else:
+                    # Pas d'anomalie détectée
                     type_anomalie = 'aucune'
                     max_proba = 0.0
 
@@ -545,10 +621,10 @@ class AuditEngine:
             'aucune': "✅ Aucune anomalie détectée, profil normal"
         }
 
-        return recommandations_base.get(type_anomalie, {}).get(
-            niveau_risque,
-            "📝 Anomalie détectée, contrôle recommandé"
-        )
+        val = recommandations_base.get(type_anomalie, {})
+        if isinstance(val, dict):
+            return val.get(niveau_risque, "📝 Anomalie détectée, contrôle recommandé")
+        return val  # C'est déjà une chaîne
 
     def _sauvegarder_resultats(self, scores_if: List[Dict], predictions_mlp: List[Dict],
                                recommandations: List[str]):
@@ -565,6 +641,21 @@ class AuditEngine:
         ):
             row = self.df_data.iloc[i]
 
+            # CORRECTION: Logique améliorée pour déterminer si c'est une anomalie
+            # Une anomalie est détectée si :
+            # 1. Isolation Forest détecte une anomalie ET
+            # 2. Le type n'est pas 'aucune'
+            est_anomalie_finale = (score_if['est_anomalie'] and 
+                                 pred_mlp['type_anomalie'] != 'aucune')
+
+            # Correction de la logique de recommandation
+            if score_if['est_anomalie'] and pred_mlp['type_anomalie'] == 'aucune':
+                recommandation_finale = "⚠️ Anomalie détectée par l'IA, vérification manuelle recommandée"
+            elif pred_mlp['type_anomalie'] == 'anomalie_non_classifiee':
+                recommandation_finale = "🔍 Anomalie détectée mais type incertain - Vérification manuelle requise"
+            else:
+                recommandation_finale = self._get_recommandation_par_type(pred_mlp['type_anomalie'], pred_mlp['niveau_risque'])
+
             resultat = ResultatAudit(
                 session=self.session,
                 ligne_fichier=row.get('ligne_origine', i + 1),
@@ -577,14 +668,14 @@ class AuditEngine:
                 montant_total=self._to_decimal(row.get('montant_total')),
                 heures_travaillees=row.get('heures_travaillees'),
                 montant_primes=self._to_decimal(row.get('montant_primes')),
-                est_anomalie=score_if['est_anomalie'],
+                est_anomalie=est_anomalie_finale,
                 score_anomalie_if=score_if['score_anomalie'],
                 type_anomalie=pred_mlp['type_anomalie'],
                 score_classification_mlp=pred_mlp['score_classification'],
                 niveau_risque=pred_mlp['niveau_risque'],
                 explication_if=score_if['explication'],
                 explication_mlp=pred_mlp['explication'],
-                recommandation_auto=recommandation
+                recommandation_auto=recommandation_finale
             )
             resultats_a_creer.append(resultat)
 
@@ -627,8 +718,9 @@ class AuditEngine:
     class RetrainingEngine:
         """Moteur de réentraînement des modèles avec les corrections utilisateur"""
 
-        def __init__(self, mission=None):
+        def __init__(self, mission=None, utilisateur=None):
             self.mission = mission
+            self.utilisateur = utilisateur
             self.logs = []
 
         def reentrainer_modeles(self, type_modele: str = 'both') -> bool:
@@ -662,6 +754,16 @@ class AuditEngine:
                 self._log(f"Erreur lors du réentraînement: {str(e)}")
                 logger.error(f"Erreur réentraînement: {str(e)}")
                 return False
+
+        def _get_createur_id(self):
+            """ID à associer au modèle réentraîné : l'utilisateur ayant déclenché le
+            réentraînement, ou à défaut le premier superutilisateur (au lieu de supposer
+            que l'utilisateur d'ID 1 existe toujours)."""
+            if self.utilisateur:
+                return self.utilisateur.id
+            from django.contrib.auth import get_user_model
+            fallback = get_user_model().objects.filter(is_superuser=True).order_by('id').first()
+            return fallback.id if fallback else None
 
         def _get_corrections_pour_entrainement(self):
             """Récupère les corrections utilisateur non encore utilisées"""
@@ -731,7 +833,7 @@ class AuditEngine:
                     description=f"Modèle réentraîné avec {len(X_train)} corrections utilisateur",
                     date_entrainement=datetime.now(),
                     est_actif=True,
-                    cree_par_id=1  # Système
+                    cree_par_id=self._get_createur_id()
                 )
 
                 # Désactiver l'ancien modèle
@@ -807,7 +909,7 @@ class AuditEngine:
                         accuracy=score if 'score' in locals() else None,
                         date_entrainement=datetime.now(),
                         est_actif=True,
-                        cree_par_id=1  # Système
+                        cree_par_id=self._get_createur_id()
                     )
 
                     # Désactiver l'ancien modèle
@@ -853,7 +955,8 @@ class AuditEngine:
                 self._log(f"Évaluation du modèle: {modele.nom_modele}")
 
                 # Charger le modèle
-                model = joblib.load(modele.get_chemin_complet())
+                with _dataprep_comme_main():
+                    model = joblib.load(modele.get_chemin_complet())
 
                 # Récupérer les données de test (dernières sessions auditées)
                 sessions_test = self._get_sessions_test(modele.mission)

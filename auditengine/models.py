@@ -6,6 +6,11 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from uploads.models import FichierImporte
 from reconciliation.models import RapprochementSession
 from accounts.models import Mission
+from django.utils import timezone
+import logging
+from datetime import timedelta
+
+logger = logging.getLogger(__name__)
 
 
 class ParametrageIA(models.Model):
@@ -34,9 +39,9 @@ class ParametrageIA(models.Model):
     )
 
     # Paramètres d'affichage
-    nb_anomalies_max_dashboard = models.PositiveIntegerField(
+    nb_anomalies_max_tableau_de_bord = models.PositiveIntegerField(
         default=50,
-        help_text="Nombre maximum d'anomalies à afficher sur le dashboard"
+        help_text="Nombre maximum d'anomalies à afficher sur le tableau de bord"
     )
     afficher_explications = models.BooleanField(
         default=True,
@@ -168,6 +173,7 @@ class ResultatAudit(models.Model):
         ('prime_anormale', 'Prime anormale'),
         ('heures_excessives', 'Heures excessives'),
         ('duplicate_rib', 'RIB dupliqué'),
+        ('anomalie_non_classifiee', 'Anomalie non classifiée'),
         ('aucune', 'Aucune anomalie'),
     ]
 
@@ -208,7 +214,7 @@ class ResultatAudit(models.Model):
         help_text="Score Isolation Forest (0-1, plus proche de 1 = plus anormal)"
     )
     type_anomalie = models.CharField(
-        max_length=20,
+        max_length=25,
         choices=TYPE_ANOMALIE_CHOICES,
         default='aucune'
     )
@@ -462,3 +468,299 @@ class ModeleIA(models.Model):
             scope='global',
             est_actif=True
         ).first()
+
+
+class TacheAction(models.Model):
+    """Tâches d'action générées à partir des recommandations d'audit"""
+
+    STATUT_CHOICES = [
+        ('a_creer', 'À créer'),
+        ('en_cours', 'En cours'),
+        ('terminee', 'Terminée'),
+        ('annulee', 'Annulée'),
+    ]
+
+    PRIORITE_CHOICES = [
+        ('critique', 'Critique'),
+        ('elevee', 'Élevée'),
+        ('moyenne', 'Moyenne'),
+        ('faible', 'Faible'),
+    ]
+
+    # Relations
+    session_audit = models.ForeignKey(
+        SessionAudit,
+        on_delete=models.CASCADE,
+        related_name='taches_actions',
+        verbose_name="Session d'audit"
+    )
+    type_anomalie = models.CharField(
+        max_length=50,
+        choices=ResultatAudit.TYPE_ANOMALIE_CHOICES,
+        verbose_name="Type d'anomalie"
+    )
+
+    # Détails de la tâche
+    titre = models.CharField(max_length=200, verbose_name="Titre de la tâche")
+    description = models.TextField(verbose_name="Description détaillée")
+    action_requise = models.TextField(verbose_name="Action à effectuer")
+    
+    # Gestion
+    responsable = models.CharField(max_length=100, verbose_name="Responsable")
+    priorite = models.CharField(max_length=20, choices=PRIORITE_CHOICES, default='moyenne')
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='a_creer')
+    
+    # Échéances
+    delai = models.CharField(max_length=50, verbose_name="Délai recommandé")
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_debut = models.DateTimeField(null=True, blank=True)
+    date_fin_prevue = models.DateTimeField(null=True, blank=True)
+    date_fin_reelle = models.DateTimeField(null=True, blank=True)
+    
+    # Métriques
+    nb_cas_concernes = models.PositiveIntegerField(default=0, verbose_name="Nombre de cas concernés")
+    impact_financier_estime = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        default=0,
+        verbose_name="Impact financier estimé (€)"
+    )
+    
+    # Suivi
+    cree_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='taches_crees',
+        verbose_name="Créé par"
+    )
+    assigne_a = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='taches_assignees',
+        verbose_name="Assigné à"
+    )
+    notes = models.TextField(blank=True, verbose_name="Notes de suivi")
+
+    class Meta:
+        ordering = ['-priorite', '-date_creation']
+        verbose_name = "Tâche d'action"
+        verbose_name_plural = "Tâches d'action"
+
+    def __str__(self):
+        return f"{self.titre} ({self.get_statut_display()})"
+
+    def get_progression(self):
+        """Calcule la progression en pourcentage"""
+        if self.statut == 'terminee':
+            return 100
+        elif self.statut == 'en_cours':
+            return 50
+        elif self.statut == 'a_creer':
+            return 0
+        else:
+            return 0
+
+    @classmethod
+    def creer_depuis_plan_action(cls, session_audit, plan_action, utilisateur):
+        """Crée des tâches à partir du plan d'action d'une session"""
+        taches_crees = []
+        
+        for action in plan_action:
+            tache = cls.objects.create(
+                session_audit=session_audit,
+                type_anomalie=action.get('type_code', 'salaire_anormal'),
+                titre=f"Corriger {action.get('type', 'anomalies')}",
+                description=action.get('action', ''),
+                action_requise=action.get('action', ''),
+                responsable=action.get('responsable', 'À définir'),
+                delai=action.get('delai', 'À définir'),
+                nb_cas_concernes=action.get('count', 0),
+                impact_financier_estime=action.get('impact_estime', 0),
+                cree_par=utilisateur,
+                priorite='critique' if 'immédiat' in action.get('delai', '').lower() else 'elevee'
+            )
+            taches_crees.append(tache)
+        
+        return taches_crees
+
+
+class AuditLog(models.Model):
+    """Journal d'audit pour tracer toutes les actions utilisateur"""
+    ACTION_CHOICES = [
+        # Actions d'audit
+        ('create_session', 'Création de session'),
+        ('start_analysis', 'Démarrage analyse'),
+        ('complete_analysis', 'Analyse terminée'),
+        ('view_results', 'Consultation résultats'),
+        ('export_results', 'Export résultats'),
+        
+        # Actions sur les anomalies
+        ('view_anomaly', 'Consultation anomalie'),
+        ('correct_anomaly', 'Correction anomalie'),
+        ('validate_anomaly', 'Validation anomalie'),
+        ('mark_false_alert', 'Marquage fausse alerte'),
+        
+        # Actions sur les recommandations
+        ('generate_recommendations', 'Génération recommandations'),
+        ('view_recommendations', 'Consultation recommandations'),
+        ('export_recommendations', 'Export recommandations'),
+        
+        # Actions sur les tâches
+        ('create_task', 'Création tâche'),
+        ('assign_task', 'Assignation tâche'),
+        ('complete_task', 'Tâche terminée'),
+        ('view_tasks', 'Consultation tâches'),
+        
+        # Actions système
+        ('login', 'Connexion'),
+        ('logout', 'Déconnexion'),
+        ('access_denied', 'Accès refusé'),
+        ('error', 'Erreur système'),
+    ]
+    
+    SEVERITY_CHOICES = [
+        ('info', 'Information'),
+        ('warning', 'Avertissement'),
+        ('error', 'Erreur'),
+        ('critical', 'Critique'),
+    ]
+    
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='audit_logs', verbose_name="Utilisateur")
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES, verbose_name="Action")
+    feature = models.CharField(max_length=50, verbose_name="Fonctionnalité")
+    target = models.CharField(max_length=50, verbose_name="Cible")
+    resource_id = models.CharField(max_length=100, blank=True, verbose_name="ID Ressource")
+    resource_type = models.CharField(max_length=50, blank=True, verbose_name="Type Ressource")
+    
+    # Détails de l'action
+    description = models.TextField(blank=True, verbose_name="Description")
+    old_value = models.TextField(blank=True, verbose_name="Ancienne valeur")
+    new_value = models.TextField(blank=True, verbose_name="Nouvelle valeur")
+    
+    # Métadonnées
+    ip_address = models.GenericIPAddressField(blank=True, null=True, verbose_name="Adresse IP")
+    user_agent = models.TextField(blank=True, verbose_name="User Agent")
+    session_id = models.CharField(max_length=100, blank=True, verbose_name="ID Session")
+    
+    # Sécurité
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, default='info', verbose_name="Sévérité")
+    is_suspicious = models.BooleanField(default=False, verbose_name="Suspect")
+    
+    # Horodatage
+    timestamp = models.DateTimeField(auto_now_add=True, verbose_name="Horodatage")
+    
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = "Journal d'audit"
+        verbose_name_plural = "Journaux d'audit"
+        indexes = [
+            models.Index(fields=['user', 'action', 'timestamp']),
+            models.Index(fields=['action', 'timestamp']),
+            models.Index(fields=['resource_type', 'resource_id']),
+            models.Index(fields=['severity', 'timestamp']),
+        ]
+
+    def __str__(self):
+        return f"{self.user} - {self.get_action_display()} - {self.timestamp}"
+
+    @classmethod
+    def log_action(cls, user, action, feature, target, **kwargs):
+        """Méthode utilitaire pour enregistrer une action"""
+        try:
+            # Détection automatique d'activité suspecte
+            is_suspicious = cls._detect_suspicious_activity(user, action, **kwargs)
+            
+            log_entry = cls.objects.create(
+                user=user,
+                action=action,
+                feature=feature,
+                target=target,
+                description=kwargs.get('description', ''),
+                old_value=kwargs.get('old_value', ''),
+                new_value=kwargs.get('new_value', ''),
+                resource_id=kwargs.get('resource_id', ''),
+                resource_type=kwargs.get('resource_type', ''),
+                ip_address=kwargs.get('ip_address', ''),
+                user_agent=kwargs.get('user_agent', ''),
+                session_id=kwargs.get('session_id', ''),
+                severity=kwargs.get('severity', 'info'),
+                is_suspicious=is_suspicious
+            )
+            
+            # Alerte si activité suspecte
+            if is_suspicious:
+                cls._trigger_security_alert(log_entry)
+                
+            return log_entry
+            
+        except Exception as e:
+            # En cas d'erreur, on log quand même pour éviter la perte d'information
+            logger.error(f"Erreur lors de la journalisation: {str(e)}")
+            return None
+
+    @classmethod
+    def _detect_suspicious_activity(cls, user, action, **kwargs):
+        """Détecte les activités suspectes"""
+        suspicious_patterns = [
+            # Trop d'actions en peu de temps
+            lambda u, a, **kw: cls.objects.filter(
+                user=u, 
+                timestamp__gte=timezone.now() - timedelta(minutes=5)
+            ).count() > 50,
+            
+            # Actions sensibles en dehors des heures normales
+            lambda u, a, **kw: a in ['correct_anomaly', 'validate_anomaly'] and 
+                              timezone.now().hour not in range(8, 20),
+            
+            # Tentatives d'accès à des ressources non autorisées
+            lambda u, a, **kw: a == 'access_denied',
+            
+            # Modifications de valeurs sensibles
+            lambda u, a, **kw: a in ['correct_anomaly', 'validate_anomaly'] and 
+                              kw.get('new_value') != kw.get('old_value'),
+        ]
+        
+        return any(pattern(user, action, **kwargs) for pattern in suspicious_patterns)
+
+    @classmethod
+    def _trigger_security_alert(cls, log_entry):
+        """Déclenche une alerte de sécurité"""
+        try:
+            # Ici on pourrait envoyer une notification, un email, etc.
+            logger.warning(f"Activité suspecte détectée: {log_entry}")
+            
+            # Optionnel: Créer une alerte dans le système
+            from django.contrib import messages
+            # messages.warning(log_entry.user, "Activité suspecte détectée")
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la création d'alerte: {str(e)}")
+
+    @classmethod
+    def get_user_activity_summary(cls, user, days=30):
+        """Récupère un résumé de l'activité d'un utilisateur"""
+        from django.db.models import Count
+        from datetime import timedelta
+        
+        start_date = timezone.now() - timedelta(days=days)
+        
+        return cls.objects.filter(
+            user=user,
+            timestamp__gte=start_date
+        ).values('action').annotate(
+            count=Count('id')
+        ).order_by('-count')
+
+    @classmethod
+    def get_security_alerts(cls, days=7):
+        """Récupère les alertes de sécurité récentes"""
+        from datetime import timedelta
+        
+        start_date = timezone.now() - timedelta(days=days)
+        
+        return cls.objects.filter(
+            is_suspicious=True,
+            timestamp__gte=start_date
+        ).order_by('-timestamp')

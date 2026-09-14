@@ -172,7 +172,7 @@ class ParametrageIAForm(forms.ModelForm):
         fields = [
             'seuil_isolation_forest', 'score_minimum_classification',
             'utiliser_modele_global', 'reentrainement_auto',
-            'nb_anomalies_max_dashboard', 'afficher_explications'
+            'nb_anomalies_max_tableau_de_bord', 'afficher_explications'
         ]
         widgets = {
             'seuil_isolation_forest': forms.NumberInput(attrs={
@@ -193,7 +193,7 @@ class ParametrageIAForm(forms.ModelForm):
             'reentrainement_auto': forms.CheckboxInput(attrs={
                 'class': 'form-check-input'
             }),
-            'nb_anomalies_max_dashboard': forms.NumberInput(attrs={
+            'nb_anomalies_max_tableau_de_bord': forms.NumberInput(attrs={
                 'class': 'form-control',
                 'min': '10',
                 'max': '200'
@@ -207,7 +207,7 @@ class ParametrageIAForm(forms.ModelForm):
             'score_minimum_classification': 'Score minimum MLP (0-1)',
             'utiliser_modele_global': 'Utiliser le modèle global',
             'reentrainement_auto': 'Réentraînement automatique',
-            'nb_anomalies_max_dashboard': 'Nb max anomalies dashboard',
+            'nb_anomalies_max_tableau_de_bord': 'Nb max anomalies tableau de bord',
             'afficher_explications': 'Afficher les explications IA'
         }
         help_texts = {
@@ -215,7 +215,7 @@ class ParametrageIAForm(forms.ModelForm):
             'score_minimum_classification': 'Score minimum pour valider une classification MLP',
             'utiliser_modele_global': 'Si désactivé, privilégier les modèles spécifiques par mission',
             'reentrainement_auto': 'Réentraîner automatiquement avec les corrections',
-            'nb_anomalies_max_dashboard': 'Nombre maximum d\'anomalies à afficher sur le dashboard',
+            'nb_anomalies_max_tableau_de_bord': 'Nombre maximum d\'anomalies à afficher sur le tableau de bord',
             'afficher_explications': 'Afficher les explications des décisions IA'
         }
 

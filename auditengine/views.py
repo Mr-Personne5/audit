@@ -9,12 +9,17 @@ from django.core.paginator import Paginator
 from django.db import transaction
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Avg, Sum
 from django.utils import timezone
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.core.cache import cache
+from decimal import Decimal
+import tempfile
 
 from .models import (
     SessionAudit, ResultatAudit, ParametrageIA, ModeleIA,
-    CorrectionUtilisateur
+    CorrectionUtilisateur, TacheAction, AuditLog
 )
 from .forms import (
     SessionAuditForm, CorrectionForm, ParametrageIAForm,
@@ -124,74 +129,135 @@ def create_session(request):
 
 @login_required
 def session_detail(request, pk):
-    """Détail d'une session d'audit avec résultats"""
+    """Détail d'une session d'audit"""
     session = get_object_or_404(SessionAudit, pk=pk)
-
-    # Vérification des permissions
+    
+    # Vérifier les permissions
     if not request.user.is_admin() and session.mission != request.user.mission:
         messages.error(request, "Vous n'avez pas accès à cette session.")
         return redirect('auditengine:session_list')
-
-    # Récupérer les résultats avec filtres
-    resultats = session.resultats.all()
-
-    # Filtres
+    
+    # Récupération des filtres
     type_filter = request.GET.get('type')
-    niveau_filter = request.GET.get('niveau')
+    niveau_risque_filter = request.GET.get('niveau_risque')
     anomalie_filter = request.GET.get('anomalie')
-
-    if type_filter:
-        resultats = resultats.filter(type_anomalie=type_filter)
-    if niveau_filter:
-        resultats = resultats.filter(niveau_risque=niveau_filter)
+    fausse_alerte_filter = request.GET.get('fausse_alerte')
+    search_filter = request.GET.get('search')
+    ordering = request.GET.get('ordering')  # ex: -score_if, score_mlp, nom
+    show = request.GET.get('show')
+    
+    # Construction de la requête de base
+    base_qs = session.resultats.all()
+    
+    # Application du filtre anomalie
     if anomalie_filter == 'oui':
-        resultats = resultats.filter(est_anomalie=True)
+        base_qs = base_qs.filter(est_anomalie=True)
     elif anomalie_filter == 'non':
-        resultats = resultats.filter(est_anomalie=False)
-
-    # Pagination
-    paginator = Paginator(resultats, 25)
+        base_qs = base_qs.filter(est_anomalie=False)
+    elif not show:  # Par défaut, montrer seulement les anomalies si aucun filtre spécifique
+        base_qs = base_qs.filter(est_anomalie=True)
+    
+    # Application des autres filtres
+    if type_filter:
+        base_qs = base_qs.filter(type_anomalie=type_filter)
+    if niveau_risque_filter:
+        base_qs = base_qs.filter(niveau_risque=niveau_risque_filter)
+    if fausse_alerte_filter == 'oui':
+        base_qs = base_qs.filter(est_fausse_alerte=True)
+    elif fausse_alerte_filter == 'non':
+        base_qs = base_qs.filter(est_fausse_alerte=False)
+    if search_filter:
+        base_qs = base_qs.filter(
+            Q(nom__icontains=search_filter) |
+            Q(prenom__icontains=search_filter) |
+            Q(matricule__icontains=search_filter)
+        )
+    
+    # Tri
+    if ordering in ['score_if', '-score_if', 'score_mlp', '-score_mlp', 'nom', '-nom']:
+        ordering_map = {
+            'score_if': 'score_anomalie_if',
+            '-score_if': '-score_anomalie_if',
+            'score_mlp': 'score_classification_mlp',
+            '-score_mlp': '-score_classification_mlp',
+            'nom': 'nom',
+            '-nom': '-nom',
+        }
+        resultats = base_qs.order_by(ordering_map[ordering])
+    else:
+        resultats = base_qs.order_by('-score_anomalie_if')
+    paginator = Paginator(resultats, 20)
     page_number = request.GET.get('page')
     resultats_page = paginator.get_page(page_number)
-
-    # Statistiques détaillées par type
+    
+    # Statistiques détaillées (calculées sur les données filtrées)
+    # Agrégées pour éviter N requêtes
+    type_counts = {row['type_anomalie']: row['c'] for row in base_qs.values('type_anomalie').annotate(c=Count('id'))}
     stats_detail = {
-        'salaires_anormaux': session.resultats.filter(type_anomalie='salaire_anormal').count(),
-        'employes_fantomes': session.resultats.filter(type_anomalie='ghost_employee').count(),
-        'primes_anormales': session.resultats.filter(type_anomalie='prime_anormale').count(),
-        'heures_excessives': session.resultats.filter(type_anomalie='heures_excessives').count(),
-        'rib_dupliques': session.resultats.filter(type_anomalie='duplicate_rib').count(),
-        'aucune_anomalie': session.resultats.filter(type_anomalie='aucune').count(),
+        'salaires_anormaux': type_counts.get('salaire_anormal', 0),
+        'employes_fantomes': type_counts.get('ghost_employee', 0),
+        'primes_anormales': type_counts.get('prime_anormale', 0),
+        'heures_excessives': type_counts.get('heures_excessives', 0),
+        'rib_dupliques': type_counts.get('duplicate_rib', 0),
+        # Toujours compter les cas normaux sur l'ensemble de la session
+        # (sinon, avec l'affichage par défaut limité aux anomalies, on obtiendrait 0)
+        'aucune_anomalie': session.resultats.filter(est_anomalie=False).count(),
     }
-
-    # Statistiques par niveau de risque
+    
+    # Statistiques par niveau de risque (calculées sur les données filtrées)
+    risk_counts = {row['niveau_risque']: row['c'] for row in base_qs.values('niveau_risque').annotate(c=Count('id'))}
     stats_risque = {
-        'critique': session.resultats.filter(niveau_risque='critique').count(),
-        'eleve': session.resultats.filter(niveau_risque='eleve').count(),
-        'moyen': session.resultats.filter(niveau_risque='moyen').count(),
-        'faible': session.resultats.filter(niveau_risque='faible').count(),
+        'critique': risk_counts.get('critique', 0),
+        'eleve': risk_counts.get('eleve', 0),
+        'moyen': risk_counts.get('moyen', 0),
+        'faible': risk_counts.get('faible', 0),
     }
 
+    # Statistiques globales (sur toute la session) pour comparer
+    anomalies_qs = session.resultats.filter(est_anomalie=True)
+    risk_counts_global = {row['niveau_risque']: row['c'] for row in anomalies_qs.values('niveau_risque').annotate(c=Count('id'))}
+    stats_risque_global = {
+        'critique': risk_counts_global.get('critique', 0),
+        'eleve': risk_counts_global.get('eleve', 0),
+        'moyen': risk_counts_global.get('moyen', 0),
+        'faible': risk_counts_global.get('faible', 0),
+    }
+
+    # Taux global et filtré
+    total_global = session.nb_lignes_analysees or session.resultats.count()
+    taux_global = round((session.nb_anomalies_detectees / total_global) * 100, 2) if total_global else 0
+    total_filtre = base_qs.count()
+    anomalies_filtre = base_qs.filter(est_anomalie=True).count()
+    taux_filtre = round((anomalies_filtre / total_filtre) * 100, 2) if total_filtre else 0
+    
     context = {
         'session': session,
         'resultats_page': resultats_page,
         'stats_detail': stats_detail,
         'stats_risque': stats_risque,
+        'stats_risque_global': stats_risque_global,
         'type_choices': ResultatAudit.TYPE_ANOMALIE_CHOICES,
-        'niveau_choices': ResultatAudit.NIVEAU_RISQUE_CHOICES,
+        'niveau_risque_choices': ResultatAudit.NIVEAU_RISQUE_CHOICES,
         'current_filters': {
             'type': type_filter,
-            'niveau': niveau_filter,
+            'niveau_risque': niveau_risque_filter,
             'anomalie': anomalie_filter,
+            'fausse_alerte': fausse_alerte_filter,
+            'search': search_filter,
+            'ordering': ordering,
         },
+        'taux_global': taux_global,
+        'taux_filtre': taux_filtre,
+        'show': show or 'anomalies',
         'can_process': session.status in ['pending', 'error'],
-        'can_edit': request.user.is_admin() or session.utilisateur == request.user,
+        'can_edit': request.user.is_admin() or session.mission == request.user.mission,
     }
-
+    
     return render(request, 'auditengine/session_detail.html', context)
 
 
 @login_required
+@require_http_methods(["POST"])
 def process_session(request, pk):
     """Lancer le traitement IA d'une session"""
     session = get_object_or_404(SessionAudit, pk=pk)
@@ -386,6 +452,19 @@ def session_status(request, pk):
     if not request.user.is_admin() and session.mission != request.user.mission:
         return JsonResponse({'error': 'Permission refusée'}, status=403)
 
+    # Obtenir le nombre total de lignes depuis le fichier de paie
+    nb_total_lignes = None
+    if session.fichier_paie:
+        # Essayer d'abord le champ nb_lignes du fichier
+        if session.fichier_paie.nb_lignes:
+            nb_total_lignes = session.fichier_paie.nb_lignes
+        # Sinon essayer via la relation preview
+        elif hasattr(session.fichier_paie, 'preview') and session.fichier_paie.preview:
+            nb_total_lignes = session.fichier_paie.preview.nb_total_lignes
+        # Fallback: utiliser le nombre de lignes analysées si le traitement est terminé
+        elif session.status == 'completed':
+            nb_total_lignes = session.nb_lignes_analysees
+
     return JsonResponse({
         'status': session.status,
         'progress': {
@@ -393,6 +472,7 @@ def session_status(request, pk):
             'nb_anomalies_detectees': session.nb_anomalies_detectees,
             'taux_anomalies': session.get_taux_anomalies(),
             'duree_traitement': session.duree_traitement_secondes,
+            'nb_total_lignes': nb_total_lignes,
         },
         'stats_detail': {
             'salaires_anormaux': session.nb_salaires_anormaux,
@@ -431,6 +511,8 @@ def export_results(request, pk):
         # Préparer les données
         data = []
         for resultat in resultats:
+            score_if_pct = f"{resultat.score_anomalie_if * 100:.1f}%" if resultat.score_anomalie_if is not None else ''
+            score_mlp_pct = f"{resultat.score_classification_mlp * 100:.1f}%" if resultat.score_classification_mlp is not None else ''
             data.append({
                 'Ligne Fichier': resultat.ligne_fichier,
                 'Matricule': resultat.matricule,
@@ -443,9 +525,9 @@ def export_results(request, pk):
                 'Heures Travaillées': resultat.heures_travaillees,
                 'Montant Primes': resultat.montant_primes,
                 'Est Anomalie': 'Oui' if resultat.est_anomalie else 'Non',
-                'Score IF': resultat.score_anomalie_if,
+                'Score IF': score_if_pct,
                 'Type Anomalie': resultat.get_type_anomalie_display(),
-                'Score MLP': resultat.score_classification_mlp,
+                'Score MLP': score_mlp_pct,
                 'Niveau Risque': resultat.get_niveau_risque_display(),
                 'Explication IF': resultat.explication_if,
                 'Explication MLP': resultat.explication_mlp,
@@ -554,7 +636,165 @@ def dashboard(request):
         context['missions'] = Mission.objects.all()
         context['current_mission'] = mission_id
 
+    log_user_action(request.user, "consultation", "Tableau de bord", request=request)
+
     return render(request, 'auditengine/dashboard.html', context)
+
+
+def _build_recommendations_context(session):
+    """Construit (ou récupère depuis le cache) le contexte de recommandations d'une session.
+
+    Partagé par la vue HTML (generate_recommendations) et l'export PDF
+    (export_recommendations_pdf) pour éviter de dupliquer le calcul et les logs.
+    """
+    # OPTIMISATION: Cache simple pour éviter les recalculs
+    cache_key = f"recommendations_{session.id}_{session.date_completion.isoformat() if session.date_completion else 'none'}"
+
+    # Vérifier si on a déjà calculé ces recommandations
+    cached_result = cache.get(cache_key)
+    if cached_result:
+        context = dict(cached_result)
+        context['session'] = session  # Toujours mettre à jour la session
+        return context
+
+    # OPTIMISATION: Une seule requête pour récupérer toutes les anomalies avec leurs données
+    anomalies = session.resultats.filter(est_anomalie=True).select_related('session')
+
+    # Résumé exécutif
+    total_lignes = session.nb_lignes_analysees or session.resultats.count()
+    total_anomalies = anomalies.count()
+    taux_anomalies = round((total_anomalies / total_lignes) * 100, 1) if total_lignes else 0
+
+    # OPTIMISATION: Répartition par type en une seule requête
+    type_map = dict(ResultatAudit.TYPE_ANOMALIE_CHOICES)
+    type_stats = (
+        anomalies
+        .exclude(type_anomalie='aucune')
+        .values('type_anomalie')
+        .annotate(
+            count=Count('id'),
+            total_salaire=Sum('salaire_brut'),
+            total_heures=Sum('heures_travaillees'),
+            total_primes=Sum('montant_primes')
+        )
+        .order_by('-count')
+    )
+
+    repartition_types = []
+    impact_financier_total = Decimal('0')
+    impact_par_type = {}
+    exemples_par_type = {}
+
+    # OPTIMISATION: Traitement en une seule boucle
+    for stat in type_stats:
+        type_code = stat['type_anomalie']
+        count = stat['count']
+
+        # Calculer l'impact financier
+        if type_code == 'salaire_anormal':
+            impact = Decimal(str(stat['total_salaire'] or 0))
+        elif type_code == 'heures_excessives':
+            impact = Decimal(str(stat['total_heures'] or 0)) * Decimal('25')
+        elif type_code == 'prime_anormale':
+            impact = Decimal(str(stat['total_primes'] or 0))
+        elif type_code == 'ghost_employee':
+            impact = Decimal(str(count)) * Decimal('2500')
+        elif type_code == 'duplicate_rib':
+            impact = Decimal(str(count)) * Decimal('5000')
+        else:
+            impact = Decimal(str(count)) * Decimal('1000')
+
+        impact_financier_total += impact
+
+        # Répartition types
+        repartition_types.append({
+            'code': type_code,
+            'label': type_map.get(type_code, type_code).capitalize(),
+            'count': count,
+            'percent': round((count / total_anomalies) * 100, 1) if total_anomalies else 0
+        })
+
+        # Impact par type
+        impact_par_type[type_code] = {
+            'montant': impact,
+            'count': count,
+            'label': type_map.get(type_code, type_code).capitalize()
+        }
+
+    # OPTIMISATION: Répartition par risque en une seule requête
+    risk_map = dict(ResultatAudit.NIVEAU_RISQUE_CHOICES)
+    risk_stats = (
+        anomalies
+        .values('niveau_risque')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+
+    repartition_risques = [
+        {
+            'code': row['niveau_risque'],
+            'label': risk_map.get(row['niveau_risque'], row['niveau_risque']).capitalize(),
+            'count': row['count'],
+        }
+        for row in risk_stats
+    ]
+
+    # OPTIMISATION: Exemples en une seule requête par type
+    for type_code in impact_par_type.keys():
+        exemples = (
+            anomalies
+            .filter(type_anomalie=type_code)
+            .values('id', 'nom', 'salaire_brut', 'montant_primes', 'niveau_risque')[:3]
+        )
+
+        exemples_par_type[type_code] = [
+            {
+                'id': ex['id'],
+                'nom': ex['nom'],
+                'salaire_brut': ex['salaire_brut'],
+                'montant_primes': ex['montant_primes'],
+                'niveau_risque': ex['niveau_risque'],
+                'url': f'/auditengine/anomalies/{ex["id"]}/'
+            }
+            for ex in exemples
+        ]
+
+    # OPTIMISATION: Générer le rapport seulement si nécessaire
+    rapport = RecommendationGenerator.generer_recommandations_session(session)
+    recommandations_prioritaires = rapport.get('recommandations_prioritaires', [])
+
+    # Construire le contexte optimisé
+    recos_context = {
+        'resume': {
+            'total_lignes': total_lignes,
+            'total_anomalies': total_anomalies,
+            'taux_anomalies': taux_anomalies,
+            'taux_conformite': round(100 - taux_anomalies, 1),
+            'mission': getattr(session.mission, 'nom', ''),
+            'session_nom': session.nom_session,
+            'date_completion': session.date_completion,
+        },
+        'repartition_types': repartition_types,
+        'repartition_risques': repartition_risques,
+        'recommandations_prioritaires': recommandations_prioritaires,
+        'plan_action': rapport.get('plan_action', []),
+        'impact_financier': {
+            'total': impact_financier_total,
+            'par_type': impact_par_type,
+        },
+        'exemples': exemples_par_type,
+    }
+
+    context = {
+        'session': session,
+        'rapport': rapport,
+        'recos': recos_context,
+    }
+
+    # OPTIMISATION: Mettre en cache pour 30 minutes
+    cache.set(cache_key, context, 1800)
+
+    return context
 
 
 @login_required
@@ -571,8 +811,7 @@ def generate_recommendations(request, pk):
         return redirect('auditengine:session_detail', pk=pk)
 
     try:
-        # Générer le rapport de recommandations
-        rapport = RecommendationGenerator.generer_recommandations_session(session)
+        context = _build_recommendations_context(session)
 
         log_user_action(
             user=request.user,
@@ -582,17 +821,74 @@ def generate_recommendations(request, pk):
             resource_id=str(session.id)
         )
 
-        context = {
-            'session': session,
-            'rapport': rapport,
-        }
-
         return render(request, 'auditengine/recommendations_report.html', context)
 
     except Exception as e:
         logger.error(f"Erreur génération recommandations: {str(e)}")
         messages.error(request, f"Erreur lors de la génération: {str(e)}")
         return redirect('auditengine:session_detail', pk=pk)
+
+
+@login_required
+def export_recommendations_pdf(request, pk):
+    session = get_object_or_404(SessionAudit, pk=pk)
+    if not request.user.is_admin() and session.mission != request.user.mission:
+        return HttpResponse('Accès refusé', status=403)
+
+    if session.status != 'completed':
+        return HttpResponse('La session doit être terminée pour générer des recommandations.', status=400)
+
+    try:
+        context = _build_recommendations_context(session)
+    except Exception as e:
+        logger.error(f"Erreur génération recommandations (export PDF) session {pk}: {str(e)}")
+        return HttpResponse(f"Erreur lors de la génération: {e}", status=500)
+
+    context['pdf_export'] = True
+
+    log_user_action(
+        user=request.user,
+        action="export",
+        feature="Audit IA",
+        target="recommandations",
+        resource_id=str(session.id)
+    )
+
+    # Utiliser un template minimaliste pour le PDF
+    template_pdf = 'auditengine/recommendations_report_pdf.html'
+    template_html = 'auditengine/recommendations_report.html'
+    html = render_to_string(template_pdf, context)
+    try:
+        try:
+            from weasyprint import HTML
+            with tempfile.NamedTemporaryFile(delete=True, suffix='.pdf') as output:
+                HTML(string=html, base_url=request.build_absolute_uri('/')).write_pdf(output.name)
+                output.seek(0)
+                pdf = output.read()
+                response = HttpResponse(pdf, content_type='application/pdf')
+                response['Content-Disposition'] = f'attachment; filename="rapport_recommandations_{session.pk}.pdf"'
+                return response
+        except (ImportError, OSError, Exception):
+            # Fallback xhtml2pdf
+            try:
+                from xhtml2pdf import pisa
+                import io
+                pdf_file = io.BytesIO()
+                pisa_status = pisa.CreatePDF(html, dest=pdf_file, encoding='utf-8')
+                if not pisa_status.err:
+                    response = HttpResponse(pdf_file.getvalue(), content_type='application/pdf')
+                    response['Content-Disposition'] = f'attachment; filename="rapport_recommandations_{session.pk}.pdf"'
+                    return response
+                else:
+                    # Si xhtml2pdf échoue, fallback HTML classique
+                    html_fallback = render_to_string(template_html, context)
+                    return HttpResponse(html_fallback)
+            except Exception:
+                html_fallback = render_to_string(template_html, context)
+                return HttpResponse(html_fallback)
+    except Exception:
+        html_fallback = render_to_string(template_html, context)
+        return HttpResponse(html_fallback)
 
 
 # ==================== ADMINISTRATION IA ====================
@@ -697,7 +993,7 @@ def reentrainer_modeles(request):
                 mission = Mission.objects.get(id=mission_id)
 
             # Lancer le réentraînement
-            engine = RetrainingEngine(mission=mission)
+            engine = RetrainingEngine(mission=mission, utilisateur=request.user)
             success = engine.reentrainer_modeles(type_modele)
 
             log_user_action(
@@ -822,3 +1118,547 @@ def corrections_stats(request):
         stats['corrections_par_confiance'][f'Niveau {niveau}'] = count
 
     return JsonResponse(stats)
+
+
+@login_required
+def dashboard_auditengine_stats_api(request):
+    # Moyenne du taux de détection IA sur toutes les sessions
+    taux_detection_moyen = SessionAudit.objects.aggregate(avg=Avg('nb_anomalies_detectees'))['avg'] or 0
+    # Nombre de sessions terminées
+    sessions_completed = SessionAudit.objects.filter(status='completed').count()
+    # Nombre total d'anomalies détectées
+    total_anomalies_detectees = ResultatAudit.objects.filter(est_anomalie=True).count()
+    # Nombre total d'employés analysés (lignes analysées)
+    total_employes_analyses = ResultatAudit.objects.count()
+    stats = {
+        'taux_detection_moyen': round(taux_detection_moyen, 1),
+        'sessions_completed': sessions_completed,
+        'total_anomalies_detectees': total_anomalies_detectees,
+        'total_employes_analyses': total_employes_analyses,
+    }
+    return JsonResponse(stats)
+
+
+@login_required
+def api_session_stats(request, pk):
+    try:
+        session = get_object_or_404(SessionAudit, pk=pk)
+        
+        # Log de debug
+        logger.info(f"API session stats - User: {request.user.username}, Session: {session.nom_session}, Mission: {session.mission}")
+        logger.info(f"User is admin: {request.user.is_superuser}, User mission: {getattr(request.user, 'mission', None)}")
+        
+        # Vérification des permissions - permettre l'accès à tous les utilisateurs connectés
+        # car ce sont juste des statistiques publiques
+        if not request.user.is_authenticated:
+            logger.warning(f"Utilisateur non connecté")
+            return JsonResponse({'error': 'Utilisateur non connecté'}, status=401)
+        
+        # Appliquer les mêmes filtres que le tableau
+        resultats = session.resultats.all()
+        type_filter = request.GET.get('type')
+        niveau_filter = request.GET.get('niveau')
+        anomalie_filter = request.GET.get('anomalie')
+        
+        if type_filter:
+            resultats = resultats.filter(type_anomalie=type_filter)
+        if niveau_filter:
+            resultats = resultats.filter(niveau_risque=niveau_filter)
+        if anomalie_filter == 'oui':
+            resultats = resultats.filter(est_anomalie=True)
+        elif anomalie_filter == 'non':
+            resultats = resultats.filter(est_anomalie=False)
+        
+        # Statistiques détaillées par type (sur le sous-ensemble filtré)
+        stats_detail = {
+            'salaires_anormaux': resultats.filter(type_anomalie='salaire_anormal').count(),
+            'employes_fantomes': resultats.filter(type_anomalie='ghost_employee').count(),
+            'primes_anormales': resultats.filter(type_anomalie='prime_anormale').count(),
+            'heures_excessives': resultats.filter(type_anomalie='heures_excessives').count(),
+            'rib_dupliques': resultats.filter(type_anomalie='duplicate_rib').count(),
+            'aucune_anomalie': resultats.filter(type_anomalie='aucune').count(),
+        }
+        
+        # Statistiques par niveau de risque (sur le sous-ensemble filtré)
+        stats_risque = {
+            'critique': resultats.filter(niveau_risque='critique').count(),
+            'eleve': resultats.filter(niveau_risque='eleve').count(),
+            'moyen': resultats.filter(niveau_risque='moyen').count(),
+            'faible': resultats.filter(niveau_risque='faible').count(),
+        }
+        
+        logger.info(f"API session stats - Stats calculées: {stats_detail}")
+        return JsonResponse({'stats_detail': stats_detail, 'stats_risque': stats_risque})
+        
+    except Exception as e:
+        logger.error(f"Erreur API session stats {pk}: {str(e)}")
+        return JsonResponse({
+            'error': 'Erreur lors du calcul des statistiques',
+            'stats_detail': {
+                'salaires_anormaux': 0,
+                'employes_fantomes': 0,
+                'primes_anormales': 0,
+                'heures_excessives': 0,
+                'rib_dupliques': 0,
+                'aucune_anomalie': 0,
+            },
+            'stats_risque': {
+                'critique': 0,
+                'eleve': 0,
+                'moyen': 0,
+                'faible': 0,
+            }
+        }, status=500)
+
+
+@login_required
+def api_session_results(request, pk):
+    from .models import SessionAudit, ResultatAudit
+    session = get_object_or_404(SessionAudit, pk=pk)
+    resultats = session.resultats.all()
+    # Filtres
+    type_filter = request.GET.get('type')
+    niveau_filter = request.GET.get('niveau')
+    anomalie_filter = request.GET.get('anomalie')
+    fausse_alerte_filter = request.GET.get('fausse_alerte')
+    ordering = request.GET.get('ordering')
+    search = request.GET.get('search')
+    if type_filter:
+        resultats = resultats.filter(type_anomalie=type_filter)
+    if niveau_filter:
+        resultats = resultats.filter(niveau_risque=niveau_filter)
+    if anomalie_filter == 'oui':
+        resultats = resultats.filter(est_anomalie=True)
+    elif anomalie_filter == 'non':
+        resultats = resultats.filter(est_anomalie=False)
+    if search:
+        resultats = resultats.filter(
+            Q(nom__icontains=search) |
+            Q(prenom__icontains=search) |
+            Q(matricule__icontains=search)
+        )
+    if fausse_alerte_filter == 'oui':
+        resultats = resultats.filter(est_fausse_alerte=True)
+    elif fausse_alerte_filter == 'non':
+        resultats = resultats.filter(est_fausse_alerte=False)
+
+    # Tri
+    if ordering in ['score_if', '-score_if', 'score_mlp', '-score_mlp', 'nom', '-nom']:
+        ordering_map = {
+            'score_if': 'score_anomalie_if',
+            '-score_if': '-score_anomalie_if',
+            'score_mlp': 'score_classification_mlp',
+            '-score_mlp': '-score_classification_mlp',
+            'nom': 'nom',
+            '-nom': '-nom',
+        }
+        resultats = resultats.order_by(ordering_map[ordering])
+    # Pagination
+    page_number = request.GET.get('page', 1)
+    paginator = Paginator(resultats, 25)
+    page = paginator.get_page(page_number)
+    # Format JSON
+    data = []
+    for r in page:
+        data.append({
+            'id': r.id,
+            'ligne_fichier': r.ligne_fichier,
+            'matricule': r.matricule,
+            'nom': r.nom,
+            'prenom': r.prenom,
+            'poste': r.poste,
+            'rib': r.rib,
+            'salaire_brut': str(r.salaire_brut) if r.salaire_brut is not None else '',
+            'montant_total': str(r.montant_total) if r.montant_total is not None else '',
+            'heures_travaillees': r.heures_travaillees,
+            'montant_primes': str(r.montant_primes) if r.montant_primes is not None else '',
+            'est_anomalie': r.est_anomalie,
+            'est_fausse_alerte': r.est_fausse_alerte,
+            'type_anomalie': r.get_type_anomalie_display(),
+            'niveau_risque': r.get_niveau_risque_display(),
+            'explication_if': r.explication_if,
+            'explication_mlp': r.explication_mlp,
+            'recommandation_auto': r.recommandation_auto,
+            'valide_par_humain': r.valide_par_humain,
+            'commentaire_utilisateur': r.commentaire_utilisateur,
+        })
+    return JsonResponse({
+        'results': data,
+        'has_next': page.has_next(),
+        'has_previous': page.has_previous(),
+        'num_pages': paginator.num_pages,
+        'current_page': page.number,
+        'total_results': paginator.count,
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def valider_resultat(request, resultat_id):
+    """Valider un résultat d'audit"""
+    resultat = get_object_or_404(ResultatAudit, pk=resultat_id)
+    
+    # Vérification des permissions
+    if not request.user.is_admin() and resultat.session.mission != request.user.mission:
+        return JsonResponse({'success': False, 'error': 'Permission refusée'}, status=403)
+    
+    try:
+        resultat.valide_par_humain = True
+        resultat.valide_par = request.user
+        resultat.date_validation = timezone.now()
+        resultat.save()
+        
+        log_user_action(
+            user=request.user,
+            action="validate",
+            feature="Audit IA",
+            target="resultat",
+            resource_id=str(resultat.id)
+        )
+        
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        logger.error(f"Erreur validation résultat {resultat_id}: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def dashboard_anomalies_stats_api(request):
+    """API pour les totaux d'anomalies par type (tableau de bord)"""
+    if not request.user.is_admin():
+        sessions = SessionAudit.objects.filter(mission=request.user.mission, status='completed')
+    else:
+        sessions = SessionAudit.objects.filter(status='completed')
+
+    total_employes_fantomes = sum(s.nb_employes_fantomes for s in sessions)
+    total_salaires_anormaux = sum(s.nb_salaires_anormaux for s in sessions)
+    total_rib_dupliques = sum(s.nb_rib_dupliques for s in sessions)
+
+    return JsonResponse({
+        'total_employes_fantomes': total_employes_fantomes,
+        'total_salaires_anormaux': total_salaires_anormaux,
+        'total_rib_dupliques': total_rib_dupliques,
+    })
+
+
+# ==================== GESTION DES TÂCHES D'ACTION ====================
+
+@login_required
+@require_http_methods(["POST"])
+def creer_taches_action(request, session_id):
+    """Créer des tâches d'action à partir du plan d'action d'une session"""
+    session = get_object_or_404(SessionAudit, pk=session_id)
+    
+    # Vérification des permissions
+    if not request.user.is_admin() and session.mission != request.user.mission:
+        return JsonResponse({'success': False, 'error': 'Permission refusée'}, status=403)
+    
+    try:
+        # Générer le plan d'action
+        rapport = RecommendationGenerator.generer_recommandations_session(session)
+        plan_action = rapport.get('plan_action', [])
+        
+        # Créer les tâches
+        taches_crees = TacheAction.creer_depuis_plan_action(
+            session_audit=session,
+            plan_action=plan_action,
+            utilisateur=request.user
+        )
+        
+        log_user_action(
+            user=request.user,
+            action="create_tasks",
+            feature="Audit IA",
+            target="session",
+            resource_id=str(session.id)
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'{len(taches_crees)} tâches créées avec succès',
+            'nb_taches': len(taches_crees)
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur création tâches session {session_id}: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def assigner_tache(request, tache_id):
+    """Assigner une tâche à un utilisateur"""
+    tache = get_object_or_404(TacheAction, pk=tache_id)
+    
+    # Vérification des permissions
+    if not request.user.is_admin() and tache.session_audit.mission != request.user.mission:
+        return JsonResponse({'success': False, 'error': 'Permission refusée'}, status=403)
+    
+    try:
+        assigne_a_id = request.POST.get('assigne_a')
+        if assigne_a_id:
+            from accounts.models import CustomUser
+            assigne_a = CustomUser.objects.get(pk=assigne_a_id)
+            tache.assigne_a = assigne_a
+        else:
+            tache.assigne_a = None
+            
+        tache.save()
+        
+        log_user_action(
+            user=request.user,
+            action="assign_task",
+            feature="Audit IA",
+            target="tache",
+            resource_id=str(tache.id)
+        )
+        
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        logger.error(f"Erreur assignation tâche {tache_id}: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def marquer_tache_faite(request, tache_id):
+    """Marquer une tâche comme terminée"""
+    tache = get_object_or_404(TacheAction, pk=tache_id)
+    
+    # Vérification des permissions
+    if not request.user.is_admin() and tache.session_audit.mission != request.user.mission:
+        return JsonResponse({'success': False, 'error': 'Permission refusée'}, status=403)
+    
+    try:
+        tache.statut = 'terminee'
+        tache.date_fin_reelle = timezone.now()
+        tache.save()
+        
+        log_user_action(
+            user=request.user,
+            action="complete_task",
+            feature="Audit IA",
+            target="tache",
+            resource_id=str(tache.id)
+        )
+        
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        logger.error(f"Erreur marquage tâche {tache_id}: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def liste_taches_action(request, session_id):
+    """Liste des tâches d'action d'une session"""
+    session = get_object_or_404(SessionAudit, pk=session_id)
+    
+    # Vérification des permissions
+    if not request.user.is_admin() and session.mission != request.user.mission:
+        messages.error(request, "Vous n'avez pas accès à cette session.")
+        return redirect('auditengine:session_list')
+    
+    taches = TacheAction.objects.filter(session_audit=session)
+    
+    # Filtres
+    statut = request.GET.get('statut')
+    priorite = request.GET.get('priorite')
+    
+    if statut:
+        taches = taches.filter(statut=statut)
+    if priorite:
+        taches = taches.filter(priorite=priorite)
+    
+    # Statistiques pour les cartes
+    taches_en_cours = TacheAction.objects.filter(session_audit=session, statut='en_cours')
+    taches_terminees = TacheAction.objects.filter(session_audit=session, statut='terminee')
+    taches_critiques = TacheAction.objects.filter(session_audit=session, priorite='critique')
+    
+    context = {
+        'session': session,
+        'taches': taches,
+        'taches_en_cours': taches_en_cours,
+        'taches_terminees': taches_terminees,
+        'taches_critiques': taches_critiques,
+        'statut_choices': TacheAction.STATUT_CHOICES,
+        'priorite_choices': TacheAction.PRIORITE_CHOICES,
+    }
+    
+    return render(request, 'auditengine/liste_taches_action.html', context)
+
+
+@login_required
+def audit_logs(request):
+    """Vue pour consulter les journaux d'audit"""
+    # Vérification des permissions (admin seulement)
+    if not request.user.is_admin():
+        messages.error(request, "Accès refusé. Droits administrateur requis.")
+        return redirect('auditengine:dashboard')
+    
+    from .models import AuditLog
+    from django.db.models import Q
+    from datetime import datetime, timedelta
+    
+    # Filtres
+    user_filter = request.GET.get('user')
+    action_filter = request.GET.get('action')
+    severity_filter = request.GET.get('severity')
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    suspicious_only = request.GET.get('suspicious') == 'on'
+    search = request.GET.get('search')
+    
+    # Query de base
+    logs = AuditLog.objects.all()
+    
+    # Application des filtres
+    if user_filter:
+        logs = logs.filter(user__username__icontains=user_filter)
+    
+    if action_filter:
+        logs = logs.filter(action=action_filter)
+    
+    if severity_filter:
+        logs = logs.filter(severity=severity_filter)
+    
+    if suspicious_only:
+        logs = logs.filter(is_suspicious=True)
+    
+    if date_from:
+        try:
+            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
+            logs = logs.filter(timestamp__date__gte=date_from_obj.date())
+        except ValueError:
+            pass
+    
+    if date_to:
+        try:
+            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d')
+            logs = logs.filter(timestamp__date__lte=date_to_obj.date())
+        except ValueError:
+            pass
+    
+    if search:
+        logs = logs.filter(
+            Q(description__icontains=search) |
+            Q(user__username__icontains=search) |
+            Q(resource_id__icontains=search) |
+            Q(ip_address__icontains=search)
+        )
+    
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(logs, 50)  # 50 logs par page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistiques
+    total_logs = logs.count()
+    suspicious_count = logs.filter(is_suspicious=True).count()
+    error_count = logs.filter(severity__in=['error', 'critical']).count()
+    
+    # Actions récentes par utilisateur
+    recent_actions = AuditLog.objects.filter(
+        timestamp__gte=timezone.now() - timedelta(days=7)
+    ).values('user__username', 'action').annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+    
+    context = {
+        'page_obj': page_obj,
+        'total_logs': total_logs,
+        'suspicious_count': suspicious_count,
+        'error_count': error_count,
+        'recent_actions': recent_actions,
+        'action_choices': AuditLog.ACTION_CHOICES,
+        'severity_choices': AuditLog.SEVERITY_CHOICES,
+        'filters': {
+            'user': user_filter,
+            'action': action_filter,
+            'severity': severity_filter,
+            'date_from': date_from,
+            'date_to': date_to,
+            'suspicious': suspicious_only,
+            'search': search,
+        }
+    }
+    
+    return render(request, 'auditengine/audit_logs.html', context)
+
+
+@login_required
+def security_dashboard(request):
+    """Tableau de bord de sécurité"""
+    # Vérification des permissions (admin seulement)
+    if not request.user.is_admin():
+        messages.error(request, "Accès refusé. Droits administrateur requis.")
+        return redirect('auditengine:dashboard')
+    
+    from .models import AuditLog
+    from django.db.models import Count
+    from datetime import datetime, timedelta
+    
+    # Période d'analyse (7 jours par défaut)
+    days = int(request.GET.get('days', 7))
+    start_date = timezone.now() - timedelta(days=days)
+    
+    # Statistiques générales
+    total_actions = AuditLog.objects.filter(timestamp__gte=start_date).count()
+    suspicious_actions = AuditLog.objects.filter(
+        timestamp__gte=start_date, 
+        is_suspicious=True
+    ).count()
+    error_actions = AuditLog.objects.filter(
+        timestamp__gte=start_date,
+        severity__in=['error', 'critical']
+    ).count()
+    
+    # Actions par type
+    actions_by_type = AuditLog.objects.filter(
+        timestamp__gte=start_date
+    ).values('action').annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+    
+    # Actions par utilisateur
+    actions_by_user = AuditLog.objects.filter(
+        timestamp__gte=start_date
+    ).values('user__username').annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+    
+    # Alertes de sécurité récentes
+    security_alerts = AuditLog.get_security_alerts(days=days)
+    
+    # Tentatives d'accès suspectes
+    suspicious_access = AuditLog.objects.filter(
+        timestamp__gte=start_date,
+        action='access_denied'
+    ).order_by('-timestamp')[:20]
+    
+    # Activité par heure
+    hourly_activity = []
+    for hour in range(24):
+        count = AuditLog.objects.filter(
+            timestamp__gte=start_date,
+            timestamp__hour=hour
+        ).count()
+        hourly_activity.append({'hour': hour, 'count': count})
+    
+    context = {
+        'days': days,
+        'total_actions': total_actions,
+        'suspicious_actions': suspicious_actions,
+        'error_actions': error_actions,
+        'actions_by_type': actions_by_type,
+        'actions_by_user': actions_by_user,
+        'security_alerts': security_alerts,
+        'suspicious_access': suspicious_access,
+        'hourly_activity': hourly_activity,
+    }
+    
+    return render(request, 'auditengine/security_dashboard.html', context)

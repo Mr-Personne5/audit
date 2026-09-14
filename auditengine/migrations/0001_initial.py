@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('seuil_isolation_forest', models.FloatField(default=0.75, help_text='Seuil pour considérer une observation comme anomalie (0-1)', validators=[django.core.validators.MinValueValidator(0.0), django.core.validators.MaxValueValidator(1.0)])),
-                ('score_minimum_classification', models.FloatField(default=0.8, help_text='Score minimum pour valider une classification MLP (0-1)', validators=[django.core.validators.MinValueValidator(0.0), django.core.validators.MaxValueValidator(1.0)])),
+                ('score_minimum_classification', models.FloatField(default=0.6, help_text='Score minimum pour valider une classification MLP (0-1)', validators=[django.core.validators.MinValueValidator(0.0), django.core.validators.MaxValueValidator(1.0)])),
                 ('utiliser_modele_global', models.BooleanField(default=True, help_text="Utiliser le modèle global ou permettre l'affinage par mission")),
                 ('reentrainement_auto', models.BooleanField(default=False, help_text='Réentraînement automatique avec les corrections utilisateur')),
                 ('nb_anomalies_max_dashboard', models.PositiveIntegerField(default=50, help_text="Nombre maximum d'anomalies à afficher sur le dashboard")),
