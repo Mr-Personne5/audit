@@ -20,3 +20,5 @@ python-Levenshtein
 scipy
 joblib
 WeasyPrint
+xhtml2pdf
+argon2-cffi

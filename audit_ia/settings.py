@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 
@@ -21,12 +22,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-!y2=)py+&ww47=t2f=*d^0zlj9o@wtg*_2jx4sm92ybz09sd5j'
+# La clé précédente avait été committée dans le dépôt (donc compromise) : elle a été régénérée.
+# Pour la production, définissez SECRET_KEY dans l'environnement plutôt que d'utiliser ce fallback de dev.
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-)fob#l-de^3&y-s)%cv^18!ay*aj9g24t+rvzi60s9wgt^x^^d')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Par défaut à False : il faut explicitement positionner DEBUG=True en local pour activer le mode debug.
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
 # Application definition
@@ -54,7 +58,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'accounts.middleware.UserActivityMiddleware',  # ➕ AJOUTER CETTE LIGNE
+    'accounts.middleware.UserActivityMiddleware',
+    'accounts.middleware.RateLimitMiddleware',  # Rate limiting
+    'accounts.middleware.SecurityHeadersMiddleware',  # Headers de sécurité
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -103,6 +109,9 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,
+        }
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -116,7 +125,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'fr-fr'
 
 TIME_ZONE = 'UTC'
 
@@ -171,8 +180,47 @@ LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 # Sécurité fichiers uploadés
-FILE_UPLOAD_MAX_MEMORY_SIZE = 30 * 1024 * 1024  # 10MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 30 * 1024 * 1024  # 30MB
 ALLOWED_UPLOAD_EXTENSIONS = ['.csv', '.xlsx', '.xls']
+
+# ==================== SÉCURITÉ RENFORCÉE ====================
+
+# Sécurité des sessions
+SESSION_COOKIE_SECURE = not DEBUG  # HTTPS seulement en production
+SESSION_COOKIE_HTTPONLY = True     # Empêche l'accès JavaScript
+SESSION_COOKIE_SAMESITE = 'Lax'    # Protection CSRF
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Session fermée à la fermeture du navigateur
+SESSION_COOKIE_AGE = 3600  # 1 heure d'inactivité max
+
+# Headers de sécurité
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0  # 1 an en production
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+X_FRAME_OPTIONS = 'DENY'  # Empêche l'embedding dans des iframes
+
+# Protection CSRF renforcée
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+# Rate limiting (basique)
+RATE_LIMIT_ENABLED = True
+RATE_LIMIT_REQUESTS = 100  # 100 requêtes par minute par IP
+RATE_LIMIT_WINDOW = 60     # Fenêtre de 60 secondes
+
+# Validation des mots de passe renforcée
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',  # Plus sécurisé que PBKDF2
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+]
+
+# Configuration Argon2
+ARGON2_DEFAULT_MEMORY_COST = 1024
+ARGON2_DEFAULT_TIME_COST = 2
+ARGON2_DEFAULT_PARALLELISM = 1
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
